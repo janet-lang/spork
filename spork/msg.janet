@@ -6,7 +6,7 @@
 ###
 
 # Message Protocol
-# 
+#
 #          | b0 | b1 | b2 | b3 | ... n bytes |
 #  n = b0 + b1 * 0x100 + b2 * 0x10000 + b3 * 0x1000000
 #

@@ -50,8 +50,8 @@ A simple remote procedure call tool for Janet.
 (import spork/rpc)
 
 (def functions
-  @{:print (fn [x] (print "remote print: " x))
-    :add (fn [& xs] (sum xs))})
+  @{:print (fn [self x] (print "remote print: " x))
+    :add (fn [self & xs] (sum xs))})
 
 (rpc/server "127.0.0.1 "9001")
 ```

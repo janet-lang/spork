@@ -1,12 +1,12 @@
 ###
 ### rpc.janet
 ###
-### Simple RPC server and client tailored to Janet. 
+### Simple RPC server and client tailored to Janet.
 ###
 
 ###
 ### Limitations:
-### 
+###
 ### Currently calls are resolved in the order that they are sent
 ### on the connection - in other words, a single RPC server must resolve
 ### remote calls sequentially. This means it is recommended to make multiple
@@ -49,7 +49,7 @@
                   f (functions fnname)]
               (if-not f
                 (error (string "no function " fnname " supported")))
-              (def result (f ;args))
+              (def result (f functions ;args))
               (send [true result]))
             ([err]
              (send [false err])))))
