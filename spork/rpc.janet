@@ -4,7 +4,6 @@
 ### Simple RPC server and client tailored to Janet.
 ###
 
-###
 ### Limitations:
 ###
 ### Currently calls are resolved in the order that they are sent
@@ -13,6 +12,14 @@
 ### connections for separate transactions.
 
 (use ./msg)
+
+(def default-host
+  "Default host to run server on and connect to."
+  "127.0.0.1")
+
+(def default-port
+  "Default port to run the net repl."
+  "9366")
 
 # RPC Protocol
 #
@@ -27,8 +34,8 @@
   default port is \"9366\". Also must take a dictionary of functions
   that clients can call."
   [functions &opt host port]
-  (default host "127.0.0.1")
-  (default port "9366")
+  (default host default-host)
+  (default port default-port)
   (def keys-msg (keys functions))
   (print "Starting networked rpc server on " host ", port " port "...")
   (net/server
@@ -61,8 +68,8 @@
   that can be used to make remote calls. This table also contains
   a close function that can be used to close the connection."
   [&opt host port name]
-  (default host "127.0.0.1")
-  (default port "9366")
+  (default host default-host)
+  (default port default-port)
   (default name (string "[" host ":" port "]"))
   (def stream (net/connect host port))
   (def recv (make-recv stream unmarshal))

@@ -7,6 +7,14 @@
 
 (use ./msg)
 
+(def default-host
+  "Default host to run server on and connect to."
+  "127.0.0.1")
+
+(def default-port
+  "Default port to run the net repl."
+  "9365")
+
 # Specifying the Environment
 #
 # Provide various ways to produce the environment to repl into.
@@ -70,8 +78,8 @@
   per connection. If env is a function, that funciton will be invoked with
   the name and stream on each connection to generate an environment."
   [&opt host port env]
-  (default host "127.0.0.1")
-  (default port "9365")
+  (default host default-host)
+  (default port default-port)
   (print "Starting networked repl server on " host ", port " port "...")
   (net/server
     host port
@@ -113,8 +121,8 @@
   "Connect to a repl server. The default host is \"127.0.0.1\" and the default port
   is \"9365\"."
   [&opt host port name]
-  (default host "127.0.0.1")
-  (default port "9365")
+  (default host default-host)
+  (default port default-port)
   (default name (string "[" host ":" port "]"))
   (with [stream (net/connect host port)]
     (def recv (make-recv stream))
