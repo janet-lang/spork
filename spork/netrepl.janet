@@ -116,10 +116,9 @@
   (default host "127.0.0.1")
   (default port "9365")
   (default name (string "[" host ":" port "]"))
-  (def stream (net/connect host port))
-  (def recv (make-recv stream))
-  (def send (make-send stream))
-  (defer (:close stream)
+  (with [stream (net/connect host port)]
+    (def recv (make-recv stream))
+    (def send (make-send stream))
     (send name)
     (while true
       (def p (recv))
