@@ -79,7 +79,11 @@
            "varfn" "defmacro" "defmacro-" "defer" "edefer" "loop" "seq" "generate" "coro"
            "for" "each" "eachp" "eachk" "case" "cond" "do" "defglobal" "varglobal"
            "if" "when" "when-let" "when-with" "while" "with-syms" "with-vars"
-           "if-let" "if-not" "if-with" "let" "short-fn" "try" "unless"]))
+           "if-let" "if-not" "if-with" "let" "short-fn" "try" "unless" "default"]))
+
+(def- indent-2-peg
+  "Peg to use to fuzzy match certain forms."
+  (peg/compile ~(+ "with-" "def" "if-" "when-")))
 
 (defn- check-indent-2
   "Check if a tuple needs a 2 space indent or not"
@@ -88,7 +92,8 @@
     (cond
       (not= tag :span) nil
       (= "\n" (get items 1)) true
-      (in indent-2-forms body) true)))
+      (in indent-2-forms body) true
+      (peg/match indent-2-peg body) true)))
 
 (defn- fmt
   "Emit formatted."
