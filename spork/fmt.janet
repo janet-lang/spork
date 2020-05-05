@@ -90,8 +90,8 @@
   [items]
   (if-let [[tag body] (get items 0)]
     (cond
-      (not= tag :span) nil
       (= "\n" (get items 1)) true
+      (not= tag :span) nil
       (in indent-2-forms body) true
       (peg/match indent-2-peg body) true)))
 
