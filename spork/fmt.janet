@@ -24,13 +24,13 @@
                          (error (constant "bad hex escape"))))
       :comment (/ (* "#" '(any (if-not (+ "\n" -1) 1)) (+ "\n" -1)) ,(pnode :comment))
       :span (/ ':token ,(pnode :span))
-      :bytes (/ '(* "\"" (any (+ :escape (if-not "\"" 1))) "\"") ,parse)
+      :bytes '(* "\"" (any (+ :escape (if-not "\"" 1))) "\"")
       :string (/ :bytes ,(pnode :string))
       :buffer (/ (* "@" :bytes) ,(pnode :buffer))
-      :long-bytes (/ '{:delim (some "`")
-                       :open (capture :delim :n)
-                       :close (cmt (* (not (> -1 "`")) (-> :n) ':delim) ,=)
-                       :main (drop (* :open (any (if-not :close 1)) :close))} ,parse)
+      :long-bytes '{:delim (some "`")
+                    :open (capture :delim :n)
+                    :close (cmt (* (not (> -1 "`")) (-> :n) ':delim) ,=)
+                    :main (drop (* :open (any (if-not :close 1)) :close))}
       :long-string (/ :long-bytes ,(pnode :string))
       :long-buffer (/ (* "@" :long-bytes) ,(pnode :buffer))
       :raw-value (+ :comment
@@ -53,7 +53,8 @@
   [:top (peg/match parse-peg source)])
 
 (defn- remove-extra-newlines
-  "Remove leading and trailing newlines inside forms by modifying the node."
+  "Remove leading and trailing newlines. Also remove
+   some some extra consecutive newlines."
   [node]
   (match node
     [tag (xs (array? xs))]
@@ -133,6 +134,11 @@
     (emit ")")
     (addwhite))
 
+  (defn emit-string
+    [x]
+    (def parts (interpose "\n" (string/split "\n" x)))
+    (each p parts (if (= p "\n") (do (newline) (dropwhite)) (emit p))))
+
   (defn fmt-1
     [node]
     (remove-extra-newlines node)
@@ -142,8 +148,8 @@
       [:comment x] (do (emit "#" x) (newline))
       [:readermac x] (emit x)
       [:span x] (do (emit x) (addwhite))
-      [:string x] (do (emit (describe x)) (addwhite))
-      [:buffer x] (do (emit "@" (describe x)) (addwhite))
+      [:string x] (do (emit-string x) (addwhite))
+      [:buffer x] (do (emit "@") (emit-string x) (addwhite))
       [:array xs] (emit-body "@[" xs "]")
       [:btuple xs] (emit-body "[" xs "]")
       [:ptuple xs] (if (check-indent-2 xs)
@@ -163,12 +169,12 @@
 #
 
 (defn format-print
-  "Format input source code and print the result."
+  "Format a string of source code and print the result."
   [source]
   (-> source make-tree fmt))
 
 (defn format
-  "Format source code to a buffer."
+  "Format a string of source code to a buffer."
   [source]
   (def out @"")
   (with-dyns [:out out]
@@ -179,7 +185,5 @@
   "Format a file"
   [file]
   (def source (slurp file))
-  (with [outf (file/open file :w)]
-    (with-dyns [:out outf]
-      (fmt (make-tree source))))
-  nil)
+  (def out (format source))
+  (spit file out))
