@@ -1,0 +1,24 @@
+{:title "Spork"
+ :author "Calvin Rose"
+ :license "MIT"
+ :template "mdzdoc/main.html"
+ :order 0}
+---
+
+## Source code
+
+@p{@link[https://github.com/janet-lang/spork]}
+
+## Install
+
+@codeblock```
+[sudo] jpm install spork
+```
+
+## Index
+
+@api-index[spork/fmt]
+
+## Reference
+
+@api-docs[spork/fmt]

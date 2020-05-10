@@ -14,7 +14,7 @@
   (peg/compile
     ~{:ws (+ (set " \t\r\f\0\v") '"\n")
       :readermac (/ '(set "';~,|") ,(pnode :readermac))
-      :symchars (+ (range "09" "AZ" "az" "\x80\xFF") (set "!$%&*+-./:<?=>@^_|"))
+      :symchars (+ (range "09" "AZ" "az" "\x80\xFF") (set "!$%&*+-./:<?=>@^_"))
       :token (some :symchars)
       :hex (range "09" "af" "AF")
       :escape (* "\\" (+ (set "ntrzfev0\"\\")
