@@ -32,13 +32,19 @@
     (let [e (make-env)]
       (put e :pretty-format "%.20M"))))
 
-#  REPL Protocol
+#  NETREPL Protocol
 #
 # 1. server <- {user specified name of client (will be shown in repl)} <- client
 # 2. server -> {repl prompt (no newline)} -> client
-# 3. server <- {one chunk of input} <- client
-# 4. server -> {(dyn :out) and (dyn :err) (empty at first)} -> client
-# 5. go back to 2.
+# 3. server <- {one chunk of input (msg)} <- client
+# 4. If (= (msg 0) 0xFF))
+#   4a. (def result (-> msg (slice 1) parse eval protect))
+#   4b. server -> result -> client
+#   4c. goto 3
+# 5. Otherwise
+#   5a. Send chunk to repl input stream
+#   5b. server -> {(dyn :out) and (dyn :err) (empty at first)} -> client
+#   5c. goto 2
 
 (defn- make-onsignal
   "Make an onsignal handler for debugging. Since the built-in repl
@@ -103,7 +109,10 @@
               (send outbuf)
               (buffer/clear outbuf)))
           (send prmpt)
-          (if-let [msg (recv)] (buffer/push-string buf msg)))
+          (while (def msg (recv))
+            (if (= 0xFF (in msg 0))
+              (send (string/format "%j" (-> msg (slice 1) parse eval protect)))
+              (do (buffer/push-string buf msg) (break)))))
         (defn chunk
           [buf p]
           (def delim (parser/state p :delimiters))
