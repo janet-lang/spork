@@ -2,6 +2,28 @@
 
 Various Janet utility modules.
 
+
+## Formatting
+
+Provides a way to format Janet code strings and files.
+
+### Strings
+
+```
+(import spork/fmt)
+
+(fmt/format "(def     a\n 3 )")  => @"(def a\n  3)\n"
+
+```
+
+### Files
+
+```
+(import spork/fmt)
+
+(fmt/format-file "main.janet")
+```
+
 ## Message Protocol
 
 Provide a symmetric way to send and receive seqential messages over a networked stream.
