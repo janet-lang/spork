@@ -13,7 +13,6 @@ Provides a way to format Janet code strings and files.
 (import spork/fmt)
 
 (fmt/format "(def     a\n 3 )")  => @"(def a\n  3)\n"
-
 ```
 
 ### Files
@@ -65,7 +64,7 @@ Launch a networked REPL server on one machine and connect to it from another mac
 
 ## RPC Protocol
 
-A simple remote procedure call tool for Janet. 
+A simple remote procedure call tool for Janet.
 
 ### Server
 ```
