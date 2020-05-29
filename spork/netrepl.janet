@@ -143,5 +143,5 @@
       (def line (getline p @"" root-env)) # use root-env as approximation
       (if (empty? line) (break))
       (send line)
-      (prin (recv)))))
+      (prin (or (recv) "")))))
 
