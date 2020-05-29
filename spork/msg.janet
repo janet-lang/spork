@@ -31,7 +31,7 @@
 
 (defn make-send
   "Create a function that when called with a msgs sends that msg.
-  Pass an option pack function that will convert a message to a string."
+  Provide an optional pack function that will convert a message to a string."
   [stream &opt pack]
   (def buf @"")
   (default pack string)
