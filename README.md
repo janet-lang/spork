@@ -91,3 +91,16 @@ A simple remote procedure call tool for Janet.
 # Close the underlying connection
 (:close c)
 ```
+
+## Misc
+
+### Dedent
+
+Remove indentation after concatenating the arguments.
+
+```
+(misc/dedent ```
+      ho
+        hoho
+          hohoho
+```))))) => "ho\n  hoho\n    hohoho"
