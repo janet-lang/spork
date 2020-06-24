@@ -37,7 +37,6 @@
   (default host default-host)
   (default port default-port)
   (def keys-msg (keys functions))
-  (print "Starting networked rpc server on " host ", port " port "...")
   (net/server
     host port
     (fn on-connection
@@ -48,7 +47,6 @@
         (def recv (make-recv stream unmarshal))
         (def send (make-send stream marshal))
         (set name (or (recv) (break)))
-        (print "client " name " connected")
         (send keys-msg)
         (while (def msg (recv))
           (try
@@ -59,8 +57,7 @@
               (def result (f functions ;args))
               (send [true result]))
             ([err]
-             (send [false err])))))
-      (print "closing client " name))))
+              (send [false err]))))))))
 
 (defn client
   "Create an RPC client. The default host is \"127.0.0.1\" and the
