@@ -2,6 +2,27 @@
 
 Various Janet utility modules.
 
+
+## Formatting
+
+Provides a way to format Janet code strings and files.
+
+### Strings
+
+```
+(import spork/fmt)
+
+(fmt/format "(def     a\n 3 )")  => @"(def a\n  3)\n"
+```
+
+### Files
+
+```
+(import spork/fmt)
+
+(fmt/format-file "main.janet")
+```
+
 ## Message Protocol
 
 Provide a symmetric way to send and receive seqential messages over a networked stream.
@@ -43,7 +64,7 @@ Launch a networked REPL server on one machine and connect to it from another mac
 
 ## RPC Protocol
 
-A simple remote procedure call tool for Janet. 
+A simple remote procedure call tool for Janet.
 
 ### Server
 ```
@@ -70,3 +91,16 @@ A simple remote procedure call tool for Janet.
 # Close the underlying connection
 (:close c)
 ```
+
+## Misc
+
+### Dedent
+
+Remove indentation after concatenating the arguments.
+
+```
+(misc/dedent ```
+      ho
+        hoho
+          hohoho
+```))))) => "ho\n  hoho\n    hohoho"
