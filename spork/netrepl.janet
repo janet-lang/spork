@@ -34,17 +34,24 @@
 
 #  NETREPL Protocol
 #
+# Clients don't need to support steps 4. and 5. if they never send messages prefixed
+# with 0xFF or 0xFE bytes. These bytes should not occur in normal Janet source code and
+# are not even valid utf8.
+#
 # 1. server <- {user specified name of client (will be shown in repl)} <- client
 # 2. server -> {repl prompt (no newline)} -> client
 # 3. server <- {one chunk of input (msg)} <- client
-# 4. If (= (msg 0) 0xFF))
+# 4. If (= (msg 0) 0xFF)
 #   4a. (def result (-> msg (slice 1) parse eval protect))
 #   4b. server -> result -> client
-#   4c. goto 3
-# 5. Otherwise
-#   5a. Send chunk to repl input stream
-#   5b. server -> {(dyn :out) and (dyn :err) (empty at first)} -> client
-#   5c. goto 2
+#   4c. goto 3.
+# 5. If (= (msg 0) 0xFE)
+#   5a. Return msg as a keyword from repl's 'chunk' callback (used for :cancel)
+#   5b. goto 6b.
+# 6. Otherwise
+#   6a. Send chunk to repl input stream
+#   6b. server -> {(dyn :out) and (dyn :err) (empty at first)} -> client
+#   6c. goto 2.
 
 (defn- make-onsignal
   "Make an onsignal handler for debugging. Since the built-in repl
@@ -92,14 +99,13 @@
     (fn repl-handler [stream]
       (var name "<unknown>")
       (def outbuf @"")
+      (defn wrapio [f] (fn [& a] (with-dyns [:out outbuf :err outbuf] (f ;a))))
       (defer (:close stream)
         (def recv (make-recv stream))
         (def send (make-send stream))
         (set name (or (recv) (break)))
         (print "client " name " connected")
         (def e (coerce-to-env env name stream))
-        (put e :out outbuf)
-        (put e :err outbuf)
         (var is-first true)
         (defn getline-async
           [prmpt buf]
@@ -109,20 +115,31 @@
               (send outbuf)
               (buffer/clear outbuf)))
           (send prmpt)
+          (var ret nil)
           (while (def msg (recv))
-            (if (= 0xFF (in msg 0))
+            (cond
+              (= 0xFF (in msg 0))
               (send (string/format "%j" (-> msg (slice 1) parse eval protect)))
-              (do (buffer/push-string buf msg) (break)))))
+              (= 0xFE (in msg 0))
+              (do (set ret (keyword (slice msg 1))) (break))
+              (do (buffer/push-string buf msg) (break))))
+          ret)
         (defn chunk
           [buf p]
           (def delim (parser/state p :delimiters))
           (def lno ((parser/where p) 0))
           (getline-async (string name ":" lno ":" delim  " ") buf))
-        (defn pp-wrap [x] (pp x) x)
         (->
-          (repl chunk (make-onsignal getline-async e e 1) e)
+          (run-context
+            {:env e
+             :chunks chunk
+             :on-status (make-onsignal getline-async e e 1)
+             :on-compile-error (wrapio bad-compile)
+             :on-parse-error (wrapio bad-parse)
+             :evaluator (fn [x &] (setdyn :out outbuf) (setdyn :err outbuf) (x))
+             :source "repl"})
           coro
-          (fiber/setenv e)
+          (fiber/setenv (table/setproto @{:out outbuf :err outbuf} e))
           resume))
       (print "closing client " name))))
 
@@ -140,8 +157,8 @@
     (while true
       (def p (recv))
       (if (not p) (break))
-      (def line (getline p @"" root-env)) # use root-env as approximation
+      (def line (getline p @"" root-env))
       (if (empty? line) (break))
-      (send line)
+      (send (if (keyword? line) (string "\xFE" line) line))
       (prin (or (recv) "")))))
 
