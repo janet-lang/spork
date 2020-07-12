@@ -79,7 +79,8 @@
            "varfn" "defmacro" "defmacro-" "defer" "edefer" "loop" "seq" "generate" "coro"
            "for" "each" "eachp" "eachk" "case" "cond" "do" "defglobal" "varglobal"
            "if" "when" "when-let" "when-with" "while" "with-syms" "with-vars"
-           "if-let" "if-not" "if-with" "let" "short-fn" "try" "unless" "default"]))
+           "if-let" "if-not" "if-with" "let" "short-fn" "try" "unless" "default" "forever"
+           "repeat" "eachy" "forv"]))
 
 (def- indent-2-peg
   "Peg to use to fuzzy match certain forms."
