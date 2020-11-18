@@ -23,6 +23,7 @@
                          (* "U" :hex :hex :hex :hex :hex :hex)
                          (error (constant "bad hex escape"))))
       :comment (/ (* "#" '(any (if-not (+ "\n" -1) 1)) (+ "\n" -1)) ,(pnode :comment))
+      :spacing (any (* (any :ws) (? :comment)))
       :span (/ ':token ,(pnode :span))
       :bytes '(* "\"" (any (+ :escape (if-not "\"" 1))) "\"")
       :string (/ :bytes ,(pnode :string))
@@ -33,10 +34,9 @@
                     :main (drop (* :open (any (if-not :close 1)) :close))}
       :long-string (/ :long-bytes ,(pnode :string))
       :long-buffer (/ (* "@" :long-bytes) ,(pnode :buffer))
-      :raw-value (+ :comment
-                    :string :buffer :long-string :long-buffer
+      :raw-value (+ :string :buffer :long-string :long-buffer
                     :parray :barray :ptuple :btuple :struct :dict :span)
-      :value (* (any (+ :ws :readermac)) :raw-value (any :ws))
+      :value (* :spacing (any (+ :ws :readermac)) :raw-value :spacing)
       :root (any :value)
       :root2 (any (* :value :value))
       :ptuple (/ (group (* "(" :root (+ ")" (error "")))) ,(pnode :ptuple))
