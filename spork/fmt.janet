@@ -38,7 +38,7 @@
                     :parray :barray :ptuple :btuple :struct :dict :span)
       :value (* (any (+ :ws :readermac)) :raw-value (any :ws))
       :root (any :value)
-      :root2 (any (* (* :value :value) (at-most 1 :comment)))
+      :root2 (any (* (* :value :value) (? :comment)))
       :ptuple (/ (group (* "(" :root (+ ")" (error "")))) ,(pnode :ptuple))
       :btuple (/ (group (* "[" :root (+ "]" (error "")))) ,(pnode :btuple))
       :struct (/ (group (* "{" :root2 (+ "}" (error "")))) ,(pnode :struct))
