@@ -13,11 +13,16 @@
 (buffer/clear b)
 (with-dyns [:out b]
   (fmt/format-print "{:a 0\n:b 1 # test comment\n}"))
-(assert (deep= b @"{:a 0\n :b 1 # test comment\n}\n") "format-print comment in collection")
+(assert (deep= b @"{:a 0\n :b 1 # test comment\n}\n") "format-print comment in collection 1")
 
 (buffer/clear b)
 (with-dyns [:out b]
   (fmt/format-print "[:a       0\n:b\n# test comment\n]"))
-(assert (deep= b @"[:a 0\n :b\n # test comment\n]\n") "format-print comment in collection")
+(assert (deep= b @"[:a 0\n :b\n # test comment\n]\n") "format-print comment in collection 2")
+
+(buffer/clear b)
+(with-dyns [:out b]
+  (fmt/format-print "()"))
+(assert (deep= b @"()\n") "format-print ()")
 
 (end-suite)

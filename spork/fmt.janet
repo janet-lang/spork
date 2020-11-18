@@ -132,11 +132,12 @@
     [xs]
     (emit "(")
     (def len (length xs))
-    (fmt-1-recur (xs 0))
-    (indent 1)
-    (for i 1 len (fmt-1-recur (xs i)))
-    (dropwhite)
-    (dedent)
+    (when (pos? len) 
+      (fmt-1-recur (xs 0))
+      (indent 1)
+      (for i 1 len (fmt-1-recur (xs i)))
+      (dropwhite)
+      (dedent))
     (emit ")")
     (addwhite))
 
