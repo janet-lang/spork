@@ -25,6 +25,11 @@
       (print e)))
   x)
 
+(defn assert-not
+  "Invert assert."
+  [x &opt e]
+  (assert (not x) e))
+
 (defmacro assert-error
   [msg & forms]
   (def errsym (keyword (gensym)))
