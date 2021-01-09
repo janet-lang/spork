@@ -1,5 +1,5 @@
-(use test/helper)
-(import spork/fmt)
+(use ./helper)
+(import ../spork/fmt)
 
 (start-suite 0)
 

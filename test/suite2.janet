@@ -1,5 +1,5 @@
-(use test/helper)
-(import spork/rpc)
+(use ./helper)
+(import ../spork/rpc)
 
 (start-suite 2)
 

@@ -1,5 +1,5 @@
-(use test/helper)
-(import spork/msg)
+(use ./helper)
+(import ../spork/msg)
 
 (start-suite 3)
 
