@@ -1,6 +1,8 @@
 (use ./helper)
 (use ../spork/argparse)
 
+(start-suite 5)
+
 (def argparse-params
   ["A simple CLI tool. An example to show the capabilities of argparse."
    "debug" {:kind :flag
