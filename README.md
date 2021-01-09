@@ -1,6 +1,7 @@
 # Spork
 
-Various Janet utility modules.
+Various Janet utility modules. Spork aims to be grab bag of useful Janet functionality that
+does not belong in the core library.
 
 
 ## Formatting
@@ -104,3 +105,5 @@ Remove indentation after concatenating the arguments.
         hoho
           hohoho
 ```))))) => "ho\n  hoho\n    hohoho"
+
+

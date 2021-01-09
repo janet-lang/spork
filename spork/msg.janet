@@ -47,3 +47,9 @@
     (buffer/push-string buf x)
     (:write stream buf)
     nil))
+
+(defn make-proto
+  "Create both a send an recv function from a stream, as with
+  `make-send` and `make-recv`."
+  [stream &opt pack unpack]
+  [(make-send stream pack) (make-recv stream unpack)])
