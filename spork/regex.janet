@@ -69,12 +69,16 @@
     ~{
       # Custom character classes (bracketed characters)
       # Compiled to a single (range ...) peg combinator
+      :hex (range "09" "af" "AF")
       :escapedchar (+ (/ `\n` "\n")
                       (/ `\t` "\t")
                       (/ `\e` "\e")
                       (/ `\v` "\v")
                       (/ `\r` "\r")
                       (/ `\f` "\f")
+                      (/ `\0` "\0")
+                      (/ `\z` "\z")
+                      (/ (* `\x` '(* :hex :hex)) ,|(string/from-bytes (scan-number (string "0x" $))))
                       (* `\` '1))
       :namedclass1 (+ (/ `\s` "  \t\n")
                       (/ `\d` "09")
