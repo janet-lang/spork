@@ -13,4 +13,7 @@
                (regex/match `(?:(abc)){4}` "abcabcabcabc"))
         "match 6")
 
+(assert (regex/match `\a+` `Xy`) "match 7")
+(assert (regex/match `\w+` `Xy0`) "match 8")
+
 (end-suite)

@@ -95,8 +95,8 @@
       # Other single characters
       :escapedchar2 (+ (/ `\s` (set "\n\t\r\v\f "))
                        (/ `\d` (range "09"))
-                       (/ `\a` (range "AZaz"))
-                       (/ `\w` (range "AZaz09"))
+                       (/ `\a` (range "AZ" "az"))
+                       (/ `\w` (range "AZ" "az" "09"))
                        (/ `\S` (range "\0\x08" "\x0e\x1f" "\x21\xff"))
                        (/ `\D` (range "\0\x2f" "\x3a\xff"))
                        (/ `\A` (range "\0\x40" "\x5b\x60" "\x7b\xff"))
