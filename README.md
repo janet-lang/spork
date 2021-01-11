@@ -105,6 +105,7 @@ Remove indentation after concatenating the arguments.
         hoho
           hohoho
 ```))))) => "ho\n  hoho\n    hohoho"
+```
 
 ### timeit
 
