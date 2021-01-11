@@ -10,7 +10,7 @@
 ###   - single bytes
 ###   - escape characters
 ###   - +, *, ?, .
-###   - Repetitions, e.g. abc{1}, abc{1,3}. Repetitions are eagerly evaluated.
+###   - Repetitions, e.g. a{1}, a{1,3}. Repetitions are eagerly evaluated.
 ###   - Ranges, e.g. [A-Za-z]
 ###   - Character classes, inverted character classes, e.g. [abc], [^abc]
 ###   - Alteration (choice), except alteration is ordered, as in pegs - e.g a|b|c
