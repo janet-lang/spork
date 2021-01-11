@@ -22,5 +22,6 @@
 (assert (regex/match `cat|dog|mouse` "cat") "match 10")
 (assert (regex/match `cat|dog|mouse` "dog") "match 11")
 (assert (regex/match `(cat|dog|mouse)+` "mousecatdog") "match 12")
+(assert (regex/match `a(cat|dog|mouse)+` "amousecatdog") "match 13")
 
 (end-suite)

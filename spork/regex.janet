@@ -123,7 +123,8 @@
       :grouping (* "(?:" :node ")")
       :capture (/ (* "(" :node ")") ,|['capture $])
       :node1 (/ (* (+ :grouping :capture :span) :postfix) ,postfix-modify)
-      :node (/ (* :node1 (? (* "|" :node))) ,make-choice)
+      :node-span (/ (some :node1) ,make-sequence)
+      :node (/ (* :node-span (? (* "|" :node))) ,make-choice)
 
       :main (* :node (+ -1 (error "")))}))
 
