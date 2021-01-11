@@ -106,4 +106,32 @@ Remove indentation after concatenating the arguments.
           hohoho
 ```))))) => "ho\n  hoho\n    hohoho"
 
+### timeit
+
+Time code execution using os/clock, and print the result.
+Returns the value of the timed expression.
+
+```
+repl> (misc/timeit (sum (seq [i :range [1 1000000]] (math/sqrt i))))
+Elapsed time: 0.0718288 seconds
+6.66666e+08
+```
+
+### set*
+
+Allow parallel mutation of multiple mutable variables.  (All right
+hand sides are computed before setting the left hand sides.)
+
+```
+# you can use it with vars
+(var a 2)
+(var b 3)
+(misc/set* [a b] [b (+ a b)])
+[a b] => [3 5]
+
+# or you can use it with arrays, for example:
+(def x @[2 3])
+(misc/set* [[x 0] [x 1]] [(in x 1) (+ (in x 0) (in x 1))])
+x => @[3 5]
+```
 
