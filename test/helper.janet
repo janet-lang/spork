@@ -25,6 +25,11 @@
       (print e)))
   x)
 
+(defn assert-not
+  "Invert assert."
+  [x &opt e]
+  (assert (not x) e))
+
 (defmacro assert-error
   [msg & forms]
   (def errsym (keyword (gensym)))
@@ -38,10 +43,10 @@
 (defn start-suite [x]
   (set suite-num x)
   (set start-time (os/clock))
-  (print "\nRunning test suite " x " tests...\n  "))
+  (print))
 
 (defn end-suite []
   (def delta (- (os/clock) start-time))
-  (printf "\n\nTest suite %d finished in %.3f seconds" suite-num delta)
+  (printf "\n\ntest suite %d finished in %.3f seconds" suite-num delta)
   (print num-tests-passed " of " num-tests-run " tests passed.\n")
   (if (not= num-tests-passed num-tests-run) (os/exit 1)))

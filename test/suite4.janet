@@ -15,5 +15,12 @@
 
 (assert (regex/match `\a+` `Xy`) "match 7")
 (assert (regex/match `\w+` `Xy0`) "match 8")
+(assert (regex/match `cat|dog` "cat") "match 6")
+(assert (regex/match `cat|dog` "dog") "match 7")
+(assert (not (regex/match `cat|dog` "mouse")) "match 8")
+(assert (regex/match `cat|dog|mouse` "mouse") "match 9")
+(assert (regex/match `cat|dog|mouse` "cat") "match 10")
+(assert (regex/match `cat|dog|mouse` "dog") "match 11")
+(assert (regex/match `(cat|dog|mouse)+` "mousecatdog") "match 12")
 
 (end-suite)
