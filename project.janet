@@ -2,8 +2,8 @@
   :name "spork"
   :author "Calvin Rose"
   :license "MIT"
-  :url "https://github.com/bakpakin/spork"
-  :repo "git+https://github.com/bakpakin/spork")
+  :url "https://github.com/janet-lang/spork"
+  :repo "git+https://github.com/janet-lang/spork")
 
 (declare-source
   :source @["spork"])

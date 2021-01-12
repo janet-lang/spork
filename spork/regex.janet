@@ -10,7 +10,7 @@
 ###   - single bytes
 ###   - escape characters
 ###   - +, *, ?, .
-###   - Repetitions, e.g. abc{1}, abc{1,3}. Repetitions are eagerly evaluated.
+###   - Repetitions, e.g. a{1}, a{1,3}. Repetitions are eagerly evaluated.
 ###   - Ranges, e.g. [A-Za-z]
 ###   - Character classes, inverted character classes, e.g. [abc], [^abc]
 ###   - Alteration (choice), except alteration is ordered, as in pegs - e.g a|b|c
@@ -99,8 +99,8 @@
       # Other single characters
       :escapedchar2 (+ (/ `\s` (set "\n\t\r\v\f "))
                        (/ `\d` (range "09"))
-                       (/ `\a` (range "AZaz"))
-                       (/ `\w` (range "AZaz09"))
+                       (/ `\a` (range "AZ" "az"))
+                       (/ `\w` (range "AZ" "az" "09"))
                        (/ `\S` (range "\0\x08" "\x0e\x1f" "\x21\xff"))
                        (/ `\D` (range "\0\x2f" "\x3a\xff"))
                        (/ `\A` (range "\0\x40" "\x5b\x60" "\x7b\xff"))
@@ -123,7 +123,8 @@
       :grouping (* "(?:" :node ")")
       :capture (/ (* "(" :node ")") ,|['capture $])
       :node1 (/ (* (+ :grouping :capture :span) :postfix) ,postfix-modify)
-      :node (/ (* :node1 (? (* "|" :node))) ,make-choice)
+      :node-span (/ (some :node1) ,make-sequence)
+      :node (/ (* :node-span (? (* "|" :node))) ,make-choice)
 
       :main (* :node (+ -1 (error "")))}))
 
