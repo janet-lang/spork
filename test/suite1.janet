@@ -39,7 +39,6 @@
   (var x 2)
   (var y 3)
   (misc/set* [x y] [y (+ x y)])
-  (print x " " y)
   (assert (and (= x 3) (= y 5)) "set* 1"))
 
 (do
