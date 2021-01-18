@@ -1,4 +1,4 @@
-(use ./helper)
+(use ../spork/test)
 (import ../spork/path)
 
 (start-suite 6)
@@ -7,7 +7,7 @@
   "assert equal"
   [x y &opt deep]
   (assert ((if deep deep= =) x y)
-      (string "expected " x " to equal " y)))
+          (string "expected " x " to equal " y)))
 
 (aeq (path/posix/abspath? "/home") true)
 (aeq (path/posix/abspath? "home") false)

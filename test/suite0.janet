@@ -1,4 +1,4 @@
-(use ./helper)
+(use ../spork/test)
 (import ../spork/fmt)
 
 (start-suite 0)
@@ -9,7 +9,7 @@
   (fmt/format-print "(\n print\n \"HOHOHO\")"))
 (assert (deep= b @"(print\n  \"HOHOHO\")\n") "format-print")
 
- # regresion with comment in the collection literals
+# regresion with comment in the collection literals
 (buffer/clear b)
 (with-dyns [:out b]
   (fmt/format-print "{:a 0\n:b 1 # test comment\n}"))

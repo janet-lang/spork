@@ -187,12 +187,63 @@ Run `(doc argparse/argparse)` after importing for more information.
 This module contains a simple test helper when you do not need a specialized
 library.
 
+### assert
+
+Modified version of assert, with some nice error handling.
+
+```clojure
+(test/assert false "How is this?")
+# => ✘ How is this?
+(test/assert true "OK")
+# => ✔true
+```
+
+### assert-not
+
+Invert assert.
+
+```clojure
+(test/assert-not false "OK")
+# => ✔true
+```
+
+### assert-error
+
+Test passes if forms throw errors.
+
+```clojure
+(test/assert-error "To err is natural" (error "Bad"))
+# => ✔true
+```
+
+### assert-no-error
+
+Test passes if forms throw errors.
+
+```clojure
+(test/assert-no-error "To not err is desired" (do "Good"))
+# => ✔true
+```
+
+### start-suite
+
+Starts test suite, which counts all and passed tests.
+
+### end-suite
+
+Ends test suite and print summary.
+
+### All together
+
+Example of simple test suite.
+
 ```clojure
 (import spork/test)
 
 (test/start-suite 0)
 
 (test/assert true "is always true")
+(test/assert-not false "is always false")
 (test/assert-error "To err is natural" (error "Bad"))
 (test/assert-no-error "To not err is desired" (do "Good"))
 
@@ -201,8 +252,41 @@ library.
 # =>
 
 Test suite 0 finished in 0.000 soconds
-3 of 3 tests passed.
+4 of 4 tests passed.
 
+```
+
+### timeit
+
+Time code execution using os/clock, and print the result.
+Returns the value of the timed expression.
+
+```
+repl> (misc/timeit (sum (seq [i :range [1 1000000]] (math/sqrt i))))
+Elapsed time: 0.0718288 seconds
+6.66666e+08
+```
+
+### capture-stdout
+
+Runs the form and captures stdout. Returns tuple with result and captured
+stdout in string.
+
+```clojure
+(capture-stdout
+  (do
+    (print "Interesting output")
+    true))
+# => (true "Interesting output")
+```
+
+### supress-stdout
+
+Runs the form, but supresses its stdout.
+
+```clojure
+(suppress-stdout (print "Hello world!"))
+# => nil
 ```
 
 ## Misc
@@ -217,17 +301,6 @@ Remove indentation after concatenating the arguments.
         hoho
           hohoho
 ``))))) => "ho\n  hoho\n    hohoho"
-```
-
-### timeit
-
-Time code execution using os/clock, and print the result.
-Returns the value of the timed expression.
-
-```
-repl> (misc/timeit (sum (seq [i :range [1 1000000]] (math/sqrt i))))
-Elapsed time: 0.0718288 seconds
-6.66666e+08
 ```
 
 ### set*

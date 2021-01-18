@@ -8,7 +8,8 @@
 
 (defn assert
   "Override's the default assert with some nice error handling."
-  [x e]
+  [x &opt e]
+  (default e "assert error")
   (++ num-tests-run)
   (if x (++ num-tests-passed))
   (if x
@@ -23,6 +24,11 @@
       (set numchecks 0)
       (print e)))
   x)
+
+(defn assert-not
+  "Invert assert."
+  [x &opt e]
+  (assert (not x) e))
 
 (defmacro assert-error
   "Test passes if forms error."
@@ -48,3 +54,36 @@
   (printf "\n\nTest suite %d finished in %.3f soconds" suite-num delta)
   (print num-tests-passed " of " num-tests-run " tests passed.\n")
   (if (not= num-tests-passed num-tests-run) (os/exit 1)))
+
+(defmacro timeit
+  ```
+  Time the execution of `form` using `os/clock` before and after,
+  and print the result to stdout.  returns: result of executing `form`.
+  Uses `tag` (default "Elapsed time:") to tag the printout.
+  ```
+  [form &opt tag]
+  (default tag "Elapsed time:")
+  (with-syms [start result end]
+    ~(do
+       (def ,start (os/clock))
+       (def ,result ,form)
+       (def ,end (os/clock))
+       (print ,tag " " (- ,end ,start) " seconds")
+       ,result)))
+
+(defmacro capture-stdout
+  ```
+  Runs the form and captures stdout. Returns tuple with result of the form
+  and a string with captured stdout.
+  ```
+  [form]
+  (with-syms [buf res]
+    ~(do
+       (def ,buf (buffer/new 1024))
+       (with-dyns [:out ,buf]
+         (def ,res ,form)
+         [,res (string ,buf)]))))
+
+(defmacro suppress-stdout [& body]
+  "Suppreses stdout from the body"
+  ~(with-dyns [:out @""] ,;body))
