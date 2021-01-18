@@ -79,7 +79,7 @@
   [form]
   (with-syms [buf res]
     ~(do
-       (def ,buf (buffer/new 1024))
+       (def ,buf @"")
        (with-dyns [:out ,buf]
          (def ,res ,form)
          [,res (string ,buf)]))))

@@ -35,12 +35,20 @@
   (test/assert (truthy? m) "timeit2 -- invalid output")
   (test/assert (scan-number (in m 0)) "timeit2 -- invalid number of seconds"))
 
+# test/capture-stdout
 (test/assert
-  (= [nil "\nRunning test suite 666 tests...\n\n\e[32m\xE2\x9C\x94\e[0m\n\nTest suite 666 finished in 0.000 soconds\n12 of 12 tests passed.\n\n"])
+  (= [nil "\nRunning test suite 666 tests...\n\n\e[32m\xE2\x9C\x94\e[0m\n\nTest suite 666 finished in 0.000 soconds\n13 of 13 tests passed.\n\n"])
   (test/capture-stdout
     (do
       (test/start-suite 666)
       (test/assert true "true")
       (test/end-suite))))
+
+# test/suppress-stdout
+(test/assert
+  (= [nil ""]
+     (test/capture-stdout
+       (test/suppress-stdout (print "Hello world!"))))
+  "suppress-stdout")
 
 (test/end-suite)
