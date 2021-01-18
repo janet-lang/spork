@@ -182,6 +182,29 @@ arguments to `argparse`.
 
 Run `(doc argparse/argparse)` after importing for more information.
 
+## Test
+
+This module contains a simple test helper when you do not need a specialized
+library.
+
+```clojure
+(import spork/test)
+
+(test/start-suite 0)
+
+(test/assert true "is always true")
+(test/assert-error "To err is natural" (error "Bad"))
+(test/assert-no-error "To not err is desired" (do "Good"))
+
+(test/end-suite)
+
+# =>
+
+Test suite 0 finished in 0.000 soconds
+3 of 3 tests passed.
+
+```
+
 ## Misc
 
 ### Dedent
