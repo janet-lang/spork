@@ -31,7 +31,7 @@
   ~(,assert (= ,errsym (try (do ,;forms) ([_] ,errsym))) ,msg))
 
 (defmacro assert-no-error
-  "Test passes if forms not error."
+  "Test passes if forms do not error."
   [msg & forms]
   (def errsym (keyword (gensym)))
   ~(,assert (not= ,errsym (try (do ,;forms) ([_] ,errsym))) ,msg))
