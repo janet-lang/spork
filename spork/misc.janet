@@ -25,20 +25,6 @@
         y))
     x))
 
-(defmacro timeit
-  ```Time the execution of `form` using `os/clock` before and after,
-  and print the result to stdout.  returns: result of executing `form`.
-  Uses `tag` (default "Elapsed time:") to tag the printout.```
-  [form &opt tag]
-  (default tag "Elapsed time:")
-  (with-syms [start result end]
-    ~(do
-       (def ,start (os/clock))
-       (def ,result ,form)
-       (def ,end (os/clock))
-       (print ,tag " " (- ,end ,start) " seconds")
-       ,result)))
-
 (defmacro set*
   ```Parallel `set` function.  Takes a list of targets and
   expressions, evaluates all the expressions, and then
@@ -55,4 +41,3 @@
   (loop [[i t] :pairs tgts]
     (array/push code (tuple 'set t (in syms i))))
   (tuple ;code))
-
