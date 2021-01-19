@@ -1,4 +1,4 @@
-(use ./helper)
+(use ../spork/test)
 (import ../spork/regex)
 
 (start-suite 4)

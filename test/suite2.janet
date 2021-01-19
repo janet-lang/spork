@@ -1,4 +1,4 @@
-(use ./helper)
+(use ../spork/test)
 (import ../spork/rpc)
 
 (start-suite 2)
