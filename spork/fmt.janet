@@ -45,7 +45,7 @@
       :parray (/ (group (* "@(" :root (+ ")" (error "")))) ,(pnode :array))
       :barray (/ (group (* "@[" :root (+ "]" (error "")))) ,(pnode :array))
       :dict (/ (group (* "@{" :root2 (+ "}" (error "")))) ,(pnode :table))
-      :main :root}))
+      :main (* :root (+ -1 (error "")))}))
 
 (defn- make-tree
   "Turn a string of source code into a tree that will be printed"
