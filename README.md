@@ -182,7 +182,7 @@ arguments to `argparse`.
 
 Run `(doc argparse/argparse)` after importing for more information.
 
-# Temple
+## Temple
 
 HTML templates for Janet.
 
@@ -195,9 +195,9 @@ substitution, so temple can be used for formats besides HTML.
 Also exposes the `escape` function inside templates for HTML escaping
 if you want to manually print to template output.
 
-## Example
+### Example
 
-### foo.temple
+#### foo.temple
 
 ```
 {$ (def n 20) # Run at template compile time $}
@@ -221,6 +221,9 @@ if you want to manually print to template output.
 (import ./foo :as foo)
 (foo/render :a "hello")
 ```
+
+There is one more involved example in the (/janet-lang/spork/examples/temple/). You
+can runnit with `janet  examples/temple/example.janet`.
 
 ## Test
 
