@@ -182,6 +182,46 @@ arguments to `argparse`.
 
 Run `(doc argparse/argparse)` after importing for more information.
 
+# Temple
+
+HTML templates for Janet.
+
+Simplified version of Mendoza's template system that is cleaner and easier to use.
+Templates can be used recursively, and output is printed via `print`, so goes to
+`(dyn :out)`.
+
+Expands on the mendoza templates with the `{-` ... `-}` brackets, which do non-escaped
+substitution, so temple can be used for formats besides HTML.
+Also exposes the `escape` function inside templates for HTML escaping
+if you want to manually print to template output.
+
+## Example
+
+### foo.temple
+
+```
+{$ (def n 20) # Run at template compile time $}
+<html>
+  <body>
+    {{ (string/repeat "<>" n) # HTML escaped }}
+    <ul>
+      {% (each x (range n) (print "<li>" x " " (args :a) "</li>")) # No auto-print %}
+    </ul>
+    {- (string/repeat "<span>1</span>" n) # Not HTML escaped -}
+  </body>
+</html>
+```
+
+### main.janet
+
+```
+(import temple)
+(temple/add-loader)
+
+(import ./foo :as foo)
+(foo/render :a "hello")
+```
+
 ## Test
 
 This module contains a simple test helper when you do not need a specialized

@@ -1,0 +1,10 @@
+{$ (def n 20) # Run at template compile time $}
+<html>
+  <body>
+    {{ (string/repeat "<>" n) # HTML escaped }}
+    <ul>
+      {% (each x (range n) (print "<li>" x " " (args :a) "</li>")) # No auto-print %}
+    </ul>
+    {- (string/repeat "<span></span>" n) # No HTML escape -}
+  </body>
+</html>
