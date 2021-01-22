@@ -36,9 +36,9 @@
       :long-buffer (/ (* "@" :long-bytes) ,(pnode :buffer))
       :raw-value (+ :string :buffer :long-string :long-buffer
                     :parray :barray :ptuple :btuple :struct :dict :span)
-      :value (* :spacing (any (+ :ws :readermac)) :raw-value :spacing)
-      :root (any :value)
-      :root2 (any (* :value :value))
+      :value (* (any (+ :ws :readermac)) :raw-value :spacing)
+      :root (* :spacing (any :value))
+      :root2 (* :spacing (any (* :value :value)))
       :ptuple (/ (group (* "(" :root (+ ")" (error)))) ,(pnode :ptuple))
       :btuple (/ (group (* "[" :root (+ "]" (error)))) ,(pnode :btuple))
       :struct (/ (group (* "{" :root2 (+ "}" (error)))) ,(pnode :struct))

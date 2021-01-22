@@ -25,4 +25,15 @@
   (fmt/format-print "()"))
 (assert (deep= b @"()\n") "format-print ()")
 
+(buffer/clear b)
+(with-dyns [:out b]
+  (fmt/format-print "( )"))
+(assert (deep= b @"()\n") "format-print ( )")
+
+(buffer/clear b)
+(with-dyns [:out b]
+  (fmt/format-print "# a comment"))
+(pp b)
+(assert (deep= b @"# a comment\n\n") "format-print only comment")
+
 (end-suite)
