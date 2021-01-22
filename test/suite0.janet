@@ -33,7 +33,14 @@
 (buffer/clear b)
 (with-dyns [:out b]
   (fmt/format-print "# a comment"))
-(pp b)
 (assert (deep= b @"# a comment\n\n") "format-print only comment")
+
+(buffer/clear b)
+(with-dyns [:out b]
+  (try
+    (fmt/format-print "print )")
+    ([err]
+     (print "error"))))
+(assert (deep= b @"error\n") "format-print errors with unbalanced parenthesis")
 
 (end-suite)
