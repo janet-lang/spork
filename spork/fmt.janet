@@ -54,7 +54,7 @@
 
 (defn- remove-extra-newlines
   "Remove leading and trailing newlines. Also remove
-   some some extra consecutive newlines."
+   some extra consecutive newlines."
   [node]
   (match node
     [tag (xs (array? xs))]
