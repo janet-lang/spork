@@ -305,7 +305,7 @@ Time code execution using os/clock, and print the result.
 Returns the value of the timed expression.
 
 ```
-repl> (misc/timeit (sum (seq [i :range [1 1000000]] (math/sqrt i))))
+repl> (test/timeit (sum (seq [i :range [1 1000000]] (math/sqrt i))))
 Elapsed time: 0.0718288 seconds
 6.66666e+08
 ```
