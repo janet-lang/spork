@@ -13,7 +13,7 @@
   "Peg to parse Janet with extra information, namely comments."
   (peg/compile
     ~{:ws (+ (set " \t\r\f\0\v") '"\n")
-      :readermac (/ '(set "';~,|") ,(pnode :readermac))
+      :readermac (set "';~,|")
       :symchars (+ (range "09" "AZ" "az" "\x80\xFF") (set "!$%&*+-./:<?=>@^_"))
       :token (some :symchars)
       :hex (range "09" "af" "AF")
@@ -23,7 +23,6 @@
                          (* "U" :hex :hex :hex :hex :hex :hex)
                          (error (constant "bad hex escape"))))
       :comment (/ (* "#" '(any (if-not (+ "\n" -1) 1)) (+ "\n" -1)) ,(pnode :comment))
-      :spacing (any (* (any :ws) (? :comment)))
       :span (/ ':token ,(pnode :span))
       :bytes '(* "\"" (any (+ :escape (if-not "\"" 1))) "\"")
       :string (/ :bytes ,(pnode :string))
@@ -34,18 +33,23 @@
                     :main (drop (* :open (any (if-not :close 1)) :close))}
       :long-string (/ :long-bytes ,(pnode :string))
       :long-buffer (/ (* "@" :long-bytes) ,(pnode :buffer))
-      :raw-value (+ :string :buffer :long-string :long-buffer
-                    :parray :barray :ptuple :btuple :struct :dict :span)
-      :value (* (any (+ :ws :readermac)) :raw-value :spacing)
-      :root (* :spacing (any :value))
-      :root2 (* :spacing (any (* :value :value)))
-      :ptuple (/ (group (* "(" :root (+ ")" (error)))) ,(pnode :ptuple))
-      :btuple (/ (group (* "[" :root (+ "]" (error)))) ,(pnode :btuple))
-      :struct (/ (group (* "{" :root2 (+ "}" (error)))) ,(pnode :struct))
-      :parray (/ (group (* "@(" :root (+ ")" (error)))) ,(pnode :array))
-      :barray (/ (group (* "@[" :root (+ "]" (error)))) ,(pnode :array))
-      :dict (/ (group (* "@{" :root2 (+ "}" (error)))) ,(pnode :table))
-      :main (* :root (+ -1 (error)))}))
+      :ptuple (/ (group (* "(" (any :input) (+ ")" (error)))) ,(pnode :ptuple))
+      :btuple (/ (group (* "[" (any :input) (+ "]" (error)))) ,(pnode :btuple))
+      :struct (/ (group (* "{" (any :input) (+ "}" (error)))) ,(pnode :struct))
+      :parray (/ (group (* "@(" (any :input) (+ ")" (error)))) ,(pnode :array))
+      :barray (/ (group (* "@[" (any :input) (+ "]" (error)))) ,(pnode :array))
+      :table (/ (group (* "@{" (any :input) (+ "}" (error)))) ,(pnode :table))
+      :rmform (/ (group (* ':readermac
+                           (group (any :non-form))
+                           :form))
+                 ,(pnode :rmform))
+      :form (choice :rmform
+                    :parray :barray :ptuple :btuple :table :struct
+                    :buffer :string :long-buffer :long-string
+                    :span)
+      :non-form (choice :ws :comment)
+      :input (choice :non-form :form)
+      :main (* (any :input) (+ -1 (error)))}))
 
 (defn- make-tree
   "Turn a string of source code into a tree that will be printed"
@@ -146,6 +150,13 @@
     (def parts (interpose "\n" (string/split "\n" x)))
     (each p parts (if (= p "\n") (do (newline) (dropwhite)) (emit p))))
 
+  (defn emit-rmform
+    [rm nfs form]
+    (emit rm)
+    (each nf nfs
+      (fmt-1-recur nf))
+    (fmt-1-recur form))
+
   (defn fmt-1
     [node]
     (remove-extra-newlines node)
@@ -153,7 +164,6 @@
     (match node
       "\n" (newline)
       [:comment x] (do (emit "#" x) (newline))
-      [:readermac x] (emit x)
       [:span x] (do (emit x) (addwhite))
       [:string x] (do (emit-string x) (addwhite))
       [:buffer x] (do (emit "@") (emit-string x) (addwhite))
@@ -164,6 +174,7 @@
                      (emit-funcall xs))
       [:struct xs] (emit-body "{" xs "}")
       [:table xs] (emit-body "@{" xs "}")
+      [:rmform [rm nfs form]] (emit-rmform rm nfs form)
       [:top xs] (emit-body "" xs "")))
 
   (set fmt-1-recur fmt-1)
