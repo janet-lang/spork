@@ -1,5 +1,5 @@
 (import ../spork/temple :as temple)
-(import spork/test)
+(import ../spork/test)
 
 (temple/add-loader)
 
