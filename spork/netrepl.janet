@@ -106,6 +106,7 @@
         (set name (or (recv) (break)))
         (print "client " name " connected")
         (def e (coerce-to-env env name stream))
+        (def p (parser/new))
         (var is-first true)
         (defn getline-async
           [prmpt buf]
@@ -137,9 +138,10 @@
              :on-compile-error (wrapio bad-compile)
              :on-parse-error (wrapio bad-parse)
              :evaluator (fn [x &] (setdyn :out outbuf) (setdyn :err outbuf) (x))
-             :source "repl"})
+             :source "repl"
+             :parser p})
           coro
-          (fiber/setenv (table/setproto @{:out outbuf :err outbuf} e))
+          (fiber/setenv (table/setproto @{:out outbuf :err outbuf :parser p} e))
           resume))
       (print "closing client " name))))
 
