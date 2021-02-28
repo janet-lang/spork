@@ -32,7 +32,7 @@
     (let [e (make-env)]
       (put e :pretty-format "%.20M"))))
 
-#  NETREPL Protocol
+# NETREPL Protocol
 #
 # Clients don't need to support steps 4. and 5. if they never send messages prefixed
 # with 0xFF or 0xFE bytes. These bytes should not occur in normal Janet source code and
@@ -46,7 +46,9 @@
 #   4b. server -> result -> client
 #   4c. goto 3.
 # 5. If (= (msg 0) 0xFE)
-#   5a. Return msg as a keyword from repl's 'chunk' callback (used for :cancel)
+#   5a. Return msg as either:
+#       i. a keyword if the msg contains a command (e.g. :cancel)
+#       ii. an array if the msg contains a command and arguments (e.g. @[:source "path/to/source"]
 #   5b. goto 6b.
 # 6. Otherwise
 #   6a. Send chunk to repl input stream
@@ -88,7 +90,7 @@
   "Start a repl server. The default host is \"127.0.0.1\" and the default port
   is \"9365\". Calling this will start a TCP server that exposes a
   repl into the given env. If no env is provided, a new env will be created
-  per connection. If env is a function, that funciton will be invoked with
+  per connection. If env is a function, that function will be invoked with
   the name and stream on each connection to generate an environment."
   [&opt host port env]
   (default host default-host)
@@ -107,6 +109,14 @@
         (print "client " name " connected")
         (def e (coerce-to-env env name stream))
         (def p (parser/new))
+        (def cmd-g
+          ~{:main (* :command (any (* :space :argument)))
+            :space (some (set " \t"))
+            :identifier (some :S)
+            :command (/ ':identifier ,keyword)
+            :argument (/ '(+ :quoted-arg :bare-arg) ,parse)
+            :bare-arg :identifier
+            :quoted-arg (* `"` (any (+ (* `\` 1) (if-not `"` 1))) `"`)})
         (var is-first true)
         (defn getline-async
           [prmpt buf]
@@ -122,7 +132,12 @@
               (= 0xFF (in msg 0))
               (send (string/format "%j" (-> msg (slice 1) parse eval protect)))
               (= 0xFE (in msg 0))
-              (do (set ret (keyword (slice msg 1))) (break))
+              (do
+                (def cmd (peg/match cmd-g msg 1))
+                (if (one? (length cmd))
+                  (set ret (first cmd))
+                  (set ret cmd))
+                (break))
               (do (buffer/push-string buf msg) (break))))
           ret)
         (defn chunk
