@@ -9,9 +9,9 @@
   [template args expected]
   (def buf @"")
   (with-dyns [:out buf]
-    (template args)
-    (def sbuf (string/trim (string buf)))
-    (test/assert (= sbuf expected) (string "Render of " template))))
+    (template args))
+  (def sbuf (string/trim (string buf)))
+  (test/assert (= sbuf expected) (string "Render of " template)))
 
 (import ./templates/hi :as hi)
 (import ./templates/hop :as hop)
