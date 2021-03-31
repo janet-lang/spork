@@ -30,4 +30,13 @@
                 </html>
                 ```)
 
+(def str-template "<html>hello {{ (args :arg) }}</html>")
+(def render (temple/compile str-template))
+(def out (render :arg "world"))
+
+(test/assert (buffer? out) "Rendered temple string produces a buffer")
+
+(def expected "<html>hello world</html>")
+(test/assert (= expected (string out)) "Rendered temple string produces \"hello world\"")
+
 (test/end-suite)

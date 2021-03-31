@@ -137,3 +137,23 @@
   []
   (put module/loaders :temple loader)
   (module/add-paths ".temple" :temple))
+
+#
+# String templating
+#
+
+(defn compile
+  `
+  Compile a Temple template into a function which will return a
+  rendered buffer.
+
+  The resulting function should receive the template arguments in the
+  &keys format.
+  `
+  [str]
+  (let [tmpl (create str)]
+    (fn render
+      [&keys args]
+      (let [out @""]
+        (with-dyns [:out out] (tmpl args))
+        out))))
