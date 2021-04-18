@@ -151,7 +151,7 @@
   &keys format.
   `
   [str]
-  (let [tmpl (create str)]
+  (let [tmpl (create str (dyn :current-file))]
     (fn render
       [&keys args]
       (let [out @""]
