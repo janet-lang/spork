@@ -1,0 +1,22 @@
+{:title "Message Protocol"
+ :author "Calvin Rose"
+ :license "MIT"
+ :template "mdzdoc/main.html"
+ :order 2}
+---
+
+Provide a symmetric way to send and receive seqential messages over a
+networked stream.  Useful for building more complicated application
+level protocols on top of TCP.
+
+@codeblock[janet]```
+(import spork/msg)
+
+(def stream (net/connect "http://example.com" "1234"))
+
+(def send (msg/make-send stream))
+(def recv (msg/make-recv stream))
+
+(send "blob1")
+(def blob-respose (recv))
+```

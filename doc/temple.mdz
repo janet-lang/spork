@@ -1,0 +1,50 @@
+{:title "Temple"
+ :author "Calvin Rose"
+ :license "MIT"
+ :template "mdzdoc/main.html"
+ :order 7}
+---
+
+HTML templates for Janet.
+
+Simplified version of Mendoza's template system that is cleaner and
+easier to use.  Templates can be used recursively, and output is
+printed via @code`print`, so goes to @code`(dyn :out)`.
+
+Expands on the mendoza templates with the @code`{-` ... @code`-}`
+brackets, which do non-escaped substitution, so temple can be used for
+formats besides HTML.  Also exposes the @code`escape` function inside
+templates for HTML escaping if you want to manually print to template
+output.
+
+
+## Example
+
+### foo.temple
+
+@codeblock[janet]```
+{$ (def n 20) # Run at template compile time $}
+<html>
+  <body>
+    {{ (string/repeat "<>" n) # HTML escaped }}
+    <ul>
+      {% (each x (range n) (print "<li>" x " " (args :a) "</li>")) # No auto-print %}
+    </ul>
+    {- (string/repeat "<span>1</span>" n) # Not HTML escaped -}
+  </body>
+</html>
+```
+
+### main.janet
+
+@codeblock[janet]```
+(import temple)
+(temple/add-loader)
+
+(import ./foo :as foo)
+(foo/render :a "hello")
+```
+
+There is one more involved example in
+/janet-lang/spork/examples/temple/. You can run it with
+@code`janet examples/temple/example.janet`.

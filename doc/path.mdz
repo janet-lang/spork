@@ -1,0 +1,32 @@
+{:title "Path"
+ :author "Calvin Rose"
+ :license "MIT"
+ :template "mdzdoc/main.html"
+ :order 5}
+---
+
+Simple path manipulation module for Janet. Supports manipulation both
+windows and posix paths on any platform, and provides functions that
+work according to the current host platform.
+
+All functions have three forms, under @code`path`, @code`path/win`, and
+@code`path/posix`. The prefix indicates which type of path the function
+manipulates.
+
+@codeblock[janet]```
+(import spork/path)
+
+# Examples for a non-windows system, use path/win/ for windows and
+# path/posix/ for posix.
+
+(path/ext "my/long/path.txt") # -> ".txt"
+path/sep # -> "/" on posix, "\\" on windows
+path/delim # -> ":" on posix, ";" on windows
+(path/basename "some/path.txt") # -> "path.txt"
+(path/dirname "some/path.txt") # -> "some/"
+(path/parts "some/path/file.txt") # -> ["some" "path" "file.txt"]
+(path/normalize "some/.././thing/file.txt") # -> "thing/file.txt"
+(path/join "some/path" "../thing/file.txt") # -> "some/thing/file.txt"
+(path/abspath? "/home/blah") # -> true
+(path/abspath "file.txt") # -> "/home/me/cwd/file.txt"
+```
