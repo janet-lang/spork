@@ -1,0 +1,24 @@
+{:title "Formatting"
+ :author "Calvin Rose"
+ :license "MIT"
+ :template "mdzdoc/main.html"
+ :order 1}
+---
+
+Provides a way to format Janet code strings and files.
+
+## Strings
+
+@codeblock[janet]```
+(import spork/fmt)
+
+(fmt/format "(def     a\n 3 )")  => @"(def a\n  3)\n"
+```
+
+## Files
+
+@codeblock[janet]```
+(import spork/fmt)
+
+(fmt/format-file "main.janet")
+```

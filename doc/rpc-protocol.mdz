@@ -1,0 +1,38 @@
+{:title "RPC Protocol"
+ :author "Calvin Rose"
+ :license "MIT"
+ :template "mdzdoc/main.html"
+ :order 4}
+---
+
+A simple remote procedure call tool for Janet.
+
+
+## Server
+
+@codeblock[janet]```
+(import spork/rpc)
+
+(def functions
+  @{:print (fn [self x] (print "remote print: " x))
+    :add (fn [self & xs] (sum xs))})
+
+(rpc/server functions "127.0.0.1" "9001")
+```
+
+
+## Client
+
+@codeblock[janet]```
+(import spork/rpc)
+
+(def c (rpc/client "127.0.0.1" "9001" "joe"))
+
+# Will print on server
+(:print c "Hello from client!")
+
+(:add c 1 3 5 7 9) # -> 25
+
+# Close the underlying connection
+(:close c)
+```

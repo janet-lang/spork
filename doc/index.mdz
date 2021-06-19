@@ -5,14 +5,16 @@
  :order 0}
 ---
 
-Spork is a utility library for Janet. It contains a number of small modules
-that should be useful for general programming in Janet but do not "make the cut"
-for inclusion in the standard library. You can think of spork as a sort of extended standard
-library for Janet.
+Spork is a utility library for Janet. It contains a number of small
+modules that should be useful for general programming in Janet but do
+not "make the cut" for inclusion in the standard library. You can
+think of spork as a sort of extended standard library for Janet.
+
 
 ## Source code
 
 @p{@link[https://github.com/janet-lang/spork]}
+
 
 ## Install
 
@@ -20,9 +22,11 @@ library for Janet.
 [sudo] jpm install spork
 ```
 
+
 ## Index
 
 @api-index[../spork]
+
 
 ## Reference
 
