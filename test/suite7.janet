@@ -14,7 +14,10 @@
 (assert (test/assert-no-error "assert-no-error" "Good"))
 
 # test/capture-stdout
-(test/assert (= [true "Output\n"] (test/capture-stdout (do (print "Output") true))) "capture output")
+(test/assert (= [true "Output\n"] (test/capture-stdout (do (print "Output") true))) "capture stdout")
+
+# test/capture-stdout
+(test/assert (= [true "Output\n"] (test/capture-stderr (do (eprint "Output") true))) "capture stderr")
 
 # test/timeit
 (do

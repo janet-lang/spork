@@ -33,13 +33,13 @@
   (def res
     (capture-stdout
       (fmt/format-print "( )")))
-  (assert (= [nil "()\n"]) "format-print empty form with whitespace"))
+  (assert (= res [nil "()\n"]) "format-print empty form with whitespace"))
 
 (do
   (def res
     (capture-stdout
       (fmt/format-print "# a comment")))
-  (assert (= [nil "# a comment\n\n"]) "format-print only comment"))
+  (assert (= res [nil "# a comment\n\n"]) "format-print only comment"))
 
 (do
   (def res
@@ -48,6 +48,6 @@
         (fmt/format-print "print )")
         ([err]
          (print "error")))))
-  (assert (= [nil "error\n"]) "format-print errors with unbalanced parenthesis"))
+  (assert (= res [nil "error\n"]) "format-print errors with unbalanced parenthesis"))
 
 (end-suite)
