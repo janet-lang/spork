@@ -46,8 +46,7 @@
     (capture-stdout
       (try
         (fmt/format-print "print )")
-        ([err]
-         (print "error")))))
+        ([err] (print "error")))))
   (assert (= res [nil "error\n"]) "format-print errors with unbalanced parenthesis"))
 
 (end-suite)

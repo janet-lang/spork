@@ -102,9 +102,8 @@ stdout in string.
 
 @codeblock[janet]```
 (capture-stdout
-  (do
-    (print "Interesting output")
-    true))
+  (print "Interesting output")
+  true)
 # => (true "Interesting output")
 ```
 

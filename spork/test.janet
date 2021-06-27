@@ -72,12 +72,13 @@
        ,result)))
 
 (defmacro- capture-*
-  [out form]
+  [out & forms]
+  (tracev forms)
   (with-syms [buf res]
     ~(do
        (def ,buf @"")
        (with-dyns [,out ,buf]
-         (def ,res ,form)
+         (def ,res (do ,;forms))
          [,res (string ,buf)]))))
 
 (defmacro capture-stdout
@@ -85,16 +86,16 @@
   Runs the form and captures stdout. Returns tuple with result of the form
   and a string with captured stdout.
   ```
-  [form]
-  ~(as-macro ,capture-* :out ;,form))
+  [& forms]
+  ~(as-macro ,capture-* :out ,;forms))
 
 (defmacro capture-stderr
   ```
   Runs the form and captures stderr. Returns tuple with result of the form
   and a string with captured stderr.
   ```
-  [form]
-  ~(as-macro ,capture-* :err ;,form))
+  [& forms]
+  ~(as-macro ,capture-* :err ,;forms))
 
 (defmacro suppress-stdout [& body]
   "Suppreses stdout from the body"
