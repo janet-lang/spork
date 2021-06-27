@@ -51,7 +51,7 @@
 (defn end-suite []
   "Ends test suite."
   (def delta (- (os/clock) start-time))
-  (printf "\n\nTest suite %d finished in %.3f soconds" suite-num delta)
+  (printf "\n\nTest suite %d finished in %.3f seconds" suite-num delta)
   (print num-tests-passed " of " num-tests-run " tests passed.\n")
   (if (not= num-tests-passed num-tests-run) (os/exit 1)))
 
