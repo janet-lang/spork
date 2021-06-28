@@ -54,4 +54,11 @@
        (test/suppress-stdout (print "Hello world!"))))
   "suppress-stdout")
 
+# test/suppress-stdout
+(test/assert
+  (= [nil ""]
+     (test/capture-stderr
+       (test/suppress-stderr (print "Hello world!"))))
+  "suppress-stderr")
+
 (test/end-suite)
