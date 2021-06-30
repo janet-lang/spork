@@ -71,19 +71,38 @@
        (print ,tag " " (- ,end ,start) " seconds")
        ,result)))
 
+(defmacro- capture-*
+  [out & body]
+  (with-syms [buf res]
+    ~(do
+       (def ,buf @"")
+       (with-dyns [,out ,buf]
+         (def ,res (do ,;body))
+         [,res (string ,buf)]))))
+
 (defmacro capture-stdout
   ```
   Runs the form and captures stdout. Returns tuple with result of the form
   and a string with captured stdout.
   ```
-  [form]
-  (with-syms [buf res]
-    ~(do
-       (def ,buf @"")
-       (with-dyns [:out ,buf]
-         (def ,res ,form)
-         [,res (string ,buf)]))))
+  [& body]
+  ~(as-macro ,capture-* :out ,;body))
+
+(defmacro capture-stderr
+  ```
+  Runs the form and captures stderr. Returns tuple with result of the form
+  and a string with captured stderr.
+  ```
+  [& body]
+  ~(as-macro ,capture-* :err ,;body))
+
+(defmacro- suppress-* [out & body]
+  ~(with-dyns [,out @""] ,;body))
 
 (defmacro suppress-stdout [& body]
   "Suppreses stdout from the body"
-  ~(with-dyns [:out @""] ,;body))
+  ~(as-macro ,suppress-* :out ,;body))
+
+(defmacro suppress-stderr [& body]
+  "Suppreses stdout from the body"
+  ~(as-macro ,suppress-* :err ,;body))

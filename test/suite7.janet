@@ -14,7 +14,11 @@
 (assert (test/assert-no-error "assert-no-error" "Good"))
 
 # test/capture-stdout
-(test/assert (= [true "Output\n"] (test/capture-stdout (do (print "Output") true))) "capture output")
+(test/assert (= [true "Output\n"] (test/capture-stdout (print "Output") true)) "capture stdout")
+
+# test/capture-stderr
+(test/assert (= [true "Output\n"]
+                (test/capture-stderr (eprint "Output") true)) "capture stderr")
 
 # test/timeit
 (do
@@ -39,10 +43,9 @@
 (test/assert
   (= [nil "\nRunning test suite 666 tests...\n\n\e[32m\xE2\x9C\x94\e[0m\n\nTest suite 666 finished in 0.000 soconds\n13 of 13 tests passed.\n\n"])
   (test/capture-stdout
-    (do
-      (test/start-suite 666)
-      (test/assert true "true")
-      (test/end-suite))))
+    (test/start-suite 666)
+    (test/assert true "true")
+    (test/end-suite)))
 
 # test/suppress-stdout
 (test/assert
@@ -50,5 +53,12 @@
      (test/capture-stdout
        (test/suppress-stdout (print "Hello world!"))))
   "suppress-stdout")
+
+# test/suppress-stdout
+(test/assert
+  (= [nil ""]
+     (test/capture-stderr
+       (test/suppress-stderr (print "Hello world!"))))
+  "suppress-stderr")
 
 (test/end-suite)
