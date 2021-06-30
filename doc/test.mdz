@@ -97,11 +97,24 @@ Elapsed time: 0.0718288 seconds
 
 ## capture-stdout
 
-Runs the form and captures stdout. Returns tuple with result and captured
+Runs the body and captures stdout. Returns tuple with result and captured
 stdout in string.
 
 @codeblock[janet]```
 (capture-stdout
+  (print "Interesting output")
+  true)
+# => (true "Interesting output")
+```
+
+
+## capture-stderr
+
+Runs the body and captures stderr. Returns tuple with result and captured
+stderr in string.
+
+@codeblock[janet]```
+(capture-stderr
   (print "Interesting output")
   true)
 # => (true "Interesting output")
@@ -114,5 +127,15 @@ Runs the form, but supresses its stdout.
 
 @codeblock[janet]```
 (suppress-stdout (print "Hello world!"))
+# => nil
+```
+
+
+## supress-stderr
+
+Runs the form, but supresses its stderr.
+
+@codeblock[janet]```
+(suppress-stderr (eprint "Hello world!"))
 # => nil
 ```
