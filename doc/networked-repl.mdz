@@ -1,0 +1,30 @@
+{:title "Networked REPL"
+ :author "Calvin Rose"
+ :license "MIT"
+ :template "mdzdoc/main.html"
+ :order 3}
+---
+
+Launch a networked REPL server on one machine and connect to it from
+another machine or process.
+
+
+## Server
+
+@codeblock[janet]```
+(import spork/netrepl)
+
+(def some-def 10)
+
+# Serve a repl into the current environment (@code`some-def` will be visible).
+(netrepl/server "127.0.0.1" "9000" (fiber/getenv (fiber/current)))
+```
+
+## Client
+
+@codeblock[janet]```
+(import spork/netrepl)
+
+# Starts a nice terminal repl.
+(netrepl/client "127.0.0.1" "9000" "bob")
+```
