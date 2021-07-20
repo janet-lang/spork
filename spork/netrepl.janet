@@ -55,6 +55,17 @@
 #   6b. server -> {(dyn :out) and (dyn :err) (empty at first)} -> client
 #   6c. goto 2.
 
+(def- cmd-peg
+  "Peg for matching incoming netrepl commands"
+  (peg/compile
+    ~{:main (* :command (any (* :space :argument)))
+      :space (some (set " \t"))
+      :identifier (some :S)
+      :command (/ ':identifier ,keyword)
+      :argument (/ '(+ :quoted-arg :bare-arg) ,parse)
+      :bare-arg :identifier
+      :quoted-arg (* `"` (any (+ (* `\` 1) (if-not `"` 1))) `"`)}))
+
 (defn- make-onsignal
   "Make an onsignal handler for debugging. Since the built-in repl
   calls getline which blocks, we use our own debugging functionality."
@@ -91,32 +102,32 @@
   is \"9365\". Calling this will start a TCP server that exposes a
   repl into the given env. If no env is provided, a new env will be created
   per connection. If env is a function, that function will be invoked with
-  the name and stream on each connection to generate an environment."
-  [&opt host port env]
+  the name and stream on each connection to generate an environment. `cleanup` is
+  an optional function that will be called for each stream after closing if provided."
+  [&opt host port env cleanup]
   (default host default-host)
   (default port default-port)
   (print "Starting networked repl server on " host ", port " port "...")
+  (def name-set @{})
   (net/server
     host port
     (fn repl-handler [stream]
       (var name "<unknown>")
       (def outbuf @"")
       (defn wrapio [f] (fn [& a] (with-dyns [:out outbuf :err outbuf] (f ;a))))
-      (defer (:close stream)
+      (defer (do
+               (:close stream)
+               (put name-set name nil)
+               (when cleanup (cleanup stream)))
         (def recv (make-recv stream))
         (def send (make-send stream))
         (set name (or (recv) (break)))
+        (while (get name-set name)
+          (set name (string name "_")))
+        (put name-set name true)
         (print "client " name " connected")
         (def e (coerce-to-env env name stream))
         (def p (parser/new))
-        (def cmd-g
-          ~{:main (* :command (any (* :space :argument)))
-            :space (some (set " \t"))
-            :identifier (some :S)
-            :command (/ ':identifier ,keyword)
-            :argument (/ '(+ :quoted-arg :bare-arg) ,parse)
-            :bare-arg :identifier
-            :quoted-arg (* `"` (any (+ (* `\` 1) (if-not `"` 1))) `"`)})
         (var is-first true)
         (defn getline-async
           [prmpt buf]
@@ -133,7 +144,7 @@
               (send (string/format "%j" (-> msg (slice 1) parse eval protect)))
               (= 0xFE (in msg 0))
               (do
-                (def cmd (peg/match cmd-g msg 1))
+                (def cmd (peg/match cmd-peg msg 1))
                 (if (one? (length cmd))
                   (set ret (first cmd))
                   (set ret cmd))
@@ -159,6 +170,27 @@
           (fiber/setenv (table/setproto @{:out outbuf :err outbuf :parser p} e))
           resume))
       (print "closing client " name))))
+
+(defn server-single
+  "Short-hand for serving up a a repl that has a single environment table in it. `env`
+  must be a proper env table, not a function as is possible in netrepl/server."
+  [&opt host port env cleanup]
+  (def client-table @{})
+  (def inverse-client-table @{})
+  (let [e (or env (make-env))]
+    (defn env-factory [name stream]
+      (put client-table name stream)
+      (put inverse-client-table stream name)
+      e)
+    (defn cleanup2 [stream]
+      (when cleanup
+        (cleanup stream))
+      (def name (get inverse-client-table stream))
+      (put client-table name nil)
+      (put inverse-client-table stream nil))
+    (put e :pretty-format "%.20M")
+    (put e :clients client-table)
+    (server host port env-factory cleanup2)))
 
 (defn client
   "Connect to a repl server. The default host is \"127.0.0.1\" and the default port
