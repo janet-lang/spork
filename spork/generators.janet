@@ -1,5 +1,5 @@
 (defn from-iterable
-  "Create a new stream around any iterable data structure."
+  "Create a new generator around any iterable data structure."
   [ds]
   (coro (each x ds (yield x))))
 
@@ -11,36 +11,36 @@
 (defn to-array
   ``Consume `s` into a new array.
 
-    NB: this will create an infinite loop if `s` is an infinite stream!``
+    NB: this will create an infinite loop if `s` is an infinite generator!``
   [s]
   (values s))
 
 (defn run
   ``Evaluate `s` for side effects.
 
-    NB: this will create an infinite loop if `s` is an infinite stream!``
+    NB: this will create an infinite loop if `s` is an infinite generator!``
   [s]
   (each _ s))
 
 (defn concat
-  "Concatenate one or more streams or iterables into a single stream."
+  "Concatenate one or more generators or iterables into a single generator."
   [& xs]
   (coro (each x xs
           (each elem x (yield elem)))))
 
 (defn map
-  "Create a stream that maps `f` over `ds`."
+  "Create a generator that maps `f` over `ds`."
   [f ds]
   (coro (each x ds (yield (f x)))))
 
 (defn mapcat
-  "Map `f` over `ds`, concatenating the results into a new stream."
+  "Map `f` over `ds`, concatenating the results into a new generator."
   [f ds]
   (coro (each x ds
           (each elem (f x) (yield elem)))))
 
 (defn filter
-  "Create a stream that filters `ds` with `p`."
+  "Create a generator that filters `ds` with `p`."
   [p ds]
   (coro (each x ds (if (p x) (yield x)))))
 

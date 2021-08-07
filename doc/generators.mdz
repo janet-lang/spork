@@ -1,13 +1,13 @@
-{:title "Streams"
+{:title "Generators"
  :author "Z. D. Smith"
  :license "BSD3"
  :template "mdzdoc/main.html"
  :order 11}
 ---
 
-# Streams for Janet
+# Generators for Janet
 
-A **stream** is an iterable data structure which yields individual values
+A **generator** is an iterable data structure which yields individual values
 whenever called, potentially until its internal values are exhausted, at which
 point it&apos;s considered *dead*.
 
@@ -24,7 +24,7 @@ sequence in memory at once
 (concat & xs)
 ```
 
-Concatenate one or more streams or iterables into a single stream.
+Concatenate one or more generators or iterables into a single generator.
 
 ## cycle
 
@@ -64,7 +64,7 @@ Drop elements from `ds` while `p` is true.
 (filter p ds)
 ```
 
-Create a stream that filters `ds` with `p`.
+Create a generator that filters `ds` with `p`.
 
 ## from-iterable
 
@@ -72,7 +72,7 @@ Create a stream that filters `ds` with `p`.
 (from-iterable ds)
 ```
 
-Create a new stream around any iterable data structure.
+Create a new generator around any iterable data structure.
 
 ## map
 
@@ -80,7 +80,7 @@ Create a new stream around any iterable data structure.
 (map f ds)
 ```
 
-Create a stream that maps `f` over `ds`.
+Create a generator that maps `f` over `ds`.
 
 ## range
 
@@ -98,7 +98,7 @@ Create a lazy range.
 
 Evaluate `s` for side effects.
 
-  NB: this will create an infinite loop if `s` is an infinite stream!
+  NB: this will create an infinite loop if `s` is an infinite generator!
 
 ## take
 
@@ -132,5 +132,5 @@ Return elements from `ds` while `p` is true.
 
 Consume `s` into a new array.
 
-  NB: this will create an infinite loop if `s` is an infinite stream!
+  NB: this will create an infinite loop if `s` is an infinite generator!
 

@@ -8,6 +8,6 @@
 (import ./path :export true)
 (import ./regex :export true)
 (import ./rpc :export true)
-(import ./streams :export true)
+(import ./generators :export true)
 (import ./temple :export true)
 (import ./test :export true)
