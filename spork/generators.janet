@@ -99,9 +99,8 @@
   "Repeatedly yield the elements of `ds`, looping back to the beginning when finished."
   [ds]
   (coro
-    (def to-cycle (if (indexed? ds) ds @[ds]))
     (var i nil)
     (while true
-      (set i (next to-cycle i))
-      (if (nil? i) (set i 0))
-      (yield (to-cycle i)))))
+      (set i (next ds i))
+      (if (nil? i) (set i (next ds)))
+      (yield (ds i)))))

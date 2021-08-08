@@ -67,4 +67,10 @@
 (def taken (generators/take 10 s))
 (assert (deep= @[1 2 3 1 2 3 1 2 3 1] (values taken)))
 
+(def s (generators/cycle {:a 1 :b 2 :c 3}))
+(def taken (generators/take 10 s))
+(def taken-array (values taken))
+(assert  (= 10 (length taken-array)))
+(assert (deep= @[1 2 3] (sorted (distinct taken-array))))
+
 (end-suite)
