@@ -1,0 +1,136 @@
+{:title "Generators"
+ :author "Z. D. Smith"
+ :license "BSD3"
+ :template "mdzdoc/main.html"
+ :order 11}
+---
+
+# Generators for Janet
+
+A **generator** is an iterable data structure which yields individual values
+whenever called, potentially until its internal values are exhausted, at which
+point it&apos;s considered *dead*.
+
+This operation makes them very useful for:
+
+- Asynchronous behaviour
+- Memory-sensitive applications, where it&apos;s not necessary to keep an entire
+sequence in memory at once
+- Infinite sequences
+
+## concat
+
+@codeblock[janet]```
+(concat & xs)
+```
+
+Concatenate one or more generators or iterables into a single generator.
+
+## cycle
+
+@codeblock[janet]```
+(cycle ds)
+```
+
+Repeatedly yield the elements of `ds`, looping back to the beginning when finished.
+
+## drop
+
+@codeblock[janet]```
+(drop n ds)
+```
+
+Drop `n` elements from `ds`.
+
+## drop-until
+
+@codeblock[janet]```
+(drop-until p ds)
+```
+
+Drop elements from `ds` until `p` is true.
+
+## drop-while
+
+@codeblock[janet]```
+(drop-while p ds)
+```
+
+Drop elements from `ds` while `p` is true.
+
+## filter
+
+@codeblock[janet]```
+(filter p ds)
+```
+
+Create a generator that filters `ds` with `p`.
+
+## from-iterable
+
+@codeblock[janet]```
+(from-iterable ds)
+```
+
+Create a new generator around any iterable data structure.
+
+## map
+
+@codeblock[janet]```
+(map f ds)
+```
+
+Create a generator that maps `f` over `ds`.
+
+## range
+
+@codeblock[janet]```
+(range from to)
+```
+
+Create a lazy range.
+
+## run
+
+@codeblock[janet]```
+(run s)
+```
+
+Evaluate `s` for side effects.
+
+  NB: this will create an infinite loop if `s` is an infinite generator!
+
+## take
+
+@codeblock[janet]```
+(take n ds)
+```
+
+Take `n` elements from iterable `ds`.
+
+## take-until
+
+@codeblock[janet]```
+(take-until p ds)
+```
+
+Return elements from `ds` until `p` is true.
+
+## take-while
+
+@codeblock[janet]```
+(take-while p ds)
+```
+
+Return elements from `ds` while `p` is true.
+
+## to-array
+
+@codeblock[janet]```
+(to-array s)
+```
+
+Consume `s` into a new array.
+
+  NB: this will create an infinite loop if `s` is an infinite generator!
+
