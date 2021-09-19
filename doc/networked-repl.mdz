@@ -8,7 +8,6 @@
 Launch a networked REPL server on one machine and connect to it from
 another machine or process.
 
-
 ## Server
 
 @codeblock[janet]```

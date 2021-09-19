@@ -1,0 +1,36 @@
+{:title "HTTP"
+ :author "Calvin Rose"
+ :license "MIT"
+ :template "mdzdoc/main.html"
+ :order 0}
+---
+
+The @code`http` module is n HTTP/1.1 parser, server and client module. It proves a simple server implementation, client, support for chunked encoding.
+The @code`http` module is also non-blocking, so a single thread can run
+many clients, servers, and connections at once.
+
+## Server
+
+@codeblock[janet]```
+(import spork/http)
+
+(def handler
+ [req]
+ (def method (get req :method))
+ (case method
+  "GET" {:status 200 :body (get req :path)}
+  "POST" {:status 400 :body (http/read-body req)}
+  {:status 404}))
+
+(http/server handler "127.0.0.1" "9000")
+```
+
+## Client
+
+@codeblock[janet]```
+(import spork/http)
+
+(def response (http/request "GET" "http://www.example.com"))
+(def body (http/read-body response))
+(print body)
+```
