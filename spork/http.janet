@@ -4,7 +4,8 @@
 ### Pure Janet HTTP/1.1 parser, client, and server.
 ###
 
-(def- chunk-size 8192)
+# Handle max read size bug.
+(def- chunk-size 4096)
 
 (defn- pre-pop
   "Remove n bytes from front of buffer"
