@@ -10,8 +10,7 @@
 (defn- pre-pop
   "Remove n bytes from front of buffer"
   [buf n]
-  (def m (- (length buf) n))
-  (buffer/blit buf buf 0 n m)
+  (buffer/blit buf buf 0 n)
   (buffer/popn buf n))
 
 (def- http-grammar
@@ -31,21 +30,21 @@
     :header-value '(any :printable)
     :header (* :header-name ":" :any-ws :header-value :rn)})
 
-(def- request-peg
+(def request-peg
   "PEG for parsing HTTP requests"
   (peg/compile
-    (table/to-struct (merge
-      {:main ~(* :request-status :headers)}
-      http-grammar))))
+    (table/to-struct
+      (merge {:main ~(* :request-status :headers)}
+             http-grammar))))
 
-(def- response-peg
+(def response-peg
   "PEG for parsing HTTP responses"
   (peg/compile
     (table/to-struct (merge
-      {:main ~(* :response-status :headers)}
-      http-grammar))))
+                       {:main ~(* :response-status :headers)}
+                       http-grammar))))
 
-(defn- read-http-peg
+(defn read-http-peg
   "Read from a stream until the HTTP header terminator, and
   then parse the buffer with a peg."
   [conn buf peg key1 key2]
@@ -70,12 +69,12 @@
   head)
 
 (defn read-request
-  "Read an HTTP request header fron a connection"
+  "Read an HTTP request header from a connection"
   [conn buf]
   (read-http-peg conn buf request-peg :method :path))
 
 (defn read-response
-  "Read an HTTP response header fron a connection"
+  "Read an HTTP response header from a connection"
   [conn buf]
   (read-http-peg conn buf response-peg :status :message))
 
@@ -180,9 +179,8 @@
           :connection conn
           :head-size head-size} req)
     (def content-length (scan-number cl))
-    (pre-pop buf head-size)
     (def remaining (- content-length (length buf)))
-    (when (> remaining 0)
+    (when (pos? remaining)
       (ev/chunk conn remaining buf))
     (put req :body buf)
     (break buf))
@@ -216,29 +214,28 @@
   "A simple connection handler for an HTTP server.
   When a connection is accepted. Call this with a handler
   function to handle the connect. The handler will be called
-  with one argument, the reqeust table, which will contain the
+  with one argument, the request table, which will contain the
   following keys:
-  * `:head-size` - number of bytes in the http header
+  * `:head-size` - number of bytes in the http header.
   * `:headers` - table mapping header names to header values.
   * `:connection` - the connection stream for the header.
   * `:buffer` - the buffer instance that may contain extra bytes.
-  * `:path` - HTTP path
+  * `:path` - HTTP path.
   * `:method` - HTTP method, as a string."
   [conn handler]
   (defer (ev/close conn)
 
-    # Get reqeust header
+    # Get request header
     (def buf (buffer/new chunk-size))
     (def req (read-request conn buf))
 
-    # Handle bad reqeust
+    # Handle bad request
     (when (= :error req)
       (send-response conn {:status 400} (buffer/clear buf))
       (break))
 
     # Add some extra keys to the request
     (put req :connection conn)
-    (put req :buffer buf)
     (pre-pop buf (in req :head-size))
 
     # Do something with request header
@@ -248,11 +245,12 @@
     (send-response conn response (buffer/clear buf))))
 
 (defn server
-  "Make a simple http server. Defaults to 0.0.0.0:8000, returns a new server stream.
+  "Makes a simple http server. By default it binds to 0.0.0.0:8000,
+  returns a new server stream.
   Simply wraps http/server-handler with a net/server."
   [handler &opt host port]
   (default host "0.0.0.0")
-  (default port 80)
+  (default port 8000)
   (defn new-handler
     [conn]
     (server-handler conn handler))
@@ -276,11 +274,11 @@
   "Make an HTTP request to a server.
   Returns a table contain response information.
   * `:head-size` - number of bytes in the http header
-  * `:headers` - table mapping header names to header values. header names are lowercase.
+  * `:headers` - table mapping header names to header values. Header names are lowercase.
   * `:connection` - the connection stream for the header.
   * `:buffer` - the buffer instance that may contain extra bytes.
-  * `:status` - HTTP status code as an integer
-  * `:message` - HTTP status message
+  * `:status` - HTTP status code as an integer.
+  * `:message` - HTTP status message.
   * `:body` - Bytes of the response body."
   [method url &keys
    {:body body
