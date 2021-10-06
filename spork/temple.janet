@@ -67,7 +67,7 @@
     true)
 
   (defn print-chunk
-    "Insert print chunk into parser"
+    "Wrap string with prin and pass it to code-chunk"
     [str]
     (code-chunk
       (string "\n(prin " str "\n) ")) )
@@ -81,7 +81,7 @@
   (defn raw-chunk
     "Same as code-chunk, but results in sending code to the buffer."
     [str]
-    (code-chunk
+    (print-chunk
       (string "\n(do " str "\n) ")))
 
   (defn string-chunk

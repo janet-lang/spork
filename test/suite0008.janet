@@ -39,6 +39,25 @@
 (def expected "<html>hello world</html>")
 (test/assert (= expected (string out)) "Rendered temple string produces \"hello world\"")
 
+(def ctc
+  `{$ (import /spork/fmt) $}{{ (fmt/format (string "(def b " (args :a) " )")) }}`)
+
+(test/assert (deep= ((temple/compile ctc) :a "a > b")
+                    @"(def b a &gt; b)\n")
+             "compile time chunk")
+
+(test/assert (deep= ((temple/compile `{{ (args :a) }}`) :a "a > b")
+                    @"a &gt; b")
+             "sub chunk")
+
+(test/assert (deep= ((temple/compile `{% (print (args :a)) %}`) :a "a > b")
+                    @"a > b\n")
+             "code chunk")
+
+(test/assert (deep= ((temple/compile `{- (args :a) -}`) :a "a > b")
+                    @"a > b")
+             "raw chunk")
+
 (test/assert (deep= ((temple/compile `{. (args :a) " * 2 = " (args :b) .}`) :a 1 :b 2)
                     @"1 * 2 = 2")
              "concat chunk")
