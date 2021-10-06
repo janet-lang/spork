@@ -66,23 +66,23 @@
       (error (parser/error p)))
     true)
 
+  (defn print-chunk
+    "Insert print chunk into parser"
+    [str]
+    (code-chunk
+      (string "\n(prin " str "\n) ")) )
+
   (defn sub-chunk
     "Same as code-chunk, but results in sending code to the buffer."
     [str]
-    (code-chunk
-      (string "\n(prin (escape (do " str "\n))) ")))
+    (print-chunk
+      (string "\n(escape (do " str "\n)) ")))
 
   (defn raw-chunk
     "Same as code-chunk, but results in sending code to the buffer."
     [str]
     (code-chunk
-      (string "\n(prin (do " str "\n)) ")))
-
-  (defn concat-chunk
-    "Insert concat chunk into parser"
-    [str]
-    (code-chunk
-      (string "\n(prin " str "\n) ")) )
+      (string "\n(do " str "\n) ")))
 
   (defn string-chunk
     "Insert string chunk into parser"
@@ -97,10 +97,10 @@
       :compile-time-chunk (* "{$" (drop (cmt '(any (if-not "$}" 1)) ,compile-time-chunk)) "$}")
       :sub-chunk (* "{{" (drop (cmt '(any (if-not "}}" 1)) ,sub-chunk)) "}}")
       :raw-chunk (* "{-" (drop (cmt '(any (if-not "-}" 1)) ,raw-chunk)) "-}")
-      :contat-chunk (* "{." (drop (cmt '(any (if-not ".}" 1)) ,concat-chunk)) ".}")
+      :print-chunk (* "{." (drop (cmt '(any (if-not ".}" 1)) ,print-chunk)) ".}")
       :main-chunk (drop (cmt '(any (if-not (+ "{$" "{{" "{%" "{-") 1)) ,string-chunk))
       :main (any (+ :compile-time-chunk :raw-chunk :code-chunk :sub-chunk
-                    :contat-chunk :main-chunk (error "")))})
+                    :print-chunk :main-chunk (error "")))})
   (def did-match (peg/match grammar source))
 
   # Check errors in template and parser
