@@ -82,7 +82,7 @@
     "Insert concat chunk into parser"
     [str]
     (code-chunk
-      (string "\n(prin (string " str "\n)) ")) )
+      (string "\n(prin " str "\n) ")) )
 
   (defn string-chunk
     "Insert string chunk into parser"
