@@ -78,6 +78,12 @@
     (code-chunk
       (string "\n(prin (do " str "\n)) ")))
 
+  (defn concat-chunk
+    "Insert concat chunk into parser"
+    [str]
+    (code-chunk
+      (string "\n(prin (string " str "\n)) ")) )
+
   (defn string-chunk
     "Insert string chunk into parser"
     [str]
@@ -91,8 +97,10 @@
       :compile-time-chunk (* "{$" (drop (cmt '(any (if-not "$}" 1)) ,compile-time-chunk)) "$}")
       :sub-chunk (* "{{" (drop (cmt '(any (if-not "}}" 1)) ,sub-chunk)) "}}")
       :raw-chunk (* "{-" (drop (cmt '(any (if-not "-}" 1)) ,raw-chunk)) "-}")
+      :contat-chunk (* "{." (drop (cmt '(any (if-not ".}" 1)) ,concat-chunk)) ".}")
       :main-chunk (drop (cmt '(any (if-not (+ "{$" "{{" "{%" "{-") 1)) ,string-chunk))
-      :main (any (+ :compile-time-chunk :raw-chunk :code-chunk :sub-chunk :main-chunk (error "")))})
+      :main (any (+ :compile-time-chunk :raw-chunk :code-chunk :sub-chunk
+                    :contat-chunk :main-chunk (error "")))})
   (def did-match (peg/match grammar source))
 
   # Check errors in template and parser

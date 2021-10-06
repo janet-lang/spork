@@ -39,4 +39,8 @@
 (def expected "<html>hello world</html>")
 (test/assert (= expected (string out)) "Rendered temple string produces \"hello world\"")
 
+(test/assert (deep= ((temple/compile `{. (args :a) " * 2 = " (args :b) .}`) :a 1 :b 2)
+                    @"1 * 2 = 2")
+             "concat chunk")
+
 (test/end-suite)
