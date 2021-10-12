@@ -40,10 +40,10 @@
 (test/assert (= expected (string out)) "Rendered temple string produces \"hello world\"")
 
 (def ctc
-  `{$ (import /spork/fmt) $}{{ (fmt/format (string "(def b " (args :a) " )")) }}`)
+  `{$ (import /spork/fmt) $}{{ (fmt/format (string "(def c    " (args :a) " )")) }}`)
 
 (test/assert (deep= ((temple/compile ctc) :a "a > b")
-                    @"(def b a &gt; b)\n")
+                    @"(def c a &gt; b)\n")
              "compile time chunk")
 
 (test/assert (deep= ((temple/compile `{{ (args :a) }}`) :a "a > b")
