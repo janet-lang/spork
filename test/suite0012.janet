@@ -51,18 +51,21 @@
   {:status 200 :body (string (http/read-body req))})
 
 (with [server (http/server body-server "127.0.0.1" 9816)]
-  (test-http-item (http/request "POST" "http://127.0.0.1:9816"
-                                :body "Strong and healthy")
-                  nil nil 200 {"content-length" "18"}))
+  (def res (http/request "POST" "http://127.0.0.1:9816" :body "Strong and healthy"))
+  (test-http-item res nil nil 200 {"content-length" "18"})
+  (assert (= (length (res :body)) 18)
+          "actual body length"))
 
 (with [server (http/server body-server "127.0.0.1" 9816)]
-  (test-http-item (http/request "POST" "http://127.0.0.1:9816"
-                                :body (string/repeat "a" 2097152))
-                  nil nil 200 {"content-length" "2097152"}))
+  (def res (http/request "POST" "http://127.0.0.1:9816" :body (string/repeat "a" 2097152)))
+  (test-http-item res nil nil 200 {"content-length" "2097152"})
+  (assert (= (length (res :body)) 18)
+          "actual body length"))
 
 (with [server (http/server body-server "127.0.0.1" 9816)]
-  (test-http-item (http/request "POST" "http://127.0.0.1:9816"
-                                :body (string/repeat "a" 4194304))
-                  nil nil 200 {"content-length" "4194304"}))
+  (def res (http/request "POST" "http://127.0.0.1:9816" :body (string/repeat "a" 4194304)))
+  (test-http-item res nil nil 200 {"content-length" "4194304"})
+  (assert (= (length (res :body)) 18)
+          "actual body length"))
 
 (end-suite)
