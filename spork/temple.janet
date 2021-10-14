@@ -73,13 +73,13 @@
       (string "\n(prin " str "\n) ")) )
 
   (defn sub-chunk
-    "Same as code-chunk, but results in sending code to the buffer."
+    "Wrap string with escape and pass it to print-chunk."
     [str]
     (print-chunk
       (string "\n(escape (do " str "\n)) ")))
 
   (defn raw-chunk
-    "Same as code-chunk, but results in sending code to the buffer."
+    "Wrap string with do and pass it to print-chunk."
     [str]
     (print-chunk
       (string "\n(do " str "\n) ")))
