@@ -60,4 +60,9 @@
                                 :body (string/repeat "a" 2097152))
                   nil nil 200 {"content-length" "2097152"}))
 
+(with [server (http/server body-server "127.0.0.1" 9816)]
+  (test-http-item (http/request "POST" "http://127.0.0.1:9816"
+                                :body (string/repeat "a" 4194304))
+                  nil nil 200 {"content-length" "4194304"}))
+
 (end-suite)
