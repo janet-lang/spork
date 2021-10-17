@@ -179,10 +179,10 @@
           :connection conn
           :head-size head-size} req)
     (def content-length (scan-number cl))
-    (def remaining (- content-length (length buf)))
+    (def remaining (- content-length (- (length buf) head-size)))
     (when (pos? remaining)
       (ev/chunk conn remaining buf))
-    (put req :body buf)
+    (put req :body (buffer/slice buf head-size))
     (break buf))
 
   # TODO - Chunked encoding
@@ -298,6 +298,7 @@
 
     # Parse response pure janet
     (def res (read-response conn buf))
+    (read-body res)
     (when (= :error res) (error res))
 
     # TODO - handle redirects with Location header
