@@ -4,8 +4,7 @@
 ### Pure Janet HTTP/1.1 parser, client, and server.
 ###
 
-# Handle max read size bug.
-(def- chunk-size 4096)
+(def- chunk-size (* 16 4096))
 
 (defn- pre-pop
   "Remove n bytes from front of buffer"
@@ -127,7 +126,7 @@
   [conn buf]
   (read-header conn buf response-peg :status :message))
 
-(def http-status-messages
+(def status-messages
   "Mapping of HTTP status codes to their status message."
   {100 "Continue"
    101 "Switching Protocols"
@@ -252,12 +251,81 @@
   [conn response &opt buf]
   (default buf @"")
   (def status (get response :status 200))
-  (def message (in http-status-messages status))
+  (def message (in status-messages status))
   (buffer/format buf "HTTP/1.1 %d %s\r\n" status message)
   (def headers (get response :headers {}))
   (eachp [k v] headers
     (buffer/format buf "%s: %s\r\n" k v))
   (write-body conn buf (in response :body)))
+
+###
+### Server Middleware
+###
+
+(defn- bytes-to-mw
+  [b]
+  (fn mw [&] {:status 200 :body b}))
+
+(defn middleware
+  "Coerce any type to http middleware"
+  [x]
+  (case (type x)
+    :function x
+    :number (let [msg (get status-messages x)]
+              (assert x (string "unknown http status code when making middleware: " x))
+              (fn mw [&] {:status x :body msg}))
+    :string (bytes-to-mw x)
+    :buffer (bytes-to-mw x)
+    (fn mw [&] x)))
+
+(defn router
+  "Creates a router middleware. A router will dispatch to different routes based on
+  the URL path."
+  [routes]
+  (fn router-mw [req]
+    (def r (or
+             (get routes (get req :route))
+             (get routes :default)))
+    (if r ((middleware r) req) {:status 404 :body "Not Found"})))
+
+(defn logger
+  "Creates a logging middleware. The logger middleware prints URL route, return status, and elapsed request time."
+  [nextmw]
+  (fn logger-mw [req]
+    (def {:path path
+          :method method} req)
+    (def start-clock (os/clock))
+    (def ret (nextmw req))
+    (def end-clock (os/clock))
+    (def elapsed (string/format "%.3f" (* 1000 (- end-clock start-clock))))
+    (def status (or (get ret :status) 200))
+    (print method " " status " " path " elapsed " elapsed "ms")
+    ret))
+
+(def cookie-grammar
+  "Grammar to parse a cookie header to a series of keys and values."
+  (peg/compile
+    {:content '(some (if-not (set "=;") 1))
+     :eql "="
+     :sep '(between 1 2 (set "; "))
+     :main '(some (* (<- :content) :eql (<- :content) (? :sep)))}))
+
+(defn cookies
+  "Parses cookies into the table under :cookies key"
+  [nextmw]
+  (fn cookie-mw [req]
+    (-> req
+      (put :cookies
+           (or (-?>> [:headers "cookie"]
+                   (get-in req)
+                   (peg/match cookie-grammar)
+                   (apply table))
+               {}))
+     nextmw)))
+
+###
+### Server boilerplate
+###
 
 (defn server-handler
   "A simple connection handler for an HTTP server.
@@ -272,6 +340,7 @@
   * `:path` - HTTP path.
   * `:method` - HTTP method, as a string."
   [conn handler]
+  (def handler (middleware handler))
   (defer (ev/close conn)
 
     # Get request header
@@ -354,60 +423,4 @@
 
     # TODO - handle redirects with Location header
     res))
-
-###
-### Server Middleware
-###
-
-(defn middleware
-  "Coerce any type to http middleware"
-  [x]
-  (case (type x)
-    :function x
-    (fn mw [&] x)))
-
-(defn router
-  "Creates a router middleware. A router will dispatch to different routes based on
-  the URL path."
-  [routes]
-  (fn router-mw [req] 
-    (def r (or
-             (get routes (get req :route))
-             (get routes :default)))
-    (if r ((middleware r) req) {:status 404 :body "Not Found"})))
-
-(defn logger
-  "Creates a logging middleware. The logger middleware prints URL route, return status, and elapsed request time."
-  [nextmw]
-  (fn logger-mw [req]
-    (def {:path path
-          :method method} req)
-    (def start-clock (os/clock))
-    (def ret (nextmw req))
-    (def end-clock (os/clock))
-    (def elapsed (string/format "%.3f" (* 1000 (- end-clock start-clock))))
-    (def status (or (get ret :status) 200))
-    (print method " " status " " path " elapsed " elapsed "ms")
-    ret))
-
-(def cookie-grammar 
-  "Grammar to parse a cookie header to a series of keys and values."
-  (peg/compile 
-    {:content '(some (if-not (set "=;") 1))
-     :eql "=" 
-     :sep '(between 1 2 (set "; "))
-     :main '(some (* (<- :content) :eql (<- :content) (? :sep)))}))
-
-(defn cookies
-  "Parses cookies into the table under :cookies key"
-  [nextmw]
-  (fn cookie-mw [req]
-    (-> req
-      (put :cookies
-           (or (-?>> [:headers "cookie"] 
-                   (get-in req) 
-                   (peg/match cookie-grammar) 
-                   (apply table))
-               {}))
-     nextmw)))
 
