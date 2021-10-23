@@ -67,6 +67,18 @@
     (ev/read conn chunk-size buf))
   head)
 
+(def query-string-grammar
+  "Grammar that parses a query string (sans url path and ? character) and returns a table.
+  Only supports 1 value per key."
+  (peg/compile
+    ~{:qchar (+ (* "%" (/ (number (* :h :h) 16) ,string/from-bytes)) (* "+" (constant " ")))
+      :kchar (+ :qchar (* (not (set "&=;")) '1))
+      :vchar (+ :qchar (* (not (set "&;")) '1))
+      :key (accumulate (some :kchar))
+      :value (accumulate (some :vchar))
+      :entry (* :key (+ (* "=" :value) (constant true)) (+ (set ";&") -1))
+      :main (/ (any :entry) ,table)}))
+
 (defn read-request
   "Read an HTTP request header from a connection. Returns a table with the following keys:
   * `:headers` - table mapping header names to header values. Header names are lowercase.
@@ -76,10 +88,30 @@
   * `:method` - the HTTP method used.
   * `:path` - the path of the resource requested.
 
+  The following keys are also present, but omitted if the user passes a truthy parameter to `no-query`.
+  * `:route` - path of the resource requested without query string.
+  * `:query-string` - segment of HTTP path after first ? character.
+  * `:query` - the query string parsed into a table. Supports a single string value
+     for every string key, and any query parameters that aren't given a value are mapped to true.
+
   Note that data is read in chunks and any data after the header terminator is
   stored in `:buffer.`"
-  [conn buf]
-  (read-header conn buf request-peg :method :path))
+  [conn buf &opt no-query]
+  (def head (read-header conn buf request-peg :method :path))
+
+  # Parse query string separately
+  (unless no-query
+    (def fullpath (get head :path))
+    (def qloc (string/find "?" fullpath))
+    (def path (if qloc (string/slice fullpath 0 qloc) fullpath))
+    (def qs (if qloc (string/slice fullpath qloc) nil))
+    (put head :route path)
+    (put head :query-string qs)
+    (when qs
+      (when-let [m (peg/match query-string-grammar qs)]
+        (put head :query (first m)))))
+
+  head)
 
 (defn read-response
   "Read an HTTP response header from a connection. Returns a table with the following keys:
@@ -334,35 +366,13 @@
     :function x
     (fn mw [&] x)))
 
-(def query-string-grammar
-  "Grammar that parses a query string (sans url path and ? character) and returns a table.
-  Only supports 1 value per key."
-  (peg/compile
-    ~{:qchar (+ (* "%" (/ (number (* :h :h) 16) ,string/from-bytes)) (* "+" (constant " ")))
-      :kchar (+ :qchar (* (not (set "&=;")) '1))
-      :vchar (+ :qchar (* (not (set "&;")) '1))
-      :key (accumulate (some :kchar))
-      :value (accumulate (some :vchar))
-      :entry (* :key (+ (* "=" :value) (constant true)) (+ (set ";&") -1))
-      :main (/ (any :entry) ,table)}))
-
 (defn router
   "Creates a router middleware. A router will dispatch to different routes based on
-  the URL path. Will also put the query string into the :query-string key on the request table,
-  and the parsed query parameters into the :query key."
+  the URL path."
   [routes]
   (fn router-mw [req] 
-    (def fullpath (get req :path))
-    (def qloc (string/find "?" fullpath))
-    (def path (if qloc (string/slice fullpath 0 qloc) fullpath))
-    (def qs (if qloc (string/slice fullpath qloc) nil))
-    (put req :route path)
-    (put req :query-string qs)
-    (when qs
-      (when-let [m (peg/match query-string-grammar qs)]
-        (put req :query (first m))))
     (def r (or
-             (get routes path)
+             (get routes (get req :route))
              (get routes :default)))
     (if r ((middleware r) req) {:status 404 :body "Not Found"})))
 
