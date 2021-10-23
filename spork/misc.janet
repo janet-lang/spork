@@ -41,3 +41,52 @@
   (loop [[i t] :pairs tgts]
     (array/push code (tuple 'set t (in syms i))))
   (tuple ;code))
+
+(defn print-table
+  "Iterate through the rows of a data structure and print a table in a human readable way,
+  with padding and heading information. Can optionally provide a function use to print a row, as well
+  as optionally select column keys for each row. Lastly, a `header-mapping` dictionary can be provided
+  that changes the printed header names my mapping column keys to the desired header name. If no mapping is
+  found, then the column key will be used as the header name. Returns nil."
+  [data &opt columns header-mapping]
+  (var colkeys columns)
+  (def column-widths @{})
+  (def processed @[])
+  (default header-mapping {})
+
+  # Preprocess rows
+  (each row data
+    (unless colkeys
+      (set colkeys (sorted (keys row))))
+    (def newrow @[])
+    (each key colkeys
+      (def item (string (in row key)))
+      (set (column-widths key) (max (length item) (get column-widths key 0)))
+      (array/push newrow item))
+    (array/push processed newrow))
+
+  # Apply width of header names
+  (each key colkeys
+    (def header (get header-mapping key key))
+    (set (column-widths key) (max (length header) (get column-widths key 0))))
+
+  # Generate format string
+  (var bar-width 0)
+  (def fbuf @"")
+  (each key colkeys
+    (def width (+ 2 (get column-widths key 6)))
+    (+= bar-width width)
+    (buffer/push fbuf "%" (string width) "s"))
+  (def format-string (string fbuf))
+
+  # Print header
+  (each key colkeys
+    (def header (get header-mapping key key))
+    (def str (string header (string/repeat " " (- (column-widths key) (length header) -2))))
+    (prin str))
+  (print)
+  (print (string/repeat "═" bar-width))
+
+  # Finally body
+  (each row processed
+    (printf format-string ;row)))
