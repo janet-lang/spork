@@ -1,5 +1,7 @@
 # Spork
 
+[![test](https://github.com/janet-lang/spork/actions/workflows/test.yml/badge.svg)](https://github.com/janet-lang/spork/actions/workflows/test.yml)
+
 Various Janet utility modules. Spork aims to be grab bag of useful Janet functionality that
 does not belong in the core library.
 
