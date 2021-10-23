@@ -30,11 +30,11 @@
   (def x (parser nil payload))
   (test-http-item x expected-method expected-path expected-status expected-headers))
 
-(test-http-parse http/read-request "GET / HTTP/1.0\r\n\r\n" "GET" "/" nil {})
-(test-http-parse http/read-request "GET /abc.janet HTTP/1.0\r\n\r\n" "GET" "/abc.janet" nil {})
-(test-http-parse http/read-request "GET /abc.janet HTTP/1.0\r\na:b\r\n\r\n" "GET" "/abc.janet" nil {"a" "b"})
-(test-http-parse http/read-request "POST /abc.janet HTTP/1.0\r\na:b\r\n\r\nextraextra" "POST" "/abc.janet" nil {"a" "b"})
-(test-http-parse http/read-response "HTTP/1.0 200 OK\r\na:b\r\n\r\nextraextra" nil nil 200 {"a" "b"})
+(test-http-parse http/read-request @"GET / HTTP/1.0\r\n\r\n" "GET" "/" nil {})
+(test-http-parse http/read-request @"GET /abc.janet HTTP/1.0\r\n\r\n" "GET" "/abc.janet" nil {})
+(test-http-parse http/read-request @"GET /abc.janet HTTP/1.0\r\na:b\r\n\r\n" "GET" "/abc.janet" nil {"a" "b"})
+(test-http-parse http/read-request @"POST /abc.janet HTTP/1.0\r\na:b\r\n\r\nextraextra" "POST" "/abc.janet" nil {"a" "b"})
+(test-http-parse http/read-response @"HTTP/1.0 200 OK\r\na:b\r\n\r\nextraextra" nil nil 200 {"a" "b"})
 
 (defn simple-server
   [req]
@@ -52,20 +52,14 @@
 
 (with [server (http/server body-server "127.0.0.1" 9816)]
   (def res (http/request "POST" "http://127.0.0.1:9816" :body "Strong and healthy"))
-  (test-http-item res nil nil 200 {"content-length" "18"})
-  (assert (= (length (res :body)) 18)
-          "actual body length"))
+  (test-http-item res nil nil 200 {"content-length" "18"}))
 
 (with [server (http/server body-server "127.0.0.1" 9816)]
   (def res (http/request "POST" "http://127.0.0.1:9816" :body (string/repeat "a" 2097152)))
-  (test-http-item res nil nil 200 {"content-length" "2097152"})
-  (assert (= (length (res :body)) 18)
-          "actual body length"))
+  (test-http-item res nil nil 200 {"content-length" "2097152"}))
 
 (with [server (http/server body-server "127.0.0.1" 9816)]
   (def res (http/request "POST" "http://127.0.0.1:9816" :body (string/repeat "a" 4194304)))
-  (test-http-item res nil nil 200 {"content-length" "4194304"})
-  (assert (= (length (res :body)) 18)
-          "actual body length"))
+  (test-http-item res nil nil 200 {"content-length" "4194304"}))
 
 (end-suite)

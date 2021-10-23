@@ -44,9 +44,8 @@
                        {:main ~(* :response-status :headers)}
                        http-grammar))))
 
-(defn read-http-peg
-  "Read from a stream until the HTTP header terminator, and
-  then parse the buffer with a peg."
+(defn- read-header
+  "Read an HTTP header from a stream."
   [conn buf peg key1 key2]
   (var head nil)
   (var last-index 0)
@@ -58,7 +57,7 @@
                    headers (table ;(array/remove matches 0 2))]
                @{:headers headers
                  :connection conn
-                 :buffer buf
+                 :buffer (pre-pop buf (+ 4 end))
                  :head-size (+ 4 end)
                  key1 a
                  key2 b})
@@ -69,14 +68,32 @@
   head)
 
 (defn read-request
-  "Read an HTTP request header from a connection"
+  "Read an HTTP request header from a connection. Returns a table with the following keys:
+  * `:headers` - table mapping header names to header values. Header names are lowercase.
+  * `:connection` - the connection stream for the header.
+  * `:buffer` - the buffer instance that may contain extra bytes.
+  * `:head-size` - the number of bytes used by the header.
+  * `:method` - the HTTP method used.
+  * `:path` - the path of the resource requested.
+
+  Note that data is read in chunks and any data after the header terminator is
+  stored in `:buffer.`"
   [conn buf]
-  (read-http-peg conn buf request-peg :method :path))
+  (read-header conn buf request-peg :method :path))
 
 (defn read-response
-  "Read an HTTP response header from a connection"
+  "Read an HTTP response header from a connection. Returns a table with the following keys:
+  * `:headers` - table mapping header names to header values. Header names are lowercase.
+  * `:connection` - the connection stream for the header.
+  * `:buffer` - the buffer instance that may contain extra bytes.
+  * `:head-size` - the number of bytes used by the header.
+  * `:status` - the HTTP status code.
+  * `:message` - the HTTP status message.
+
+  Note that data is read in chunks and any data after the header terminator is
+  stored in `:buffer.`"
   [conn buf]
-  (read-http-peg conn buf response-peg :status :message))
+  (read-header conn buf response-peg :status :message))
 
 (def http-status-messages
   "Mapping of HTTP status codes to their status message."
@@ -179,10 +196,10 @@
           :connection conn
           :head-size head-size} req)
     (def content-length (scan-number cl))
-    (def remaining (- content-length (- (length buf) head-size)))
+    (def remaining (- content-length (length buf)))
     (when (pos? remaining)
       (ev/chunk conn remaining buf))
-    (put req :body (buffer/slice buf head-size))
+    (put req :body buf)
     (break buf))
 
   # TODO - Chunked encoding
@@ -236,7 +253,6 @@
 
     # Add some extra keys to the request
     (put req :connection conn)
-    (pre-pop buf (in req :head-size))
 
     # Do something with request header
     (def response (handler req))
@@ -298,8 +314,8 @@
 
     # Parse response pure janet
     (def res (read-response conn buf))
-    (read-body res)
     (when (= :error res) (error res))
+    (read-body res)
 
     # TODO - handle redirects with Location header
     res))
