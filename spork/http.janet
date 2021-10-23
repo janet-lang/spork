@@ -284,7 +284,10 @@
     :path-chr (range "az" "AZ" "09" "!!" "$9" ":;" "==" "?@" "~~" "__")
     :path (+ '(some :path-chr) (constant "/"))})
 
-(def- url-peg (peg/compile url-peg-source))
+(def url-grammar
+  "Grammar to parse a URL into domain, port, and path triplet. Only supports
+  the http:// protocol."
+  (peg/compile url-peg-source))
 
 (defn request
   "Make an HTTP request to a server.
@@ -299,7 +302,7 @@
   [method url &keys
    {:body body
     :headers headers}]
-  (def x (peg/match url-peg url))
+  (def x (peg/match url-grammar url))
   (assert x (string "invalid url: " url))
   (def [host port path] x)
   (def buf @"")
@@ -319,3 +322,82 @@
 
     # TODO - handle redirects with Location header
     res))
+
+###
+### Server Middleware
+###
+
+(defn middleware
+  "Coerce any type to http middleware"
+  [x]
+  (case (type x)
+    :function x
+    (fn mw [&] x)))
+
+(def query-string-grammar
+  "Grammar that parses a query string (sans url path and ? character) and returns a table.
+  Only supports 1 value per key."
+  (peg/compile
+    ~{:qchar (+ (* "%" (/ (number (* :h :h) 16) ,string/from-bytes)) (* "+" (constant " ")))
+      :kchar (+ :qchar (* (not (set "&=;")) '1))
+      :vchar (+ :qchar (* (not (set "&;")) '1))
+      :key (accumulate (some :kchar))
+      :value (accumulate (some :vchar))
+      :entry (* :key (+ (* "=" :value) (constant true)) (+ (set ";&") -1))
+      :main (/ (any :entry) ,table)}))
+
+(defn router
+  "Creates a router middleware. A router will dispatch to different routes based on
+  the URL path. Will also put the query string into the :query-string key on the request table,
+  and the parsed query parameters into the :query key."
+  [routes]
+  (fn router-mw [req] 
+    (def fullpath (get req :path))
+    (def qloc (string/find "?" fullpath))
+    (def path (if qloc (string/slice fullpath 0 qloc) fullpath))
+    (def qs (if qloc (string/slice fullpath qloc) nil))
+    (put req :route path)
+    (put req :query-string qs)
+    (when qs
+      (when-let [m (peg/match query-string-grammar qs)]
+        (put req :query (first m))))
+    (def r (or
+             (get routes path)
+             (get routes :default)))
+    (if r ((middleware r) req) {:status 404 :body "Not Found"})))
+
+(defn logger
+  "Creates a logging middleware. The logger middleware prints URL route, return status, and elapsed request time."
+  [nextmw]
+  (fn logger-mw [req]
+    (def {:path path
+          :method method} req)
+    (def start-clock (os/clock))
+    (def ret (nextmw req))
+    (def end-clock (os/clock))
+    (def elapsed (string/format "%.3f" (* 1000 (- end-clock start-clock))))
+    (def status (or (get ret :status) 200))
+    (print method " " status " " path " elapsed " elapsed "ms")
+    ret))
+
+(def cookie-grammar 
+  "Grammar to parse a cookie header to a series of keys and values."
+  (peg/compile 
+    {:content '(some (if-not (set "=;") 1))
+     :eql "=" 
+     :sep '(between 1 2 (set "; "))
+     :main '(some (* (<- :content) :eql (<- :content) (? :sep)))}))
+
+(defn cookies
+  "Parses cookies into the table under :cookies key"
+  [nextmw]
+  (fn cookie-mw [req]
+    (-> req
+      (put :cookies
+           (or (-?>> [:headers "cookie"] 
+                   (get-in req) 
+                   (peg/match cookie-grammar) 
+                   (apply table))
+               {}))
+     nextmw)))
+

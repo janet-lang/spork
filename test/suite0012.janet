@@ -62,4 +62,11 @@
   (def res (http/request "POST" "http://127.0.0.1:9816" :body (string/repeat "a" 4194304)))
   (test-http-item res nil nil 200 {"content-length" "4194304"}))
 
+# Test the query string grammar by itself.
+(assert (deep= @[@{"a" " "}] (peg/match http/query-string-grammar "a=%20")) "query string grammar 1")
+(assert (deep= @[@{"a" " " "b" true}] (peg/match http/query-string-grammar "a=%20&b")) "query string grammar 2")
+(assert (deep= @[@{"a" " " "b" true}] (peg/match http/query-string-grammar "a=%20;b")) "query string grammar 3")
+(assert (deep= @[@{"a" " " "b" "once upon a time"}] (peg/match http/query-string-grammar "a=%20&b=once+upon+a+time")) "query string grammar 4")
+(assert (deep= @[@{"a" " " "bedtime story" "once upon a time"}] (peg/match http/query-string-grammar "a=%20&bedtime+story=once+upon+a+time")) "query string grammar 4")
+
 (end-suite)
