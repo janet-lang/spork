@@ -16,21 +16,20 @@
   "Indent a string by a number of spaces at the start. If a maximum width is
   provided, wrap and indent lines by the hanging padding."
   [str startp &opt hangp maxw]
-  (if (nil? maxw)
-    (string (string/repeat " " startp) str)
-    (do
-      (def res (buffer (string/repeat " " (dec startp))))
-      (def words (->> (string/split " " str) (filter |(not (empty? $)))))
-      (var currw hangp)
-      (each word words
-        (if (< (+ currw 1 (length word)) maxw)
-          (do
-            (buffer/push res " " word)
-            (+= currw (+ 1 (length word))))
-          (do
-            (buffer/push res "\n" (string/repeat " " hangp) word)
-            (set currw (+ hangp (length word))))))
-      res)))
+  (default hangp startp)
+  (default maxw math/inf)
+  (def res (buffer (string/repeat " " (dec startp))))
+  (def words (->> (string/split " " str) (filter |(not (empty? $)))))
+  (var currw hangp)
+  (each word words
+    (if (< (+ currw 1 (length word)) maxw)
+      (do
+        (buffer/push res " " word)
+        (+= currw (+ 1 (length word))))
+      (do
+        (buffer/push res "\n" (string/repeat " " hangp) word)
+        (set currw (+ hangp (length word))))))
+  res)
 
 (defn argparse
   ```
