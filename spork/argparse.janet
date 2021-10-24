@@ -7,7 +7,7 @@
 (defn- get-cols
   "Get the columns in the terminal."
   []
-  (def p (os/spawn ["tput" "cols"] :px {:out :pipe}))
+  (def p (os/spawn ["tput" "cols"] :p {:out :pipe :err :pipe}))
   (def err (:wait p))
   (when (zero? err)
     (-> (p :out) (:read :all) string/trim scan-number)))
