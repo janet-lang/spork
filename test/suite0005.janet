@@ -82,4 +82,21 @@
   (assert (= ["echo" "-n" "ok"] (tuple ;cmd-args))
           "unnamed arguments after `--` were not parsed correctly."))
 
+(with-dyns [:args @["testcase.janet" "wrong"]]
+  (def res (capture-stdout (argparse/argparse "A simple CLI tool"
+                                              "length" {:kind :option
+                                                        :help `This is help text written
+                                                               as a longstring.`})))
+  (def usage-msg
+    `usage error: could not handle option wrong
+    usage: testcase.janet [option] ... 
+
+    A simple CLI tool
+
+     Optional:
+     -h, --help            Show this help message.
+         --length VALUE    This is help text written as a longstring.`)
+  (assert (= usage-msg (string/trim (last res)))
+          "Usage message not printed correctly."))
+
 (end-suite)

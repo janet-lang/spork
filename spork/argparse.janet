@@ -4,13 +4,33 @@
 ###
 ### Copyright 2021 © Calvin Rose
 
-(defn- pad-right
-  "Pad a string on the right with some spaces."
-  [str n]
-  (def len (length str))
-  (if (>= len n)
-    str
-    (string str (string/repeat " " (- n len)))))
+(defn- get-cols
+  "Get the columns in the terminal."
+  []
+  (def p (os/spawn ["tput" "cols"] :px {:out :pipe}))
+  (def err (:wait p))
+  (when (zero? err)
+    (-> (p :out) (:read :all) string/trim scan-number)))
+
+(defn- indent-str
+  "Indent a string by a number of spaces at the start. If a maximum width is
+  provided, wrap and indent lines by the hanging padding."
+  [str startp &opt hangp maxw]
+  (if (nil? maxw)
+    (string (string/repeat " " startp) str)
+    (do
+      (def res (buffer (string/repeat " " (dec startp))))
+      (def words (->> (string/split " " str) (filter |(not (empty? $)))))
+      (var currw hangp)
+      (each word words
+        (if (< (+ currw 1 (length word)) maxw)
+          (do
+            (buffer/push res " " word)
+            (+= currw (+ 1 (length word))))
+          (do
+            (buffer/push res "\n" (string/repeat " " hangp) word)
+            (set currw (+ hangp (length word))))))
+      res)))
 
 (defn argparse
   ```
@@ -81,9 +101,10 @@
     (set scanning false)
     (unless (empty? msg)
       (print "usage error: " ;msg))
+    (def cols (get-cols))
     (def flags @"")
-    (def opdoc @"")
-    (def reqdoc @"")
+    (def fragments @{:req @[] :op @[]})
+    (def padding @{:req 0 :op 0})
     (loop [[name handler] :in (sort (pairs options))]
       (def short (handler :short))
       (when short (buffer/push-string flags short))
@@ -99,23 +120,25 @@
                    ["=" d]
                    [])]
                [])))
-        (def usage-fragment
-          (string
-            (pad-right (string usage-prefix " ") 45)
-            (if-let [h (handler :help)] h "")
-            "\n"))
-        (buffer/push-string (if (handler :required) reqdoc opdoc)
-                            usage-fragment)))
+        (def usage-help (or (string/replace-all "\n" " " (handler :help)) ""))
+        (def handler-k (if (handler :required) :req :op))
+        (array/push (fragments handler-k) [usage-prefix usage-help])
+        (put padding handler-k (max (+ 4 (length usage-prefix)) (padding handler-k)))))
     (print "usage: " (get args 0) " [option] ... ")
     (print)
     (print description)
-    (print)
-    (unless (empty? reqdoc)
+    (unless (empty? (fragments :req))
+      (print)
       (print " Required:")
-      (print reqdoc))
-    (unless (empty? opdoc)
+      (each [prefix help] (fragments :req)
+        (def startp (- (padding :req) (length prefix)))
+        (print prefix (indent-str help startp (padding :req) (when cols (- cols 6))))))
+    (unless (empty? (fragments :op))
+      (print)
       (print " Optional:")
-      (print opdoc)))
+      (each [prefix help] (fragments :op)
+        (def startp (- (padding :op) (length prefix)))
+        (print prefix (indent-str help startp (padding :op) (when cols (- cols 6)))))))
 
   # Handle an option
   (defn handle-option
