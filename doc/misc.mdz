@@ -37,7 +37,8 @@ x => @[3 5]
 
 ## `print-table`
 
-Given a table or struct, print it to stdout in a human-readable tabular
+Given a list of tables containing column keys with corresponding row
+values, print its content to stdout in a human-readable tabular
 layout. For example:
 
 @codeblock[janet]```
