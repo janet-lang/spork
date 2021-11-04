@@ -14,7 +14,7 @@ many clients, servers, and connections at once.
 @codeblock[janet]```
 (import spork/http)
 
-(def handler
+(defn handler
  [req]
  (def method (get req :method))
  (case method
