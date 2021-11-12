@@ -33,14 +33,14 @@
 (defmacro assert-error
   "Test passes if forms error."
   [msg & forms]
-  (def errsym (keyword (gensym)))
-  ~(,assert (= ,errsym (try (do ,;forms) ([_] ,errsym))) ,msg))
+  (def errsym (gensym))
+  ~(,assert (= ',errsym (try (do ,;forms) ([_] ',errsym))) ,msg))
 
 (defmacro assert-no-error
   "Test passes if forms do not error."
   [msg & forms]
-  (def errsym (keyword (gensym)))
-  ~(,assert (not= ,errsym (try (do ,;forms) ([_] ,errsym))) ,msg))
+  (def errsym (gensym))
+  ~(,assert (not= ',errsym (try (do ,;forms) ([_] ',errsym))) ,msg))
 
 (defn start-suite [x]
   "Starts test suite."
