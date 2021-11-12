@@ -105,10 +105,10 @@
       (let [rest (slice pattern 1)
             ps (partition 2 rest)]
         (assert (even? (length rest)) "expected key-values, got odd number of elements")
-        ~(each [k v] ps
-           ,breaker
-           (def tester (gensym))
-           ~(do (def ,tester (,get ,x ,k)) ,(compile-schema tester v))))
+        ~(do
+           ,;(seq [[k v] :in ps]
+               (def tester (gensym))
+               ~(do ,breaker (def ,tester (,get ,x ,k)) ,(compile-schema tester could-match v)))))
 
       # Assert length
       [(a (= a 'length)) minl maxl]

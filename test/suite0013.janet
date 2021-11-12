@@ -23,4 +23,13 @@
 (assert-no-error "validator v1 2" (v1 math/nan))
 (assert-error "validator v1 3" (v1 :hello))
 
+(def v2
+  (schema/validator
+    (props
+      :a :number
+      :b :number
+      :c (or :string nil))))
+(assert-no-error "validator v2 1" (v2 {:a 1 :b 2}))
+(assert-no-error "validator v2 2" (v2 {:a 1 :b 2 :c "hello"}))
+
 (end-suite)
