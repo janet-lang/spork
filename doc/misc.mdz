@@ -34,3 +34,29 @@ hand sides are computed before setting the left hand sides.)
 (misc/set* [[x 0] [x 1]] [(in x 1) (+ (in x 0) (in x 1))])
 x => @[3 5]
 ```
+
+## `print-table`
+
+Given a list of tables containing column keys with corresponding row
+values, print its content to stdout in a human-readable tabular
+layout. For example:
+
+@codeblock[janet]```
+(misc/print-table [
+  {:x "abc" :y "123"}
+  {:x "hello" :y "world"}
+  {:x "banana" :y "orange"}
+  {:x "cat" :y "dog"}])
+  
+```
+
+produces:
+
+@codeblock```
+x       y       
+════════════════
+     abc     123
+   hello   world
+  banana  orange
+     cat     dog
+```
