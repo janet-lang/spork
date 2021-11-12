@@ -178,6 +178,6 @@
 
 (defn make-predicate
   "Generate a function that can be used to validate a data structure. This is the function
-  form of `checker`."
+  form of `predicate`."
   [schema]
   (compile (apply predicate [schema])))
