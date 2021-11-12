@@ -24,13 +24,13 @@
 ###    - (values schema) - Matches only if schema matches all values in a data structure.
 ###    - (keys schema) - Matches only if schema matches all keys in a data structure.
 ###    - (props & k v) - Takes a sequence of keys and values (alternating in order). Only matches
-###      the data if, for that key, the corresponding schema `v` matches.
+###      the data if, for a key, the corresponding schema `v` matches.
 ###    - (length l) - Only match if the data has a length of l. Uses of the length combinator should assert
 ###      the data type before do a length check.
 ###    - (length min max) - Only match lengths between min and max inclusive
 ###    - (peg pattern) - Matches only if the peg matches
-###    - (not pattern) - Only matches in pattern does not match
-###    - (pred predicate) - Use a predicate function (function of argument) to check if the data is valid.
+###    - (not pattern) - Only matches if pattern does not match
+###    - (pred predicate) - Use a predicate function (function of 1 argument) to check if the data is valid.
 ###  - anything else - match that value literally
 ###
 
