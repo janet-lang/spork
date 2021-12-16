@@ -10,5 +10,6 @@
 (import ./path :export true)
 (import ./regex :export true)
 (import ./rpc :export true)
+(import ./schema :export true)
 (import ./temple :export true)
 (import ./test :export true)
