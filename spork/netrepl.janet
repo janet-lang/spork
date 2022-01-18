@@ -77,7 +77,7 @@
     (put nextenv :debug-level level)
     (put nextenv :signal x)
     (merge-into nextenv debugger-env)
-    (debug/stacktrace f x)
+    (debug/stacktrace f x "")
     (eflush)
     (defn debugger-chunks [buf p]
       (def status (parser/state p :delimiters))
@@ -95,7 +95,7 @@
       (do (put e '_ @{:value x}) (pp x))
       (if (e :debug)
         (enter-debugger f x)
-        (do (debug/stacktrace f x) (eflush))))))
+        (do (debug/stacktrace f x "") (eflush))))))
 
 (defn server
   "Start a repl server. The default host is \"127.0.0.1\" and the default port
