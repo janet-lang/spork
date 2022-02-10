@@ -62,6 +62,24 @@
   (def res (http/request "POST" "http://127.0.0.1:9816" :body (string/repeat "a" 4194304)))
   (test-http-item res nil nil 200 {"content-length" "4194304"}))
 
+(defn- chunk
+  [data]
+  (string/format "%x\r\n%s\r\n" (length data) data))
+(let [[r w] (os/pipe)]
+  (defer (:close r)
+    (http/send-response w {:status 200
+                           :body ["a" (string/repeat "a" 16) (string/repeat "a" 256)]})
+    (:close w)
+    (assert
+      (deep= (:read r :all)
+        (buffer
+          "HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n"
+          (chunk "a")
+          (chunk (string/repeat "a" 16))
+          (chunk (string/repeat "a" 256))
+          (chunk "")))
+      "chunked encoding for write-body")))
+
 # Test the query string grammar by itself.
 (assert (deep= @[@{"a" " "}] (peg/match http/query-string-grammar "a=%20")) "query string grammar 1")
 (assert (deep= @[@{"a" " " "b" true}] (peg/match http/query-string-grammar "a=%20&b")) "query string grammar 2")

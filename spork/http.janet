@@ -207,7 +207,7 @@
     (do
       (buffer/format buf "Transfer-Encoding: chunked\r\n\r\n")
       (each chunk body
-        (buffer/format buf "%d\r\n%s\r\n" (length chunk) chunk)
+        (buffer/format buf "%x\r\n%s\r\n" (length chunk) chunk)
         (ev/write conn buf)
         (buffer/clear buf))
       (buffer/format buf "0\r\n\r\n")
