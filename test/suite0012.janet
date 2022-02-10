@@ -65,20 +65,64 @@
 (defn- chunk
   [data]
   (string/format "%x\r\n%s\r\n" (length data) data))
-(let [[r w] (os/pipe)]
-  (defer (:close r)
-    (http/send-response w {:status 200
-                           :body ["a" (string/repeat "a" 16) (string/repeat "a" 256)]})
-    (:close w)
-    (assert
-      (deep= (:read r :all)
-        (buffer
-          "HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n"
-          (chunk "a")
-          (chunk (string/repeat "a" 16))
-          (chunk (string/repeat "a" 256))
-          (chunk "")))
-      "chunked encoding for write-body")))
+(defn- close-both
+  [[r w]]
+  (:close r)
+  (:close w))
+(with [[r w] (os/pipe) close-both]
+  (http/send-response w {:status 200
+                         :body ["a" (string/repeat "a" 16) (string/repeat "a" 256)]})
+  (:close w)
+  (assert
+    (deep= (:read r :all)
+      (buffer
+        "HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n"
+        (chunk "a")
+        (chunk (string/repeat "a" 16))
+        (chunk (string/repeat "a" 256))
+        (chunk "")))
+    "write-body: chunked encoding"))
+
+(with [[r w] (os/pipe) close-both]
+  (each len [1 16 256]
+    (:write w (chunk (string/repeat "a" len))))
+  (:write w "0\r\n\r\n")
+  (:close w)
+  (assert
+    (deep= (buffer (string/repeat "a" (+ 1 16 256)))
+      (http/read-body @{:buffer (buffer/new 0)
+                        :connection r
+                        :headers {"transfer-encoding" "chunked"}}))
+    "read-body: chunked encoding, basic"))
+
+# Chunked encoding across packet boundaries: unusual but not impossible.
+(with [[r w] (os/pipe) close-both]
+  (def init @"4\r\nabcd\r\n")
+  (:write w @"4\r\nabcd\r\n0\r\n\r\n")
+  (:close w)
+  (assert
+    (deep= @"abcdabcd" (http/read-body @{:buffer init
+                                         :connection r
+                                         :headers {"transfer-encoding" "chunked"}}))
+    "read-body: chunked encoding, full chunk in first packet"))
+(with [[r w] (os/pipe) close-both]
+  (def init @"4\r\nab")
+  (:write w @"cd\r\n0\r\n\r\n")
+  (:close w)
+  (assert
+    (deep= @"abcd" (http/read-body @{:buffer init
+                                     :connection r
+                                     :headers {"transfer-encoding" "chunked"}}))
+    "read-body: chunked encoding, partial chunk in first packet"))
+(with [[r w] (os/pipe) close-both]
+  (def init @"4\r\nabcd\r\n4\r\nabcd\r\n4\r\nab")
+  (:write w @"cd\r\n0\r\n\r\n")
+  (:close w)
+  (assert
+    (deep= @"abcdabcdabcd" (http/read-body @{:buffer init
+                                             :connection r
+                                             :headers {"transfer-encoding" "chunked"}}))
+    "read-body: chunked encoding, full chunks + partial chunk in first packet"))
 
 # Test the query string grammar by itself.
 (assert (deep= @[@{"a" " "}] (peg/match http/query-string-grammar "a=%20")) "query string grammar 1")

@@ -214,6 +214,21 @@
       (ev/write conn buf)))
   (buffer/clear buf))
 
+(defn- read-until
+  "Read single bytes from connection into buffer until the provided byte
+  sequence is found within it. The buffer need not be empty. Returns the number
+  of bytes from the start of the buffer until the substring."
+  [conn buf needle &opt start-index]
+  (default start-index 0)
+  (when-let [pos (peg/find needle buf start-index)]
+    (break pos))
+  (prompt :exit
+    (forever
+      (ev/read conn 1 buf)
+      (when-let [pos (peg/find needle buf start-index)]
+        (return :exit pos)))))
+
+
 (defn read-body
   "Given a request, read the HTTP body from the connection. Returns the body as a buffer.
   If the request has no body, returns nil."
@@ -233,7 +248,43 @@
     (put req :body buf)
     (break buf))
 
-  # TODO - Chunked encoding
+  # Chunked encoding
+  # TODO: The specification can have multiple transfer encodings so this
+  # precise string matching may not work for every case.
+  (when (= (in headers "transfer-encoding") "chunked")
+    (def {:buffer buf
+          :connection conn} req)
+    (def body (buffer/new chunk-size))
+    (var i 0)
+    (forever
+      (def chunk-length-end-pos (read-until conn buf "\r\n" i))
+      (var chunk-length (scan-number (slice buf i chunk-length-end-pos) 16))
+      (when (zero? chunk-length)
+        (read-until conn buf "\r\n" (+ 2 chunk-length-end-pos))
+        (break))
+      # If there's any data already read, blit that over first.
+      (let [leftover-start (+ chunk-length-end-pos 2)
+            leftover (- (length buf) leftover-start)
+            blit-amount (min leftover chunk-length)] # prevent overreading
+        (unless (zero? blit-amount)
+          (buffer/blit body buf -1 leftover-start (+ leftover-start blit-amount))
+          (-= chunk-length blit-amount))
+        (set i (+ leftover-start blit-amount)))
+      (if (= i (length buf))
+        # Basic case: the buffer has been exhausted and hereonout we can read
+        # from the socket directly.
+        (do
+          (ev/chunk conn chunk-length body)
+          (ev/read conn 2 buf) # trailing CRLF (not included in chunk length proper)
+          # Clear buffer out. We ain't gonna need it no more.
+          (buffer/clear buf)
+          (set i 0))
+        # Alternatively, the pre-read data in the buffer was plentiful and we
+        # just managed to copy an entire chunk out of it. Just increment past
+        # the CRLF, if it's not already there, and proceed to loop again.
+        (set i (+ (read-until conn buf "\r\n" i) 2))))
+    (put req :body body)
+    (break body))
 
   # no body, just return nil
   nil)
