@@ -5,13 +5,16 @@
 
 (test/start-suite 8)
 
+(defn- remove-r [x] (string/replace-all "\r" "" x))
+
 (defn check-template
   [template args expected]
+  (def expected (string/trim (remove-r expected)))
   (def buf @"")
   (with-dyns [:out buf]
     (template args))
-  (def sbuf (string/trim (string buf)))
-  (test/assert (= sbuf expected) (string "Render of " template)))
+  (def sbuf (string/trim (remove-r (string buf))))
+  (test/assert (= sbuf expected) (string/format "template %v - expected %v, got %v" template expected sbuf)))
 
 (import ./templates/hi :as hi)
 (import ./templates/hop :as hop)

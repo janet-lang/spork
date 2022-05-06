@@ -10,6 +10,4 @@
 (eu/pcall (fn workerf [i] (+= x i)) 10)
 (assert (= x 45) "pcall 2")
 
-
-
 (end-suite)

@@ -3,7 +3,6 @@
 (var num-tests-passed 0)
 (var num-tests-run 0)
 (var suite-num 0)
-(var numchecks 0)
 (var start-time 0)
 
 (defn assert
@@ -12,17 +11,9 @@
   (default e "assert error")
   (++ num-tests-run)
   (if x (++ num-tests-passed))
-  (if x
-    (do
-      (when (= numchecks 25)
-        (set numchecks 0)
-        (print))
-      (++ numchecks)
-      (prin "\e[32m✔\e[0m"))
-    (do
-      (prin "\n\e[31m✘\e[0m  ")
-      (set numchecks 0)
-      (print e)))
+  (unless x
+    (prin "\e[31m✘\e[0m  ")
+    (print e))
   x)
 
 (defn assert-not
@@ -45,14 +36,13 @@
 (defn start-suite [x]
   "Starts test suite."
   (set suite-num x)
-  (set start-time (os/clock))
-  (print "\nRunning test suite " x " tests...\n"))
+  (set start-time (os/clock)))
 
 (defn end-suite []
   "Ends test suite."
   (def delta (- (os/clock) start-time))
-  (printf "\n\nTest suite %d finished in %.3f seconds" suite-num delta)
-  (print num-tests-passed " of " num-tests-run " tests passed.\n")
+  (prinf "test suite %d finished in %.3f seconds - " suite-num delta)
+  (print num-tests-passed " of " num-tests-run " tests passed.")
   (if (not= num-tests-passed num-tests-run) (os/exit 1)))
 
 (defmacro timeit
