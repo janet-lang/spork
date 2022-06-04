@@ -9,6 +9,13 @@
 (declare-source
   :source @["spork"])
 
+# Scripts
+
+(declare-binscript
+  :main "bin/janet-format"
+  :hardcode-syspath true
+  :is-janet true)
+
 # Natives
 
 (declare-native
