@@ -1,4 +1,4 @@
-(use spork/test)
+(use ../spork/test)
 (import spork/json :as json)
 
 (start-suite 14)
