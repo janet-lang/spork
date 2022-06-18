@@ -13,5 +13,6 @@
 (import ./schema :export true)
 (import ./temple :export true)
 (import ./test :export true)
+(import ./htmlgen :export true)
 (import spork/json :export true)
 (import spork/tarray :export true)

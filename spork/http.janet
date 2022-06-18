@@ -200,14 +200,15 @@
 
     (bytes? body)
     (do
-      (buffer/format buf "Content-Length: %d\r\n\r\n%s" (length body) body)
+      (buffer/format buf "Content-Length: %d\r\n\r\n%V" (length body) body)
       (ev/write conn buf))
 
     # default - iterate chunks
     (do
       (buffer/format buf "Transfer-Encoding: chunked\r\n\r\n")
       (each chunk body
-        (buffer/format buf "%x\r\n%s\r\n" (length chunk) chunk)
+        (assert (bytes? chunk) "expected byte chunk")
+        (buffer/format buf "%x\r\n%V\r\n" (length chunk) chunk)
         (ev/write conn buf)
         (buffer/clear buf))
       (buffer/format buf "0\r\n\r\n")
@@ -227,7 +228,6 @@
       (ev/read conn 1 buf)
       (when-let [pos (peg/find needle buf start-index)]
         (return :exit pos)))))
-
 
 (defn read-body
   "Given a request, read the HTTP body from the connection. Returns the body as a buffer.
@@ -306,7 +306,7 @@
   (buffer/format buf "HTTP/1.1 %d %s\r\n" status message)
   (def headers (get response :headers {}))
   (eachp [k v] headers
-    (buffer/format buf "%s: %s\r\n" k v))
+    (buffer/format buf "%V: %V\r\n" k v))
   (write-body conn buf (in response :body)))
 
 ###

@@ -90,3 +90,34 @@
   # Finally body
   (each row processed
     (printf format-string ;row)))
+
+(defn- default-traversal-predicate
+  [x]
+  (def has-kids
+    (in
+      {:array true
+       :tuple true
+       :struct true
+       :table true
+       :fiber true}
+      (type x)))
+  (if has-kids x))
+
+(defn dfs
+  "Do a depth first, pre-order traversal over a data structure.
+  Also allow for callbacks before and after visiting the children
+  of a node. Also allow for a custom `get-children` function to
+  change traversal as needed. Will detect cycles if an empty table
+  is passed as the `seen` parameter, which is used to cached values
+  that have been visited."
+  [data visit-leaf &opt node-before node-after get-children seen]
+  (default get-children default-traversal-predicate)
+  (when seen
+    (if (in seen data) (break))
+    (put seen data true))
+  (if-let [node (get-children data)]
+    (do
+      (when node-before (node-before node))
+      (each child node (dfs child visit-leaf node-before node-after get-children seen))
+      (when node-after (node-after node)))
+    (visit-leaf data)))
