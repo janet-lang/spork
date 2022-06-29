@@ -44,7 +44,14 @@ static JANET_THREAD_LOCAL JanetFunction *rawterm_winch_handler;
 static void rawterm_begin(void) {
     janet_panic("not implemented on windows");
 }
+
 static void rawterm_end(void) {
+    janet_panic("not implemented on windows");
+}
+
+static void rawterm_size(int *rows, int *cols) {
+    (void) rows;
+    (void) cols;
     janet_panic("not implemented on windows");
 }
 
@@ -86,12 +93,19 @@ static void rawterm_at_exit(void) {
     }
 }
 
-static void rawterm_ev_winch(JanetEVGenericMessage msg) {
+static void rawterm_size(int *rows, int *cols) {
     struct winsize size;
     ioctl(0, TIOCGWINSZ, &size);
+    *rows = size.ws_row;
+    *cols = size.ws_col;
+}
+
+static void rawterm_ev_winch(JanetEVGenericMessage msg) {
+    int rows, cols;
+    rawterm_size(&rows, &cols);
     Janet tup[2] = {
-        janet_wrap_integer(size.ws_row),
-        janet_wrap_integer(size.ws_col)
+        janet_wrap_integer(rows),
+        janet_wrap_integer(cols)
     };
     JanetFiber *fiber = janet_fiber(rawterm_winch_handler, 64, 2, tup);
     janet_schedule(fiber, janet_wrap_nil());
@@ -125,23 +139,19 @@ static void rawterm_begin(void) {
         janet_panic("cannot set tty attributes");
     }
     in_raw_mode = true;
+
+    // one time setup
     if (!at_exit_set) {
         atexit(rawterm_at_exit);
+        struct sigaction sa;
+        memset(&sa, 0, sizeof(sa));
+        sa.sa_flags = 0;
+        sa.sa_handler = rawterm_signal_winch;
+        sigaction(SIGWINCH, &sa, 0);
         at_exit_set = true;
     }
 
-    struct sigaction sa;
-	memset(&sa, 0, sizeof(sa));
-	sa.sa_flags = 0;
-	sa.sa_handler = rawterm_signal_winch;
-	sigaction(SIGWINCH, &sa, 0);
-
     input_stream = janet_stream(STDIN_FILENO, JANET_STREAM_READABLE, NULL);
-}
-
-
-
-static void rawterm_set_winch(JanetFunction *fun) {
 }
 
 #endif
@@ -175,6 +185,17 @@ JANET_FN(cfun_rawterm_end,
     return janet_wrap_nil();
 }
 
+JANET_FN(cfun_rawterm_size,
+        "(rawterm/size)",
+        "Get the number of rows and columns visible in the terminal as tuple [rows cols]") {
+    janet_fixarity(argc, 0);
+    (void) argv;
+    int rows, cols;
+    rawterm_size(&rows, &cols);
+    Janet tup[2] = {janet_wrap_integer(rows), janet_wrap_integer(cols)};
+    return janet_wrap_tuple(janet_tuple_n(tup, 2));
+}
+
 /****************/
 /* Module Entry */
 /****************/
@@ -183,6 +204,7 @@ JANET_MODULE_ENTRY(JanetTable *env) {
     JanetRegExt cfuns[] = {
         JANET_REG("begin", cfun_rawterm_begin),
         JANET_REG("end", cfun_rawterm_end),
+        JANET_REG("size", cfun_rawterm_size),
         JANET_REG_END
     };
     janet_cfuns_ext(env, "rawterm", cfuns);
