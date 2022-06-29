@@ -20,7 +20,8 @@
 * IN THE SOFTWARE.
 */
 
-#ifdef JANET_LINUX
+#ifdef __linux__
+#define _GNU_SOURCE
 #define _POSIX_C_SOURCE 200809L
 #endif
 
@@ -34,6 +35,7 @@
 /* Common Implementation */
 
 static JANET_THREAD_LOCAL bool in_raw_mode;
+static JANET_THREAD_LOCAL JanetFunction *rawterm_winch_handler;
 
 /* Per-Platform Implementation */
 
@@ -84,6 +86,24 @@ static void rawterm_at_exit(void) {
     }
 }
 
+static void rawterm_ev_winch(JanetEVGenericMessage msg) {
+    struct winsize size;
+    ioctl(0, TIOCGWINSZ, &size);
+    Janet tup[2] = {
+        janet_wrap_integer(size.ws_row),
+        janet_wrap_integer(size.ws_col)
+    };
+    JanetFiber *fiber = janet_fiber(rawterm_winch_handler, 64, 2, tup);
+    janet_schedule(fiber, janet_wrap_nil());
+}
+
+static void rawterm_signal_winch(int x) {
+    if (rawterm_winch_handler == NULL) return;
+    JanetEVGenericMessage msg;
+    memset(&msg, 0, sizeof(msg));
+    janet_ev_post_event(NULL, rawterm_ev_winch, msg);
+}
+
 static void rawterm_begin(void) {
     if (in_raw_mode) {
         janet_panic("already in raw mode");
@@ -109,7 +129,19 @@ static void rawterm_begin(void) {
         atexit(rawterm_at_exit);
         at_exit_set = true;
     }
+
+    struct sigaction sa;
+	memset(&sa, 0, sizeof(sa));
+	sa.sa_flags = 0;
+	sa.sa_handler = rawterm_signal_winch;
+	sigaction(SIGWINCH, &sa, 0);
+
     input_stream = janet_stream(STDIN_FILENO, JANET_STREAM_READABLE, NULL);
+}
+
+
+
+static void rawterm_set_winch(JanetFunction *fun) {
 }
 
 #endif
@@ -117,10 +149,15 @@ static void rawterm_begin(void) {
 /* Janet bindings */
 
 JANET_FN(cfun_rawterm_begin,
-        "(rawterm/begin)",
+        "(rawterm/begin &opt on-winch)",
         "Begin raw terminal functionality. Return a stream that can be read from to get input.") {
-    janet_fixarity(argc, 0);
-    (void) argv;
+    janet_arity(argc, 0, 1);
+    if (argc > 0) {
+        rawterm_winch_handler = janet_getfunction(argv, 0);
+        janet_gcroot(janet_wrap_function(rawterm_winch_handler));
+    } else {
+        rawterm_winch_handler = NULL;
+    }
     rawterm_begin();
     return janet_wrap_abstract(input_stream);
 }
@@ -131,6 +168,10 @@ JANET_FN(cfun_rawterm_end,
     janet_fixarity(argc, 0);
     (void) argv;
     rawterm_end();
+    if (rawterm_winch_handler != NULL) {
+        janet_gcunroot(janet_wrap_function(rawterm_winch_handler));
+        rawterm_winch_handler = NULL;
+    }
     return janet_wrap_nil();
 }
 
