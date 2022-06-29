@@ -36,6 +36,7 @@
 
 static JANET_THREAD_LOCAL bool in_raw_mode;
 static JANET_THREAD_LOCAL JanetFunction *rawterm_winch_handler;
+static JANET_THREAD_LOCAL JanetStream *rawterm_stream = NULL;
 
 /* Per-Platform Implementation */
 
@@ -71,7 +72,6 @@ static void rawterm_size(int *rows, int *cols) {
 /* TODO - thread safe? */
 
 static JANET_THREAD_LOCAL struct termios starting_term;
-static JANET_THREAD_LOCAL void *input_stream = NULL;
 static JANET_THREAD_LOCAL bool at_exit_set = false;
 
 static void rawterm_end(void) {
@@ -82,8 +82,8 @@ static void rawterm_end(void) {
         janet_panic("could not reset to orignal tty attributes");
     }
     in_raw_mode = false;
-    janet_stream_close(input_stream);
-    input_stream = NULL;
+    janet_stream_close(rawterm_stream);
+    rawterm_stream = NULL;
 }
 
 static void rawterm_at_exit(void) {
@@ -151,7 +151,7 @@ static void rawterm_begin(void) {
         at_exit_set = true;
     }
 
-    input_stream = janet_stream(STDIN_FILENO, JANET_STREAM_READABLE, NULL);
+    rawterm_stream = janet_stream(STDIN_FILENO, JANET_STREAM_READABLE, NULL);
 }
 
 #endif
@@ -169,7 +169,7 @@ JANET_FN(cfun_rawterm_begin,
         rawterm_winch_handler = NULL;
     }
     rawterm_begin();
-    return janet_wrap_abstract(input_stream);
+    return janet_wrap_abstract(rawterm_stream);
 }
 
 JANET_FN(cfun_rawterm_end,
