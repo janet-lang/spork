@@ -23,6 +23,10 @@
   :source @["src/json.c"])
 
 (declare-native
+  :name "spork/rawterm"
+  :source @["src/rawterm.c"])
+
+(declare-native
  :name "spork/tarray"
  :headers @["src/tarray.h"]
  :source @["src/tarray.c"])
