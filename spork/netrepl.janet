@@ -30,7 +30,7 @@
     (function? env) (env name stream)
     (not= nil env) env
     (let [e (make-env)]
-      (put e :pretty-format "%.20M"))))
+      (put e :pretty-format "%.20Q"))))
 
 # NETREPL Protocol
 #
@@ -188,7 +188,7 @@
       (def name (get inverse-client-table stream))
       (put client-table name nil)
       (put inverse-client-table stream nil))
-    (put e :pretty-format "%.20M")
+    (put e :pretty-format "%.20Q")
     (put e :clients client-table)
     (server host port env-factory cleanup2)))
 
