@@ -16,6 +16,11 @@
   :hardcode-syspath true
   :is-janet true)
 
+(declare-binscript
+  :main "bin/janet-netrepl"
+  :hardcode-syspath true
+  :is-janet true)
+
 # Natives
 
 (declare-native

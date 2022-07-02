@@ -1,0 +1,48 @@
+#!/usr/bin/env janet
+
+(import spork/netrepl)
+(import spork/argparse)
+
+(defn- main
+  [&]
+
+  (def ap
+   (argparse/argparse
+    "Start a networked REPL server"
+
+    "host"
+    {:short "H"
+     :help (string "The server host to serve the repl on. Default is " netrepl/default-host)
+     :default netrepl/default-host
+     :kind :option}
+
+    "port"
+    {:short "P"
+     :help (string "The server port to serve the repl on. Default is " netrepl/default-port)
+     :default netrepl/default-port
+     :kind :option}
+
+    "client"
+    {:short "c"
+     :kind :flag
+     :help "Spawn a netrepl client instead of a server"}
+
+    "client-name"
+    {:short "n"
+     :kind :option
+     :help "Set the name of the connecting client"}
+
+    "single-env"
+    {:short "s"
+     :kind :flag
+     :help "Share a single environment between multiple connections"}))
+
+  # Break on help text
+  (unless ap (break))
+  (def host (ap "host"))
+  (def port (ap "port"))
+  (if (ap "client")
+    (netrepl/client host port (ap "client-name"))
+    (if (ap "single-env")
+      (netrepl/server-single host port)
+      (netrepl/server host port))))
