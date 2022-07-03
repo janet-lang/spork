@@ -43,6 +43,9 @@
 # easily allows for partial results. A server should not send messages leading with 0xFF
 # to the client unless the client is created with the :auto-flush connection setting.
 #
+# Any message received by the client that begins with 0xFE will discard this first byte
+# and continue processing as usual.
+#
 # 1. server <- {connection settings, including client name} <- client
 #   1a. If msg starts with 0xFF, parse message as (-> msg (slice 1) parse) and extract
 #       the :name key as the name. Other connection settings can be stored here.
@@ -154,7 +157,10 @@
           [prmpt buf]
           (if is-first
             (set is-first false)
-            (do
+            (let [b (get outbuf 0)]
+              (when (or (= b 0xFF) (= b 0xFE))
+                (buffer/blit outbuf outbuf 1 0 -1)
+                (put outbuf 0 0xFE))
               (send outbuf)
               (buffer/clear outbuf)))
           (send prmpt)
@@ -232,6 +238,24 @@
     (put e :clients client-table)
     (server host port env-factory cleanup2)))
 
+(defn- make-recv-client
+  "Similar to msg/make-recv, except has exceptions for out-of-band
+  messages (those that begin with 0xFF and 0xFE."
+  [stream]
+  (def recvraw (make-recv stream))
+  (fn recv
+    []
+    (def x (recvraw))
+    (case (get x 0)
+      0xFF
+      (do
+        (prin (string/slice x 1 -1))
+        (flush)
+        (recv))
+      0xFE
+      (string/slice x 1)
+      x)))
+
 (defn client
   "Connect to a repl server. The default host is \"127.0.0.1\" and the default port
   is \"9365\"."
@@ -240,16 +264,7 @@
   (default port default-port)
   (default name (string "[" host ":" port "]"))
   (with [stream (net/connect host port)]
-    (def recvraw (make-recv stream))
-    (defn recv
-      []
-      (def x (recvraw))
-      (if (= (get x 0) 0xFF)
-        (do
-          (prin (string/slice x 1 -1))
-          (flush)
-          (recv))
-        x))
+    (def recv (make-recv-client stream))
     (def send (make-send stream))
     (send (string/format "\xFF%j" {:auto-flush true :name name}))
     (forever
