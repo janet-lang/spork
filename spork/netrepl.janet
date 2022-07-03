@@ -249,7 +249,7 @@
     (case (get x 0)
       0xFF
       (do
-        (prin (string/slice x 1 -1))
+        (prin (string/slice x 1))
         (flush)
         (recv))
       0xFE
