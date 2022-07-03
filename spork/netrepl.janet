@@ -38,7 +38,16 @@
 # with 0xFF or 0xFE bytes. These bytes should not occur in normal Janet source code and
 # are not even valid utf8.
 #
-# 1. server <- {user specified name of client (will be shown in repl)} <- client
+# Any message received by the client that begins with 0xFF should result in printing
+# the message to a console, but not otherwise interrupt the flow of the protocol. This
+# easily allows for partial results. A server should not send messages leading with 0xFF
+# to the client unless the client is created with the :auto-flush connection setting.
+#
+# 1. server <- {connection settings, including client name} <- client
+#   1a. If msg starts with 0xFF, parse message as (-> msg (slice 1) parse) and extract
+#       the :name key as the name. Other connection settings can be stored here.
+#   1b. If msg does not start with 0xFF, the message is treated as the client name.
+#       Other options are considered nil.
 # 2. server -> {repl prompt (no newline)} -> client
 # 3. server <- {one chunk of input (msg)} <- client
 # 4. If (= (msg 0) 0xFF)
@@ -91,8 +100,8 @@
     (flush)
     (nextenv :resume-value))
   (fn [f x]
-    (if (= :dead (fiber/status f))
-      (do (put e '_ @{:value x}) (pp x))
+    (case (fiber/status f)
+      :dead (do (put e '_ @{:value x}) (pp x))
       (if (e :debug)
         (enter-debugger f x)
         (do (debug/stacktrace f x "") (eflush))))))
@@ -118,10 +127,22 @@
       (defer (do
                (:close stream)
                (put name-set name nil)
+               (print "closing client " name)
                (when cleanup (cleanup stream)))
         (def recv (make-recv stream))
         (def send (make-send stream))
-        (set name (or (recv) (break)))
+        (def sync-chan (ev/chan 2))
+        (var auto-flush false)
+        (defn get-name
+          []
+          (def msg (recv))
+          (def leader (get msg 0))
+          (if (= 0xFF leader)
+            (let [opts (-> msg (slice 1) parse)]
+              (set auto-flush (get opts :auto-flush))
+              (set name (get opts :name)))
+            (set name msg)))
+        (set name (or (get-name) (break)))
         (while (get name-set name)
           (set name (string name "_")))
         (put name-set name true)
@@ -163,13 +184,32 @@
              :on-status (make-onsignal getline-async e e 1)
              :on-compile-error (wrapio bad-compile)
              :on-parse-error (wrapio bad-parse)
-             :evaluator (fn [x &] (setdyn :out outbuf) (setdyn :err outbuf) (x))
+             :evaluator (fn [x &]
+                          (setdyn :out outbuf)
+                          (setdyn :err outbuf)
+                          (if auto-flush
+                            (do
+                              (var evaling true)
+                              (defn flusher
+                                [&]
+                                (ev/sleep 0) # initial sleep so fast in the default case
+                                (while evaling
+                                  (when (next outbuf)
+                                    (def msg (string "\xFF" outbuf))
+                                    (buffer/clear outbuf)
+                                    (send msg))
+                                  (ev/sleep 0.1)))
+                              (ev/go flusher nil sync-chan)
+                              (def result (x))
+                              (set evaling false)
+                              (ev/take sync-chan) # sync with flusher
+                              result)
+                            (x)))
              :source "repl"
              :parser p})
           coro
           (fiber/setenv (table/setproto @{:out outbuf :err outbuf :parser p} e))
-          resume))
-      (print "closing client " name))))
+          resume)))))
 
 (defn server-single
   "Short-hand for serving up a a repl that has a single environment table in it. `env`
@@ -200,14 +240,21 @@
   (default port default-port)
   (default name (string "[" host ":" port "]"))
   (with [stream (net/connect host port)]
-    (def recv (make-recv stream))
+    (def recvraw (make-recv stream))
+    (defn recv
+      []
+      (def x (recvraw))
+      (if (= (get x 0) 0xFF)
+        (do
+          (prin (string/slice x 1 -1))
+          (recv))
+        x))
     (def send (make-send stream))
-    (send name)
-    (while true
+    (send (string/format "\xFF%j" {:auto-flush true :name name}))
+    (forever
       (def p (recv))
       (if (not p) (break))
       (def line (getline p @"" root-env))
       (if (empty? line) (break))
       (send (if (keyword? line) (string "\xFE" line) line))
       (prin (or (recv) "")))))
-
