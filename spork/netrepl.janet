@@ -217,7 +217,7 @@
   [&opt host port env cleanup]
   (def client-table @{})
   (def inverse-client-table @{})
-  (let [e (or env (make-env))]
+  (let [e (coerce-to-env (or env (make-env)) nil nil)]
     (defn env-factory [name stream]
       (put client-table name stream)
       (put inverse-client-table stream name)

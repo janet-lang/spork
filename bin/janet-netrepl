@@ -10,6 +10,10 @@
    (argparse/argparse
     "Start a networked REPL server"
 
+    :default
+    {:kind :accumulate
+     :help "Files to load into the environment"}
+
     "host"
     {:short "H"
      :help (string "The server host to serve the repl on. Default is " netrepl/default-host)
@@ -32,6 +36,11 @@
      :kind :option
      :help "Set the name of the connecting client"}
 
+    "library"
+    {:short "l"
+     :kind :accumulate
+     :help "Load libraries in the repl as with the janet -l flag"}
+
     "single-env"
     {:short "s"
      :kind :flag
@@ -41,8 +50,16 @@
   (unless ap (break))
   (def host (ap "host"))
   (def port (ap "port"))
+  (def files (get ap :default []))
+  (def libraries (get ap "library" []))
+  (defn env-make
+    [&]
+    (let [e (make-env)]
+      (each l libraries (merge-module e (require l)))
+      (each f files (merge-module e (dofile f)))
+      (put e :pretty-format "%.20Q")))
   (if (ap "client")
     (netrepl/client host port (ap "client-name"))
     (if (ap "single-env")
-      (netrepl/server-single host port)
-      (netrepl/server host port))))
+      (netrepl/server-single host port env-make)
+      (netrepl/server host port env-make))))
