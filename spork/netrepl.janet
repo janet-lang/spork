@@ -247,6 +247,7 @@
       (if (= (get x 0) 0xFF)
         (do
           (prin (string/slice x 1 -1))
+          (flush)
           (recv))
         x))
     (def send (make-send stream))
