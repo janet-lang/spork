@@ -229,7 +229,7 @@
       (when (handler :required)
         (usage "option " name " is required"))
       (put res name (handler :default)))
-    (when (and (handler :args-required) (get res name))
+    (when (and (handler :args-expected) (handler :args-required) (get res name))
       (when (not= (handler :args-expected) 
                   (length (get res name)))
         (usage "missing positional arguments for subcommand " name))))
