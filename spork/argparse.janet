@@ -13,41 +13,43 @@
     (string str (string/repeat " " (- n len)))))
 
 (defn argparse
-  "Parse (dyn :args) according to options. If the arguments are incorrect,
+  ```
+  Parse (dyn :args) according to options. If the arguments are incorrect,
   will return nil and print usage information.
 
   Each option is a table or struct that specifies a flag or option
   for the script. The name of the option should be a string, specified
   via (argparse/argparse \"...\" op1-name {...} op2-name {...} ...). A help option
-  and usage text is automatically generated for you.\n\n
+  and usage text is automatically generated for you.
 
-  The keys in each option table are as follows:\n\n
+  The keys in each option table are as follows:
 
   \t:kind - What kind of option is this? One of :flag, :multi, :option,  :accumulate,
   or :subcommand. A flag can either be on or off, a multi is a flag that can be provided
   multiple times, each time adding 1 to a returned integer, an option is a key that
   will be set in the returned table, and accumulate means an option can be specified
   0 or more times, each time appending a value to an array. A subcommand can take
-  positional arguments.\n
-  \t:short - Single letter for shorthand access.\n
-  \t:help - Help text for the option, explaining what it is.\n
-  \t:default - Default value for the option.\n
-  \t:required - Whether or not an option is required.\n
-  \t:short-circuit - Whether or not to stop parsing and fail if this option is hit.\n
-  \t:action - A function that will be invoked when the option is parsed.\n
-  \t:args-expected - For subcommands, the max number of positional arguments.\n
+  positional arguments.
+  \t:short - Single letter for shorthand access.
+  \t:help - Help text for the option, explaining what it is.
+  \t:default - Default value for the option.
+  \t:required - Whether or not an option is required.
+  \t:short-circuit - Whether or not to stop parsing and fail if this option is hit.
+  \t:action - A function that will be invoked when the option is parsed.
+  \t:args-expected - For subcommands, the max number of positional arguments.
   \t:args-required - For subcommands, whether or not to require `args-expected` 
-  positional arguments. \n\n
+  positional arguments.
 
   There is also a special option :default that will be invoked on arguments
   that do not start with a -- or -. Use this option to collect unnamed
-  arguments to your script.\n\n
+  arguments to your script.
 
-  After `--`, every argument is treated as an unnamed argument.\n\n
+  After `--`, every argument is treated as an unnamed argument.
 
   Once parsed, values are accessible in the returned table by the name
   of the option. For example (result \"verbose\") will check if the verbose
-  flag is enabled."
+  flag is enabled.
+  ```
   [description &keys options]
 
   # Add default help option
