@@ -20,7 +20,15 @@
            :help "Search for all patterns given."}
    "thing" {:kind :option
             :help "Some option?"
-            :default "123"}])
+            :default "123"}
+   "subcommand" {:kind :subcommand
+                 :help "A subcommand with up to two optional positional arguments."
+                 :args-expected 2
+                 :args-required false}
+   "strict-sc" {:kind :subcommand
+                 :help "A subcommand with one required positional argument."
+                 :args-expected 1
+                 :args-required true}])
 
 (with-dyns [:args @["testcase.janet" "-k" "100"]]
   (def res (suppress-stdout (argparse/argparse ;argparse-params)))
@@ -69,7 +77,7 @@
   (def res (suppress-stdout (argparse/argparse ;argparse-params)))
   (assert-not res "Option \"fake\" is not valid, but result is non-nil."))
 
-(with-dyns [:args @["testcase.janet" "-l" "100" "--" "echo" "-n" "ok"]]
+(with-dyns [:args @["testcase.janet" "-l" "100" "--" "echo" "-n" "ok" "subcommand"]]
   (def res (suppress-stdout (argparse/argparse "A simple CLI tool"
                                                "length" {:kind :option
                                                          :short "l"
@@ -79,7 +87,37 @@
   (def {"length" len :default cmd-args} res)
   (assert (= len "100")
           "option was not parsed correctly in the presence of `--`.")
-  (assert (= ["echo" "-n" "ok"] (tuple ;cmd-args))
-          "unnamed arguments after `--` were not parsed correctly."))
+  (assert (= ["echo" "-n" "ok" "subcommand"] (tuple ;cmd-args))
+          "unnamed arguments after `--` were not parsed correctly.")) 
 
+(with-dyns [:args @["testcase.janet" "-k" "100" "subcommand" "optional-param1" "optional-param2"]]
+  (def res (suppress-stdout (argparse/argparse ;argparse-params)))
+  (assert res "arguments were not parsed correctly in the presence of `subcommand`.")
+  (def {"subcommand" opt-params-array :subcommands subcommand-list} res)
+  (assert (and opt-params-array (= 2 (length opt-params-array))) 
+          "optional parameters were not parsed correctly.")
+  (assert (and subcommand-list (= 1 (length subcommand-list)))
+          "subcommand was not saved to `:subcommand` array correctly.")) 
+                            
+(with-dyns [:args @["testcase.janet" "subcommand" "optional-param1" "-k" "100"]]
+  (def res (suppress-stdout (argparse/argparse ;argparse-params)))
+  (assert res "arguments were not parsed correctly with subcommand before flag.")
+  (def {"subcommand" opt-params-array :subcommands subcommand-list} res)
+  (assert (and opt-params-array (= 1 (length opt-params-array))) 
+          "optional parameter was not parsed correctly with subcommand before flag.")
+  (assert (and subcommand-list (= 1 (length subcommand-list)))
+          "subcommand was not saved to `:subcommand` array correctly with subcommand before flag."))
+                            
+(with-dyns [:args @["testcase.janet" "subcommand" "optional-param1" "optional-param2" "error-param" "-k" "100"]]
+  (def res (suppress-stdout (argparse/argparse ;argparse-params)))
+  (assert-not res "subcommand permits only 2 optional parameters, but result is non-nil."))
+                            
+(with-dyns [:args @["testcase.janet" "strict" "required-param1" "error-param" "-k" "100"]]
+  (def res (suppress-stdout (argparse/argparse ;argparse-params)))
+  (assert-not res "subcommand requires exactly 1 parameters, but result is non-nil."))
+                            
+(with-dyns [:args @["testcase.janet" "-k" "100" "strict-sc" "required-param1"]]
+  (def res (suppress-stdout (argparse/argparse ;argparse-params)))
+  (assert res "required argument was not parsed correctly with subcommand after flag."))
+                            
 (end-suite)

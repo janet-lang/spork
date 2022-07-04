@@ -34,7 +34,11 @@ options.
            :help "Search for all patterns given."}
    "thing" {:kind :option
             :help "Some option?"
-            :default "123"}])
+            :default "123"}
+   "subcommand" {:kind :subcommand
+                 :help "A subcommand with optional positional arguments."
+                 :args-expected 2
+                 :args-required false}])
 
 (let [res (argparse ;argparse-params)]
   (unless res
