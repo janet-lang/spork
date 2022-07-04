@@ -35,8 +35,8 @@
   * `:required` - Whether or not an option is required.
   * `:short-circuit` - Whether or not to stop parsing and fail if this option is hit.
   * `:action` - A function that will be invoked when the option is parsed.
-  * `args-expected` - For subcommands, the max number of positional arguments.
-  * `args-required` - For subcommands, whether or not to require `args-expected` positional arguments.
+  * `:args-expected` - For subcommands, the max number of positional arguments.
+  * `:args-required` - For subcommands, whether or not to require `args-expected` positional arguments.
   
   There is also a special option name `:default` that will be invoked on arguments
   that do not start with a -- or -. Use this option to collect unnamed
