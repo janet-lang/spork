@@ -24,20 +24,21 @@
 
   The keys in each option table are as follows:
 
-  \t:`kind` - What kind of option is this? One of :flag, :multi, :option,  :accumulate,
-  or :subcommand. A flag can either be on or off, a multi is a flag that can be provided
-  multiple times, each time adding 1 to a returned integer, an option is a key that
-  will be set in the returned table, and accumulate means an option can be specified
-  0 or more times, each time appending a value to an array. A subcommand can take
-  positional arguments.
-  \t:`short` - Single letter for shorthand access.
-  \t:`help` - Help text for the option, explaining what it is.
-  \t:`default` - Default value for the option.
-  \t:`required` - Whether or not an option is required.
-  \t:`short-circuit` - Whether or not to stop parsing and fail if this option is hit.
-  \t:`action` - A function that will be invoked when the option is parsed.
-  \t:`args-expected` - For subcommands, the max number of positional arguments.
-  \t:`args-required` - For subcommands, whether or not to require `args-expected` 
+  * `:kind` - What kind of option is this? One of `:flag`, `:multi`, `:option` `:accumulate`,
+    or `:subcommand`. A flag can either be on or off, a multi is a flag that can be provided
+    multiple times, each time adding 1 to a returned integer, an option is a key that
+    will be set in the returned table, and accumulate means an option can be specified
+    0 or more times, each time appending a value to an array.
+  * `:short` - Single letter for shorthand access.
+  * `:help` - Help text for the option, explaining what it is.
+  * `:default` - Default value for the option.
+  * `:required` - Whether or not an option is required.
+  * `:short-circuit` - Whether or not to stop parsing and fail if this option is hit.
+  * `:action` - A function that will be invoked when the option is parsed.
+  * `args-expected` - For subcommands, the max number of positional arguments.
+  * `args-required` - For subcommands, whether or not to require `args-expected` 
+  
+  There is also a special option name `:default` that will be invoked on arguments
   positional arguments.
 
   There is also a special option :default that will be invoked on arguments
