@@ -107,7 +107,8 @@
 ###
 
 (defn raw
-  "Get an object that can be used to splice in HTML literals"
+  "Get an object that can be used to splice in HTML literals. 
+  `text` is not escaped in the output string."
   [text]
   (fn [buf] (buffer/push buf text)))
 
@@ -116,8 +117,9 @@
   (raw "<!DOCTYPE html>"))
 
 (defn html
-  "Render HTML from standard data structures."
+  "Render HTML from standard data structures. Fills the provided optional 
+  buffer, or new one if it is not provided, with the html bytes."
   [data &opt buf]
   (default buf @"")
-  (render1 buf data)
+  (render buf data)
   buf)
