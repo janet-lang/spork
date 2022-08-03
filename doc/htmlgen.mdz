@@ -11,9 +11,9 @@ an HTML string. Its API has only one constant and two functions:
 @ul{
   @li{constant `doctype` is a string with html5 doctype header}
   @li{function  `raw` returns the function that will add the raw string,
-  	passed as an argument to the function, to the output, when rendered, 
+    passed as an argument to the function, to the output, when rendered,
     without any escaping.}
-  @li{function `render` has one required argument `data` with the	data structure
+  @li{function `html` has one required argument `data` with the data structure
     rendered into bytes with HTML code. And optional `buf` to which function
     renders final bytes. If you do not provide the `buf`, it will create
     a new one.}
@@ -26,7 +26,7 @@ Example:
 @codeblock[janet]```
 (use spork/htmlgen)
 (defn append-year [buf] (buffer/push buf (string ((os/date) :year))))
-(HTML
+(html
   @[[:head
     @[[:meta {:charset "htf-8"}]
       [:title "Spork"]]]
@@ -43,7 +43,7 @@ the example above:
 
 @ul{
   @li{`array` (and `fiber` which is not in the example) each member of
-  	the sequence renders by one of these rules.}
+    the sequence renders by one of these rules.}
   @li{`tuple` represents the HTML tag. The first member must be the name of
     the HTML tag. The second member can be a dictionary with HTML attributes
     for the HTML tag. All the other members are children of the tag and renders
