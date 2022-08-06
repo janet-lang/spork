@@ -2,3 +2,7 @@ build/
 site/
 /tags
 temp.janet
+_develop
+_release
+_out
+_debug
