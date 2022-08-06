@@ -37,23 +37,79 @@
 static JANET_THREAD_LOCAL bool in_raw_mode;
 static JANET_THREAD_LOCAL JanetFunction *rawterm_winch_handler;
 static JANET_THREAD_LOCAL JanetStream *rawterm_stream = NULL;
+static JANET_THREAD_LOCAL bool at_exit_set = false;
 
 /* Per-Platform Implementation */
 
 #ifdef JANET_WINDOWS
 
+#include <windows.h>
+
+static void rawterm_at_exit(void);
+
+static int check_simpleline(JanetBuffer *buffer) {
+    return 0;
+}
+
+static void setup_console_output(void) {
+    /* Enable color console on windows 10 console and utf8 output and other processing */
+    HANDLE hOut = GetStdHandle(STD_OUTPUT_HANDLE);
+    DWORD dwMode = 0;
+    GetConsoleMode(hOut, &dwMode);
+    dwMode |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+    SetConsoleMode(hOut, dwMode);
+    SetConsoleOutputCP(65001);
+}
+
 static void rawterm_begin(void) {
-    janet_panic("not implemented on windows");
+    if (in_raw_mode) return 0;
+    if (!_isatty(_fileno(stdin))) {
+        janet_panic("not a tty");
+    }
+    setup_console_output();
+    HANDLE hOut = GetStdHandle(STD_INPUT_HANDLE);
+    DWORD dwMode = 0;
+    GetConsoleMode(hOut, &dwMode);
+    dwMode &= ~ENABLE_LINE_INPUT;
+    dwMode &= ~ENABLE_INSERT_MODE;
+    dwMode &= ~ENABLE_ECHO_INPUT;
+    dwMode |= ENABLE_VIRTUAL_TERMINAL_INPUT;
+    dwMode &= ~ENABLE_PROCESSED_INPUT;
+    if (!SetConsoleMode(hOut, dwMode)) return 1;
+    in_raw_mode = 1;
+
+    // one time setup
+    if (!at_exit_set) {
+        atexit(rawterm_at_exit);
+        at_exit_set = true;
+    }
+
+    return 0;
 }
 
 static void rawterm_end(void) {
-    janet_panic("not implemented on windows");
+    if (!in_raw_mode) return;
+    HANDLE hOut = GetStdHandle(STD_INPUT_HANDLE);
+    DWORD dwMode = 0;
+    GetConsoleMode(hOut, &dwMode);
+    dwMode |= ENABLE_LINE_INPUT;
+    dwMode |= ENABLE_INSERT_MODE;
+    dwMode |= ENABLE_ECHO_INPUT;
+    dwMode &= ~ENABLE_VIRTUAL_TERMINAL_INPUT;
+    dwMode |= ENABLE_PROCESSED_INPUT;
+    SetConsoleMode(hOut, dwMode);
+    in_raw_mode = 0;
+}
+
+static void rawterm_at_exit(void) {
+    rawterm_end();
 }
 
 static void rawterm_size(int *rows, int *cols) {
-    (void) rows;
-    (void) cols;
-    janet_panic("not implemented on windows");
+    CONSOLE_SCREEN_BUFFER_INFO csbi;
+    GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &csbi);
+    *cols = csbi.srWindow.Right - csbi.srWindow.Left + 1;
+    *rows = csbi.srWindow.Bottom - csbi.srWindow.Top + 1;
 }
 
 #else
@@ -72,7 +128,6 @@ static void rawterm_size(int *rows, int *cols) {
 /* TODO - thread safe? */
 
 static JANET_THREAD_LOCAL struct termios starting_term;
-static JANET_THREAD_LOCAL bool at_exit_set = false;
 
 static void rawterm_end(void) {
     if (!in_raw_mode) {
