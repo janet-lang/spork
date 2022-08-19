@@ -5,6 +5,7 @@
 (import ./generators :export true)
 (import ./http :export true)
 (import ./misc :export true)
+(import ./sh :export true)
 (import ./msg :export true)
 (import ./netrepl :export true)
 (import ./path :export true)
