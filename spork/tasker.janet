@@ -10,6 +10,9 @@
 (def out-file-name "out.log")
 (def err-file-name "err.log")
 
+(def min-priority "Minimum allowed priority (lower priority tasks will execute first)" 0)
+(def max-priority "Maximum allowed priority (lower priority tasks will execute first)" 9)
+
 (def- id-bytes 10)
 (defn- make-id
   "Create a task id"
@@ -53,6 +56,39 @@
   (string/format "%j" payload) # prevent non-printable structues from being serialized
   (spit mf (string/format "%p" payload))
   payload)
+
+(defn- task-to-queue
+  "Move a pending task to the correct queue in memory"
+  [tasker task]
+  (assert (= (get task :status) :pending))
+  (def priority (get task :priority))
+  (def qname (get task :queue-name))
+  (def q ((tasker :queues) [qname priority]))
+  (assert q (string "queue " qname " not found"))
+  (ev/give q task)
+  tasker)
+
+(defn- load-tasks-from-disk
+  "Load old tasks already on disk into queue if they did not complete"
+  [tasker]
+  (def task-directory (task-dir tasker))
+  (each dir (os/dir task-directory)
+    (when (string/has-prefix? "task-" dir)
+      (def meta-path (path/join task-directory dir task-meta-name))
+      (try
+        (do
+          (def contents (-> meta-path slurp parse))
+          (case (get contents :status)
+            :pending (do
+                       (log "found pending task " dir " on disk, adding to queue")
+                       (task-to-queue tasker contents))
+            :running (do
+                       (log "found interruped task " dir " on disk")
+                       (put contents :status :canceled)
+                       (task-to-disk contents))))
+        ([err]
+         (log "failed to read suspected task " dir " : " (describe err)))))))
+
 
 (defn- run-task
   "Run a single task inside an executor"
@@ -113,8 +149,9 @@
       :task-proc-map @{}
       :task-queued-map @{}})
   (each q queues
-    (def channels (seq [_ :range [0 10]] (ev/chan queue-size)))
-    (for pri 0 10 (put all-queues [q pri] (get channels pri))))
+    (def channels (seq [_ :range [min-priority (inc max-priority)]] (ev/chan queue-size)))
+    (for pri min-priority (inc max-priority) (put all-queues [q pri] (get channels pri))))
+  (load-tasks-from-disk ret)
   ret)
 
 (defn queue-task
@@ -126,10 +163,8 @@
   (default priority 4)
   (default note "")
   (default expiration (* 3600 24 30)) # 30 days
-  (assert (and (int? priority) (>= priority 0) (<= priority 9)) "invalid priority")
+  (assert (and (int? priority) (>= priority min-priority) (<= priority max-priority)) "invalid priority")
   (default qname :default)
-  (def q ((tasker :queues) [qname priority]))
-  (assert q (string "queue " qname " not found"))
   (def id (make-id))
   (def dir (path/abspath (path/join (task-dir tasker) id)))
   (def meta-file (path/abspath (path/join dir task-meta-name)))
@@ -150,12 +185,13 @@
   (log (string/format "creating task directory %s" dir))
   (os/mkdir dir)
   (task-to-disk payload)
-  (ev/give q payload)
+  (task-to-queue tasker payload)
   id)
 
 (defn run-executors
   "Start a number of executors to run tasks. Tasks can be added to a queue
-  by calling queue-task."
+  by calling queue-task. It is recommended to run this an isolated fiber, for example
+  with `ev/spawn`."
   [tasker &opt workers-per-queue pre-task post-task]
   (default workers-per-queue 1)
   (def nurse (ev-utils/nursery))
@@ -177,11 +213,11 @@
                   (def task-id (get x :task-id))
                   (log "starting task " task-id)
                   (when pre-task
-                    (pre-task x)
+                    (pre-task tasker x)
                     (task-to-disk x))
                   (run-task tasker x)
                   (when post-task
-                    (post-task x)
+                    (post-task tasker x)
                     (task-to-disk x))
                   (log "finished task " task-id " normally"))
               ([err f]
