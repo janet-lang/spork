@@ -102,7 +102,7 @@
 (defn new-tasker
   "Create queues and various settings to run tasks. Create a new tasker table."
   [&opt task-directory queues queue-size]
-  (default task-directory ".")
+  (default task-directory "./tasks")
   (default queue-size 10)
   (default queues [:default])
   (os/mkdir task-directory)

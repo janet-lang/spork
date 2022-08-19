@@ -1,6 +1,7 @@
 build/
 site/
 /tags
+/tasks
 temp.janet
 _develop
 _release
