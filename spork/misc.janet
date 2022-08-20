@@ -125,8 +125,8 @@
 
 (defn randomize-array
   "Randomizes array using the fisher-yates shuffle, takes an optional random number generator"
-  [arr &opt rng-in]
-  (def rng (if (= rng-in nil) (math/rng (os/cryptorand 8)) rng-in))
+  [arr &opt rng]
+  (default rng (math/rng (os/cryptorand 8)))
   (def l (length arr))
   (loop [i :range [0 l]]
     (def a (- (- l i) 1))
