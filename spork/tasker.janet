@@ -5,6 +5,7 @@
 
 (import ./path)
 (import ./ev-utils)
+(import ./schema)
 
 (def task-meta-name "Name of the task metadata file" "task.jdn")
 (def out-file-name "out.log")
@@ -12,6 +13,8 @@
 
 (def min-priority "Minimum allowed priority (lower priority tasks will execute first)" 0)
 (def max-priority "Maximum allowed priority (lower priority tasks will execute first)" 9)
+(def default-priority 4)
+(def default-expiration (* 30 24 3600))
 
 (def- id-bytes 10)
 (defn- make-id
@@ -36,6 +39,23 @@
     nil nil # do nothing if file does not exist
     # Default, try to remove
     (os/rm path)))
+
+(def- task-record-validator
+  "Check if records loaded from disk are valid"
+  (schema/validator
+    (props
+      :task-id (peg (* "task-" :w+))
+      :argv (and (or :tuple :array) (values :string))
+      :priority (pred int?)
+      :time-queued (pred int?)
+      :queue-name :keyword
+      :delete-after (pred int?)
+      :timeout (or :nil (pred int?))
+      :input (any)
+      :note :string
+      :dir :string
+      :meta-file :string
+      :status (enum :pending :running :canceled :done :timeout))))
 
 (defn- log-prefix
   "What to put in front of log messages."
@@ -77,7 +97,7 @@
       (def meta-path (path/join task-directory dir task-meta-name))
       (try
         (do
-          (def contents (-> meta-path slurp parse))
+          (def contents (-> meta-path slurp parse task-record-validator))
           (case (get contents :status)
             :pending (do
                        (log "found pending task " dir " on disk, adding to queue")
@@ -146,6 +166,7 @@
   (def ret
     @{:queues all-queues
       :task-dir task-directory
+      :nurse (ev-utils/nursery)
       :task-proc-map @{}
       :task-queued-map @{}})
   (each q queues
@@ -158,11 +179,12 @@
   "Add a task specification to a queue. Supply an argv string array that will be
   used to invoke s a subprocess. The optional `note` parameter is just a textual note
   for task trackingv. The `priority` parameter should be an integer between 0 and 9 inclusive, default
-  is 4. Lower priority jobs in the same queue will be executed by higher priority."
-  [tasker argv &opt note priority qname timeout expiration]
-  (default priority 4)
+  is 4. Lower priority jobs in the same queue will be executed by higher priority. Use input to pass in generic, 
+  unstructured input to a task."
+  [tasker argv &opt note priority qname timeout expiration input]
+  (default priority default-priority)
   (default note "")
-  (default expiration (* 3600 24 30)) # 30 days
+  (default expiration default-expiration)
   (assert (and (int? priority) (>= priority min-priority) (<= priority max-priority)) "invalid priority")
   (default qname :default)
   (def id (make-id))
@@ -176,26 +198,26 @@
       :time-queued timestamp
       :queue-name qname
       :delete-after (+ timestamp expiration)
-      :priority priority
       :timeout timeout
       :note note
+      :input input
       :dir dir
       :meta-file meta-file
       :status :pending})
+  (task-record-validator payload)
   (log (string/format "creating task directory %s" dir))
   (os/mkdir dir)
   (task-to-disk payload)
   (task-to-queue tasker payload)
   id)
 
-(defn run-executors
+(defn spawn-executors
   "Start a number of executors to run tasks. Tasks can be added to a queue
-  by calling queue-task. It is recommended to run this an isolated fiber, for example
-  with `ev/spawn`."
-  [tasker &opt workers-per-queue pre-task post-task]
+  by calling queue-task. A single tasker object can make multiple calls to spawn-executors."
+  [tasker &opt qnames workers-per-queue pre-task post-task]
   (default workers-per-queue 1)
-  (def nurse (ev-utils/nursery))
-  (def qnames (distinct (map first (keys (tasker :queues)))))
+  (def nurse (tasker :nurse))
+  (default qnames (distinct (map first (keys (tasker :queues)))))
   (each qname qnames
     (def channels (seq [[[q p] c] :pairs (tasker :queues) :when (= q qname)] c))
     (for n 0 workers-per-queue
@@ -224,7 +246,14 @@
                (log (string/format "error running job: %V" err))
                (debug/stacktrace f))))))
         (log "executor " n " for queue " qname " completed"))))
-  (ev-utils/join-nursery nurse))
+  tasker)
+
+(defn run-executors
+  "Start a number of executors to run tasks as with `tasker/spawn-executors`, and then
+  wait for all executors to complete."
+  [tasker &opt workers-per-queue pre-task post-task]
+  (spawn-executors tasker nil workers-per-queue pre-task post-task)
+  (ev-utils/join-nursery (tasker :nurse)))
 
 (defn close-queues
   "Prevent any tasks from being added to queues. When an executor finishes it's
