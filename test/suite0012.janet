@@ -36,6 +36,30 @@
 (test-http-parse http/read-request @"POST /abc.janet HTTP/1.0\r\na:b\r\n\r\nextraextra" "POST" "/abc.janet" nil {"a" "b"})
 (test-http-parse http/read-response @"HTTP/1.0 200 OK\r\na:b\r\n\r\nextraextra" nil nil 200 {"a" "b"})
 
+(defn- close-both
+  [[r w]]
+  (:close r)
+  (:close w))
+
+(with [[r w] (os/pipe) close-both]
+  (def fib
+    (fiber-fn :e (http/read-request r @"")))
+  (ev/go fib nil (ev/chan))
+  # Sleep often to allow the reader to make as much progress as possible. Each
+  # write here should correspond to a read in read-header which restarts its
+  # loop.
+  (ev/sleep 1e-6)
+  (:write w "GET / HTTP/1.1\r\n")
+  (ev/sleep 1e-6)
+  (:write w "a:b\r\n")
+  (ev/sleep 1e-6)
+  (:write w "\r\n")
+  (ev/sleep 1e-6)
+  (assert
+    (= :dead (fiber/status fib))
+    "read-header: CRLF not detected across packet boundaries")
+  (ev/cancel fib "cancel"))
+
 (defn simple-server
   [req]
   (case (in req :method)
@@ -65,10 +89,7 @@
 (defn- chunk
   [data]
   (string/format "%x\r\n%s\r\n" (length data) data))
-(defn- close-both
-  [[r w]]
-  (:close r)
-  (:close w))
+
 (with [[r w] (os/pipe) close-both]
   (http/send-response w {:status 200
                          :body ["a" (string/repeat "a" 16) (string/repeat "a" 256)]})
