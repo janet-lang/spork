@@ -62,7 +62,7 @@
                  key2 b})
              :error))
       (break))
-    (set last-index (length buf))
+    (set last-index (max 0 (- (length buf) 4)))
     (ev/read conn chunk-size buf))
   head)
 
