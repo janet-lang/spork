@@ -1,0 +1,61 @@
+{:title "HTMLgen"
+ :author "Calvin Rose"
+ :license "MIT"
+ :template "mdzdoc/main.html"
+ :order 12}
+---
+
+HTMLgen is a rendering engine that can render plain data structures into
+an HTML string. Its API has only one constant and two functions:
+
+@ul{
+  @li{constant `doctype` is a string with html5 doctype header}
+  @li{function  `raw` returns the function that will add the raw string,
+    passed as an argument to the function, to the output, when rendered,
+    without any escaping.}
+  @li{function `html` has one required argument `data` with the data structure
+    rendered into bytes with HTML code. And optional `buf` to which function
+    renders final bytes. If you do not provide the `buf`, it will create
+    a new one.}
+}
+
+## Rules for rendering data structures
+
+Example:
+
+@codeblock[janet]```
+(use spork/htmlgen)
+(defn append-year [buf] (buffer/push buf (string ((os/date) :year))))
+(html
+  @[[:head
+    @[[:meta {:charset "htf-8"}]
+      [:title "Spork"]]]
+    [:body
+      @[[:header "Menu"]
+        [:main [:section "News"]]
+        [:footer "All right reserved " append-year]]]])
+
+=>  @"<head><meta charset=\"htf-8\"/><title>Spork</title></head><body><header>Menu</header><main><section>News</section></main><footer>All right reserved 2022</footer></body>"
+```
+
+We will show how HTMLgen renders from the data structure by dissecting
+the example above:
+
+@ul{
+  @li{`array` (and `fiber` which is not in the example) each member of
+    the sequence renders by one of these rules.}
+  @li{`tuple` represents the HTML tag. The first member must be the name of
+    the HTML tag. The second member can be a dictionary with HTML attributes
+    for the HTML tag. All the other members are children of the tag and renders
+    according to these rules.}
+  @li{`string`, `buffer`, `number` and `boolean` coerces to string and,
+    if necessary, escaped and pushed to the buffer.}
+  @li{`function` gets the buffer, with which it can do whatever it wants to,
+    presumably push some more content, but anything.}
+  @li{`nil` do not do anything to the buffer.}
+}
+
+As you may see, the rules are straightforward, yet with the `fiber`
+and `function` types you have pretty endless possibilities when constructing
+the HTML code from data structures
+
