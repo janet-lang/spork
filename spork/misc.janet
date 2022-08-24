@@ -122,9 +122,8 @@
       (when node-after (node-after node)))
     (visit-leaf data)))
 
-
 (defn randomize-array
-  "Randomizes array using the fisher-yates shuffle, takes an optional random number generator"
+  "Randomizes array using the fisher-yates shuffle, takes an optional random number generator."
   [arr &opt rng]
   (default rng (math/rng (os/cryptorand 8)))
   (def l (length arr))
