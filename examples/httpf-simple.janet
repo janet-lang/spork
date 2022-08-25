@@ -14,5 +14,13 @@
   @[[:h1 "Current Unix Time"]
     [:p (string (os/time))]])
 
-(def s (httpf/server))
-(httpf/listen s)
+(defn post-double
+  "Post a number and get it back doubled"
+  {:path "/double"
+   :schema :number}
+  [req data]
+  (* data 2))
+
+(-> (httpf/server)
+    httpf/add-bindings-as-routes
+    httpf/listen)

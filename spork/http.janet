@@ -103,7 +103,7 @@
     (def fullpath (get head :path))
     (def qloc (string/find "?" fullpath))
     (def path (if qloc (string/slice fullpath 0 qloc) fullpath))
-    (def qs (if qloc (string/slice fullpath qloc) nil))
+    (def qs (if qloc (string/slice fullpath (inc qloc)) nil))
     (put head :route path)
     (put head :query-string qs)
     (when qs

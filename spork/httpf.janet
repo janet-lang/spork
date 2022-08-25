@@ -1,7 +1,9 @@
 ###
 ### httpf.janet
 ###
-### A simple HTTP framework for HTML, JDN, and JSON servers.
+### A simple, opinionated HTTP framework for HTML, JDN, and JSON servers.
+### Servers can easily be configured from defn bindings with
+### appropriate metadata.
 ###
 
 (import ./ev-utils)
@@ -81,7 +83,7 @@
     (describe x)))
 
 (defn add-route
-  "Add a route to a server"
+  "Add a single manually route to a server. Prefer using `httpf/add-bindings-as-routes` for the usual case."
   [server path docstring schema handler]
   (def routes (get server :routes))
   (def docs (get server :route-docs))
@@ -91,13 +93,13 @@
     (errorf "duplicate routes for " path))
   (put docs path docstring)
   (put routes path handler)
-  (put schemas path (schema/make-validator schema))
+  (put schemas path ((schema/make-validator schema)))
   (put schema-sources path (make-schema-rep schema))
   (if (string/has-suffix? "/" path)
     (add-route server (string/slice path 0 -2) docstring schema handler)
     server))
 
-(defn- add-bindings
+(defn add-bindings-as-routes
   "Add all local functions defined with :path metadata to a server. Will
   read from the :schema, :doc, :path, and :route-doc metadata to determine how
   the route behaves."
@@ -125,7 +127,7 @@
 
 (defn server
   "Create a new server."
-  [&opt host port route-table]
+  []
   (def routes @{})
   (def schemas @{})
   (def schema-sources @{})
@@ -138,7 +140,7 @@
 
   (defn- generic-handler
     [req]
-    (def path (get req :path))
+    (def path (get req :route (get req :path)))
     (def method (get req :method))
     (def headers (get req :headers))
     (def reader-mime (get headers "content-type" "application/json"))
@@ -158,6 +160,11 @@
                  "server" "spork/httpf"}
        :body (render (wrapper content) @"")})
 
+    (defn make-400-response
+      [content]
+      (eprint "response error: " content)
+      (make-response 400 content))
+
     # Check for bad mime types
     (unless reader
       (break
@@ -172,9 +179,14 @@
                 (make-response
                   200
                   (do
-                    (if-let [validate (get schemas path)]
-                      (validate nil)) (handler req)))
-                ([err] (make-response 400 (string err))))
+                    (def query (get req :query {}))
+                    (def raw-post-data (get query "data"))
+                    (def post-data (if raw-post-data (parse raw-post-data)))
+                    (when-let [validate (get schemas path)]
+                      (validate post-data))
+                    (handler req post-data)))
+                ([err] 
+                 (make-400-response (string err))))
         "OPTIONS" {:status 200
                    :headers {"allow" "OPTIONS, GET, POST"
                              "content-type" render-mime
@@ -186,26 +198,25 @@
                      data (if body (reader body))]
                    (try
                      (make-response 200 (do (if validate (validate data)) (handler req data)))
-                     ([err] (make-response 400 (string err)))))
+                     ([err] (make-400-response (string err)))))
         (make-response 405 "Method not allowed. Use GET, OPTIONS, or POST."))
     ([err]
+     (eprint "internal server error: " (string err))
      (make-response 500 err))))
 
   (put state :on-connection
-       (fn [conn]
+       (fn connection-handler [conn]
          (http/server-handler
            conn
            (-> generic-handler
                http/cookies
                http/logger))))
 
-  (add-bindings state route-table)
-
   state)
 
 (defn listen
   "Start server. Will run on multiple-threads if n-workers > 1."
-  [server &opt n-workers host port]
+  [server &opt host port n-workers]
   (default host "0.0.0.0")
   (default port "8000")
   (default n-workers 1)
@@ -217,13 +228,15 @@
       (defn thread-main
         [tid &]
         (def s (net/listen host port))
-        (printf "thread %V server listening on %V:%V..." tid host port)
+        (eprintf "thread %V server listening on %V:%V..." tid host port)
         (net/accept-loop s on-connection)
-        (print "server closed on thread " tid))
+        (eprint "server closed on thread " tid))
       (ev-utils/multithread-service thread-main n-workers))
     (do
-      (printf "listening on %V:%V..." host port)
+      (eprintf "listening on %V:%V..." host port)
       (def s (net/listen host port))
+      (put server :server s)
+      (put server :close (fn close [svr] (:close s) svr))
       (net/accept-loop s on-connection)
       (print "server closed"))))
 
