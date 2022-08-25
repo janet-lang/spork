@@ -6,6 +6,7 @@
 (import ./path)
 (import ./ev-utils)
 (import ./schema)
+(import ./sh)
 
 (def task-meta-name "Name of the task metadata file" "task.jdn")
 (def out-file-name "out.log")
@@ -27,18 +28,6 @@
 
 (defn- ts [] (os/time))
 (defn- task-dir [tasker] (get tasker :task-dir "."))
-
-(defn- rm
-  "Remove a directory and all sub directories."
-  [path]
-  (case (os/lstat path :mode)
-    :directory (do
-      (each subpath (os/dir path)
-        (rm (path/join path subpath)))
-      (os/rmdir path))
-    nil nil # do nothing if file does not exist
-    # Default, try to remove
-    (os/rm path)))
 
 (def- task-record-validator
   "Check if records loaded from disk are valid"
@@ -71,6 +60,7 @@
 (defn- task-to-disk
   "Write task data to disk."
   [payload]
+  (task-record-validator payload)
   (def mf (get payload :meta-file))
   (log "syncing task " (get payload :task-id) " to disk")
   (string/format "%j" payload) # prevent non-printable structues from being serialized
@@ -204,7 +194,6 @@
       :dir dir
       :meta-file meta-file
       :status :pending})
-  (task-record-validator payload)
   (log (string/format "creating task directory %s" dir))
   (os/mkdir dir)
   (task-to-disk payload)
@@ -290,15 +279,17 @@
   "Delete old expired jobs saved on disk"
   [tasker]
   (def td (task-dir tasker))
+  (var num-removed 0)
   (log "removing expired task records in " td)
   (each dir (os/dir td)
     (when (string/has-prefix? "task-" dir)
       (def meta-path (path/join td dir task-meta-name))
       (try
         (do
-          (def contents (-> meta-path slurp parse))
+          (def contents (-> meta-path slurp parse task-record-validator))
           (when (> (ts) (get contents :delete-after))
-            (rm (path/join td dir))))
+            (sh/rm (path/join td dir))
+            (++ num-removed)))
         ([err]
          (log "failed to clean up task " dir " : " (describe err))))))
-  (log "removed expired task records in " td))
+  (log "removed " num-removed " expired task records in " td))
