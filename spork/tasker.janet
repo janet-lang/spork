@@ -27,6 +27,7 @@
     ;bytes))
 
 (defn- ts [] (os/time))
+
 (defn- task-dir [tasker] (get tasker :task-dir "."))
 
 (def- task-record-validator
@@ -46,16 +47,10 @@
       :meta-file :string
       :status (enum :pending :running :canceled :done :timeout))))
 
-(defn- log-prefix
-  "What to put in front of log messages."
-  []
-  (def now (os/date))
-  (string/format "%.2d:%.2d:%.2d " (get now :hours) (get now :minutes) (get now :seconds)))
-
 (defmacro- log
   "Write a log message"
   [& args]
-  ~(,eprint (,log-prefix) ,;args))
+  ~(,eprint ,;args))
 
 (defn- task-to-disk
   "Write task data to disk."
