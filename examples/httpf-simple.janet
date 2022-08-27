@@ -15,7 +15,7 @@
     [:p (string (os/time))]])
 
 (defn post-double
-  "Post a number and get it back doubled"
+  "Post a number and get it back doubled. (also can use GET with ?data=10 for easy testing)."
   {:path "/double"
    :schema :number}
   [req data]
