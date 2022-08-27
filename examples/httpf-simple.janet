@@ -21,6 +21,12 @@
   [req data]
   (* data 2))
 
+(defn iterate-directories
+  "Iterate the current directory."
+  {:path "/ls"}
+  [&]
+  [:ul (seq [dir :in (os/dir ".")] [:li dir])])
+
 (-> (httpf/server)
     httpf/add-bindings-as-routes
     httpf/listen)
