@@ -1,3 +1,10 @@
+###
+### generators.janet
+###
+### Module for fiber based sequence combinators rather than array based combinators, as
+### are in the core library.
+###
+
 (defn from-iterable
   "Create a new generator around any iterable data structure."
   [ds]
@@ -9,16 +16,12 @@
   (coro (for i from to (yield i))))
 
 (defn to-array
-  ``Consume `s` into a new array.
-
-    NB: this will create an infinite loop if `s` is an infinite generator!``
+  "Consume `s` into a new array."
   [s]
   (values s))
 
 (defn run
-  ``Evaluate `s` for side effects.
-
-    NB: this will create an infinite loop if `s` is an infinite generator!``
+  "Evaluate `s` for side effects."
   [s]
   (each _ s))
 

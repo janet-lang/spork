@@ -87,6 +87,11 @@ static void rawterm_begin(void) {
     return 0;
 }
 
+static void rawterm_get_stdin(void) {
+    HANDLE h = GetStdHandle(STD_INPUT_HANDLE);
+    rawterm_stream = janet_stream(h, JANET_STREAM_READABLE, NULL);
+}
+
 static void rawterm_end(void) {
     if (!in_raw_mode) return;
     HANDLE hOut = GetStdHandle(STD_INPUT_HANDLE);
@@ -137,7 +142,6 @@ static void rawterm_end(void) {
         janet_panic("could not reset to orignal tty attributes");
     }
     in_raw_mode = false;
-    janet_stream_close(rawterm_stream);
     rawterm_stream = NULL;
 }
 
@@ -205,7 +209,9 @@ static void rawterm_begin(void) {
         sigaction(SIGWINCH, &sa, 0);
         at_exit_set = true;
     }
+}
 
+static void rawterm_get_stdin(void) {
     rawterm_stream = janet_stream(STDIN_FILENO, JANET_STREAM_READABLE, NULL);
 }
 
@@ -224,6 +230,9 @@ JANET_FN(cfun_rawterm_begin,
         rawterm_winch_handler = NULL;
     }
     rawterm_begin();
+    if (NULL == rawterm_stream) {
+        rawterm_get_stdin();
+    }
     return janet_wrap_abstract(rawterm_stream);
 }
 
@@ -240,6 +249,29 @@ JANET_FN(cfun_rawterm_end,
     return janet_wrap_nil();
 }
 
+JANET_FN(cfun_rawterm_isatty,
+        "(rawterm/isatty)",
+        "Check if the current stdin is a tty.") {
+    janet_fixarity(argc, 0);
+    (void) argv;
+#ifdef JANET_WINDOWS
+    return janet_wrap_boolean(_isatty(_fileno(stdin)));
+#else
+    return janet_wrap_boolean(isatty(STDIN_FILENO));
+#endif
+}
+
+JANET_FN(cfun_rawterm_stdin,
+        "(rawterm/stdin)",
+        "Get a stream for interaction with stdin. Do not use `stdin` in conjuction with this stream.") {
+    janet_fixarity(argc, 0);
+    (void) argv;
+    if (NULL == rawterm_stream) {
+        rawterm_get_stdin();
+    }
+    return janet_wrap_abstract(rawterm_stream);
+}
+
 JANET_FN(cfun_rawterm_size,
         "(rawterm/size)",
         "Get the number of rows and columns visible in the terminal as tuple [rows cols]") {
@@ -251,6 +283,19 @@ JANET_FN(cfun_rawterm_size,
     return janet_wrap_tuple(janet_tuple_n(tup, 2));
 }
 
+JANET_FN(cfun_rawterm_ctrlz,
+        "(rawterm/ctrl-z)",
+        "A handler that a user can use to handle ctrl-z from input to suspend the current process.") {
+    janet_fixarity(argc, 0);
+    (void) argv;
+#ifndef _WIN32
+    rawterm_end();
+    kill(getpid(), SIGSTOP);
+    rawterm_begin();
+#endif
+    return janet_wrap_nil();
+}
+
 /****************/
 /* Module Entry */
 /****************/
@@ -259,7 +304,10 @@ JANET_MODULE_ENTRY(JanetTable *env) {
     JanetRegExt cfuns[] = {
         JANET_REG("begin", cfun_rawterm_begin),
         JANET_REG("end", cfun_rawterm_end),
+        JANET_REG("isatty", cfun_rawterm_isatty),
+        JANET_REG("stdin", cfun_rawterm_stdin),
         JANET_REG("size", cfun_rawterm_size),
+        JANET_REG("ctrl-z", cfun_rawterm_ctrlz),
         JANET_REG_END
     };
     janet_cfuns_ext(env, "rawterm", cfuns);

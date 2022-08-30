@@ -5,6 +5,7 @@
 ### and the ability to repl into existing environments.
 ###
 
+(use ./getline)
 (use ./msg)
 
 (def default-host
@@ -256,6 +257,34 @@
       (string/slice x 1)
       x)))
 
+(defn- completion-source
+  "Generate code to get all available bindings (will run on server)."
+  [prefix]
+  ~(do
+    (def seen @{})
+    (def ret @[])
+    (var env (curenv))
+    (while env
+      (eachk symname env
+        (when (not (seen symname))
+          (when (symbol? symname)
+            (when (string/has-prefix? ,(string prefix) symname)
+              (put seen symname true)
+              (array/push ret symname)))))
+      (set env (table/getproto env)))
+    (sort ret)
+    ret))
+
+(defn- doc-fetch-source
+  "Generate code to get doc strings from server."
+  [sym w]
+  ~(do
+    (def doc-entry (get (curenv) (symbol ,(string sym))))
+    (when doc-entry
+      (def doc-string (get doc-entry :doc))
+      (when doc-string
+        (string "\n" (doc-format doc-string ,w 4 true))))))
+
 (defn client
   "Connect to a repl server. The default host is \"127.0.0.1\" and the default port
   is \"9365\"."
@@ -266,11 +295,19 @@
   (with [stream (net/connect host port)]
     (def recv (make-recv-client stream))
     (def send (make-send stream))
+    (defn send-recv
+      [msg]
+      (send (string/format "\xFF%j" msg))
+      (def [ok result] (-> (recv) parse protect))
+      (if ok (get result 1) []))
     (send (string/format "\xFF%j" {:auto-flush true :name name}))
+    (defn- get-completions [ctx &] (send-recv (completion-source ctx)))
+    (defn- get-docs [ctx w &] (send-recv (doc-fetch-source ctx w)))
+    (def gl (make-getline nil get-completions get-docs))
     (forever
       (def p (recv))
       (if (not p) (break))
-      (def line (getline p @"" root-env))
+      (def line (gl p @"" root-env))
       (if (empty? line) (break))
       (send (if (keyword? line) (string "\xFE" line) line))
       (prin (or (recv) "")))))
