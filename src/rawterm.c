@@ -86,19 +86,15 @@ static int rawterm_begin(void) {
     return 0;
 }
 
-static int rawterm_getch(void) {
+static void rawterm_getch(JanetBuffer *buffer) {
     HANDLE h = GetStdHandle(STD_INPUT_HANDLE);
     char buf[1];
     DWORD bytes_read = 0;
     if (ReadConsoleA(h, buf, sizeof(buf), &bytes_read, NULL)) {
-        if (bytes_read == 0) {
-            return -1;
+        if (bytes_read) {
+            janet_buffer_push_u8(buffer, buf[0]);
         }
-        return (int) buf[0];
-    } else {
-        return -1;
     }
-
 }
 
 static void rawterm_end(void) {
@@ -224,8 +220,9 @@ static void rawterm_begin(void) {
     }
 }
 
-static int rawterm_getch(void) {
-    janet_panic("nyi");
+static void rawterm_getch(JanetBuffer *buf) {
+    janet_ev_read(rawterm_stream, buf, 1);
+    janet_await();
 }
 
 #endif
@@ -272,11 +269,12 @@ JANET_FN(cfun_rawterm_isatty,
 }
 
 JANET_FN(cfun_rawterm_getch,
-        "(rawterm/getch)",
-        "Get a byte of input from stdin, with blocking if possible.") {
-    janet_fixarity(argc, 0);
-    (void) argv;
-    return janet_wrap_integer(rawterm_getch());
+        "(rawterm/getch &opt into)",
+        "Get a byte of input from stdin, without blocking if possible. Returns a buffer.") {
+    janet_arity(argc, 0, 1);
+    JanetBuffer *buffer = janet_optbuffer(argv, argc, 0, 0);
+    rawterm_getch(buffer);
+    return janet_wrap_buffer(buffer);
 }
 
 JANET_FN(cfun_rawterm_size,

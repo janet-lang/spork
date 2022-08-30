@@ -79,6 +79,13 @@
   (var lines-below "Number of dirty lines below input line for drawing cleanup." 0)
   (var ret-value "Value to return to caller, usually the mutated buffer." buf)
   (var more-input "Loop condition variable" true)
+  (def input-buf @"")
+
+  (defn getc
+    []
+    (buffer/clear input-buf)
+    (rawterm/getch input-buf)
+    (get input-buf 0))
 
   (defn- flushs
     []
@@ -267,7 +274,7 @@
       (if (> (length history) max-history) (array/remove history 0))
       (var hindex (dec (length history)))
       (while more-input
-        (def c (rawterm/getch))
+        (def c (getc))
         (def [_h _w] (rawterm/size))
         (set w _w)
         (set h _h)
@@ -310,17 +317,17 @@
             26 # ctrl-z
             (do (rawterm/ctrl-z) (refresh))
             27 # escape sequence, process more
-            (case (rawterm/getch)
+            (case (getc)
               (chr "[")
-              (let [c3 (rawterm/getch)]
+              (let [c3 (getc)]
                 (cond
                   (and (>= c3 (chr "0")) (<= c3 (chr "9")))
-                  (case (rawterm/getch)
+                  (case (getc)
                     (chr "1") (do (set pos 0) (refresh))
                     (chr "3") (kdelete true)
                     (chr "4") (do (set pos (length buf)) (refresh)))
                   (= c3 (chr "O"))
-                  (case (rawterm/getch)
+                  (case (getc)
                     (chr "H") (do (set pos 0) (refresh))
                     (chr "F") (do (set pos (length buf)) (refresh)))
                   (= c3 (chr "A")) (set hindex (history-move hindex -1))
