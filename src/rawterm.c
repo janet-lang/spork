@@ -36,7 +36,6 @@
 
 static JANET_THREAD_LOCAL bool in_raw_mode;
 static JANET_THREAD_LOCAL JanetFunction *rawterm_winch_handler;
-static JANET_THREAD_LOCAL JanetStream *rawterm_stream = NULL;
 static JANET_THREAD_LOCAL bool at_exit_set = false;
 
 /* Per-Platform Implementation */
@@ -61,7 +60,7 @@ static void setup_console_output(void) {
     SetConsoleOutputCP(65001);
 }
 
-static void rawterm_begin(void) {
+static int rawterm_begin(void) {
     if (in_raw_mode) return 0;
     if (!_isatty(_fileno(stdin))) {
         janet_panic("not a tty");
@@ -87,9 +86,19 @@ static void rawterm_begin(void) {
     return 0;
 }
 
-static void rawterm_get_stdin(void) {
+static int rawterm_getch(void) {
     HANDLE h = GetStdHandle(STD_INPUT_HANDLE);
-    rawterm_stream = janet_stream(h, JANET_STREAM_READABLE, NULL);
+    char buf[1];
+    DWORD bytes_read = 0;
+    if (ReadConsoleA(h, buf, sizeof(buf), &bytes_read, NULL)) {
+        if (bytes_read == 0) {
+            return -1;
+        }
+        return (int) buf[0];
+    } else {
+        return -1;
+    }
+
 }
 
 static void rawterm_end(void) {
@@ -133,6 +142,7 @@ static void rawterm_size(int *rows, int *cols) {
 /* TODO - thread safe? */
 
 static JANET_THREAD_LOCAL struct termios starting_term;
+static JANET_THREAD_LOCAL JanetStream *rawterm_stream = NULL;
 
 static void rawterm_end(void) {
     if (!in_raw_mode) {
@@ -142,7 +152,6 @@ static void rawterm_end(void) {
         janet_panic("could not reset to orignal tty attributes");
     }
     in_raw_mode = false;
-    rawterm_stream = NULL;
 }
 
 static void rawterm_at_exit(void) {
@@ -199,6 +208,10 @@ static void rawterm_begin(void) {
     }
     in_raw_mode = true;
 
+    if (rawterm_stream == NULL) {
+        rawterm_stream = janet_stream(STDIN_FILENO, JANET_STREAM_READABLE, NULL);
+    }
+
     // one time setup
     if (!at_exit_set) {
         atexit(rawterm_at_exit);
@@ -211,8 +224,8 @@ static void rawterm_begin(void) {
     }
 }
 
-static void rawterm_get_stdin(void) {
-    rawterm_stream = janet_stream(STDIN_FILENO, JANET_STREAM_READABLE, NULL);
+static int rawterm_getch(void) {
+    janet_panic("nyi");
 }
 
 #endif
@@ -230,10 +243,7 @@ JANET_FN(cfun_rawterm_begin,
         rawterm_winch_handler = NULL;
     }
     rawterm_begin();
-    if (NULL == rawterm_stream) {
-        rawterm_get_stdin();
-    }
-    return janet_wrap_abstract(rawterm_stream);
+    return janet_wrap_nil();
 }
 
 JANET_FN(cfun_rawterm_end,
@@ -261,15 +271,12 @@ JANET_FN(cfun_rawterm_isatty,
 #endif
 }
 
-JANET_FN(cfun_rawterm_stdin,
-        "(rawterm/stdin)",
-        "Get a stream for interaction with stdin. Do not use `stdin` in conjuction with this stream.") {
+JANET_FN(cfun_rawterm_getch,
+        "(rawterm/getch)",
+        "Get a byte of input from stdin, with blocking if possible.") {
     janet_fixarity(argc, 0);
     (void) argv;
-    if (NULL == rawterm_stream) {
-        rawterm_get_stdin();
-    }
-    return janet_wrap_abstract(rawterm_stream);
+    return janet_wrap_integer(rawterm_getch());
 }
 
 JANET_FN(cfun_rawterm_size,
@@ -305,7 +312,7 @@ JANET_MODULE_ENTRY(JanetTable *env) {
         JANET_REG("begin", cfun_rawterm_begin),
         JANET_REG("end", cfun_rawterm_end),
         JANET_REG("isatty", cfun_rawterm_isatty),
-        JANET_REG("stdin", cfun_rawterm_stdin),
+        JANET_REG("getch", cfun_rawterm_getch),
         JANET_REG("size", cfun_rawterm_size),
         JANET_REG("ctrl-z", cfun_rawterm_ctrlz),
         JANET_REG_END

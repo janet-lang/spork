@@ -68,37 +68,17 @@
   (default autocomplete-options default-autocomplete-options)
   (default doc-fetch default-doc-fetch)
 
-  (def s (rawterm/stdin))
-
   # state
   (var w "last measured terminal width (columns)" 0)
   (var h "last measured height (rows)" 0)
   (var buf "line buffer" @"")
   (var prpt "prompt string (line prefix)" "")
   (def history "history stack. Top item is current placeholder." @[])
-  (def input-buf "Re-used buffer for reading input" @"")
   (def tmp-buf "Buffer to group writes to stderr for terminal rendering." @"")
   (var pos "Cursor posiiton in buf" 0)
   (var lines-below "Number of dirty lines below input line for drawing cleanup." 0)
   (var ret-value "Value to return to caller, usually the mutated buffer." buf)
   (var more-input "Loop condition variable" true)
-
-  (defn- getc
-    []
-    (buffer/clear input-buf)
-    (def read (ev/read s 1 input-buf))
-    (in read 0))
-
-  (defn- simple-getline
-    [into]
-    (var idx (length into))
-    (forever
-      (ev/read s 1 into)
-      (def last-byte (get into idx))
-      (if last-byte nil (break)) # read failed, break
-      (if (= (chr "\n") last-byte) (break)) # newline, break
-      (++ idx))
-    into)
 
   (defn- flushs
     []
@@ -270,10 +250,9 @@
   (fn getline-fn
     [&opt prompt buff _]
     (set buf (or buff @""))
-    (unless (rawterm/isatty)
-      (simple-getline buf)
-      (break buf))
     (set prpt (string prompt))
+    (unless (rawterm/isatty)
+      (break (getline prpt buf)))
     (defer (rawterm/end)
       (rawterm/begin)
       (buffer/clear tmp-buf)
@@ -288,7 +267,7 @@
       (if (> (length history) max-history) (array/remove history 0))
       (var hindex (dec (length history)))
       (while more-input
-        (def c (getc))
+        (def c (rawterm/getch))
         (def [_h _w] (rawterm/size))
         (set w _w)
         (set h _h)
@@ -331,17 +310,17 @@
             26 # ctrl-z
             (do (rawterm/ctrl-z) (refresh))
             27 # escape sequence, process more
-            (case (getc)
+            (case (rawterm/getch)
               (chr "[")
-              (let [c3 (getc)]
+              (let [c3 (rawterm/getch)]
                 (cond
                   (and (>= c3 (chr "0")) (<= c3 (chr "9")))
-                  (case (getc)
+                  (case (rawterm/getch)
                     (chr "1") (do (set pos 0) (refresh))
                     (chr "3") (kdelete true)
                     (chr "4") (do (set pos (length buf)) (refresh)))
                   (= c3 (chr "O"))
-                  (case (getc)
+                  (case (rawterm/getch)
                     (chr "H") (do (set pos 0) (refresh))
                     (chr "F") (do (set pos (length buf)) (refresh)))
                   (= c3 (chr "A")) (set hindex (history-move hindex -1))
