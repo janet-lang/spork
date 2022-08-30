@@ -122,6 +122,9 @@
       (when node-after (node-after node)))
     (visit-leaf data)))
 
+
+###### Array Helpers ######
+
 (defn randomize-array
   "Randomizes array using the fisher-yates shuffle, takes an optional random number generator."
   [arr &opt rng]
@@ -134,6 +137,22 @@
     (put arr a (arr b))
     (put arr b tmp))
   arr)
+
+##### String Helpers #####
+
+(defn trim-prefix
+  "Trim the specified prefix of a string if it has one"
+  [prefix str]
+  (if (string/has-prefix? prefix str)
+      (slice str (length prefix) -1)
+      str))
+
+(defn trim-suffix
+  "Trim the specified suffix of a string if it has one"
+  [suffix str]
+  (if (string/has-suffix? suffix str)
+      (slice str 0 (* -1 (+ 1 (length suffix))))
+      str))
 
 (defmacro log
   ``Print to a dynamic binding stream if that stream is set, otherwise do nothing. Evaluate to nil.
