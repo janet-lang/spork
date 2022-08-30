@@ -5,6 +5,7 @@
 (import ./generators :export true)
 (import ./htmlgen :export true)
 (import ./http :export true)
+(import ./httpf :export true)
 (import ./misc :export true)
 (import ./msg :export true)
 (import ./netrepl :export true)

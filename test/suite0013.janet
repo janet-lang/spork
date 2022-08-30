@@ -22,6 +22,7 @@
 (assert-no-error "validator v1 1" (v1 0))
 (assert-no-error "validator v1 2" (v1 math/nan))
 (assert-error "validator v1 3" (v1 :hello))
+(assert-error "validator v1 4" (v1 nil))
 
 (def v2
   (schema/validator

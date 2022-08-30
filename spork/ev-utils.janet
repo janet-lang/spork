@@ -137,3 +137,26 @@
 
   (pcall worker n-workers)
   res)
+
+(defn multithread-service
+  "Run instances of a function over multiple threads. On failures, restart
+  the failed thread. Normal function returns will not trigger a restart."
+  [thread-main n-threads]
+  (def supervisor (ev/thread-chan 1024))
+  (var next-tid 0)
+  (var to-complete n-threads)
+  (defn start-thread []
+    (def tid (string "thread-" (++ next-tid)))
+    (ev/thread thread-main tid :nt supervisor))
+  (repeat n-threads (start-thread))
+  (while (> to-complete 0)
+    (def [sig payload tid] (ev/take supervisor))
+    (if tid
+      (if (= sig :ok)
+        (do
+          (eprint "thread " tid " completed normally")
+          (-- to-complete))
+        (do
+          (eprint "thread message " sig " in " tid ": " payload)
+          (start-thread)))))
+  (ev/chan-close supervisor))

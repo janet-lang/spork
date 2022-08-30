@@ -138,7 +138,6 @@
     (put arr b tmp))
   arr)
 
-
 ##### String Helpers #####
 
 (defn trim-prefix
@@ -154,3 +153,11 @@
   (if (string/has-suffix? suffix str)
       (slice str 0 (* -1 (+ 1 (length suffix))))
       str))
+
+(defmacro log
+  ``Print to a dynamic binding stream if that stream is set, otherwise do nothing. Evaluate to nil.
+  For example, `(log :err "value error: %V" my-value)` will print to `(dyn :err)` only if `(dyn :err)` has been set.``
+  [level & args]
+  (def to (gensym))
+  ~(when-let [,to (,dyn ,level)]
+     (,xprintf ,to ,;args)))
