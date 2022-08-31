@@ -159,6 +159,10 @@
     "Cursor character position in buf. Double-width characters cause this to
     increase only by 1."
     0)
+  (var wcursor
+    "Cursor column position in buf. Double-width characters cause this to
+    increase by 2."
+    0)
   (var lines-below "Number of dirty lines below input line for drawing cleanup." 0)
   (var ret-value "Value to return to caller, usually the mutated buffer." buf)
   (var more-input "Loop condition variable" true)
@@ -169,11 +173,11 @@
     (buffer/clear input-buf)
     (rawterm/getch input-buf)
     (def c (get input-buf 0))
-    (var w (utf8/prefix->width c))
-    (-- w)
-    (while (not= w 0)
+    (var len (utf8/prefix->width c))
+    (-- len)
+    (while (not= len 0)
       (rawterm/getch input-buf)
-      (-- w))
+      (-- len))
     (def [rune _] (utf8/decode-rune input-buf))
     rune)
 
@@ -196,13 +200,13 @@
   (defn- refresh
     []
     (def overflow (check-overflow))
-    (def overflow-right (- buf-width cursor))
+    (def overflow-right (- buf-width wcursor))
     (def overflow-right (if (< overflow overflow-right) overflow overflow-right))
     (def overflow-left (- overflow overflow-right))
     (def visual-pos
       (if (pos? overflow)
-        (+ prpt-width cursor (- overflow-left))
-        (+ prpt-width cursor)))
+        (+ prpt-width wcursor (- overflow-left))
+        (+ prpt-width wcursor)))
     (def visual-buf
       (if (pos? overflow)
         (do
@@ -252,43 +256,47 @@
     new-idx)
 
   (defn- insert
-    "If nil is passed instead of c, copies directly out of input-buf to avoid
-    double UTF-8 encoding/decoding as a microoptimization -- assumes input-buf
-    contains only one UTF-8 character within it."
-    [c draw]
+    "If from-input-buf? is truthy, as a microopt, copies the input character
+    from input-buf, assuming that it contains only one."
+    [c draw &opt from-input-buf?]
+    (default from-input-buf? false)
     (if (= (length buf) pos)
       (do
-        (if c
-          (utf8/encode-rune c buf)
-          (buffer/push buf input-buf))
+        (if from-input-buf?
+          (buffer/push buf input-buf)
+          (utf8/encode-rune c buf))
         (set pos (length buf))
+        (def w (char-width c))
         (++ cursor)
         (++ buf-char-count)
-        (+= buf-width (char-width c))
+        (+= wcursor w)
+        (+= buf-width w)
         (when draw
           (def o (check-overflow))
           (if (pos? o)
             (refresh)
             (do
-              (if c
-                (utf8/encode-rune c tmp-buf)
-                (buffer/push tmp-buf input-buf))
+              (if from-input-buf?
+                (buffer/push tmp-buf input-buf)
+                (utf8/encode-rune c tmp-buf))
               (flushs)))))
       (do
         (def ch
-          (if c
-            (utf8/encode-rune c)
-            input-buf))
+          (if from-input-buf?
+            input-buf
+            (utf8/encode-rune c)))
         (def l (length buf))
         (def need-expand (- (length ch) (- (length buf) pos)))
         (when (pos? need-expand)
           (buffer/push buf (string/repeat "\0" need-expand)))
         (buffer/blit buf buf (+ pos (length ch)) pos l)
         (buffer/blit buf ch pos)
+        (def w (char-width c))
         (+= pos (length ch))
         (++ cursor)
         (++ buf-char-count)
-        (+= buf-width (char-width c))
+        (+= wcursor w)
+        (+= buf-width w)
         (if draw (refresh)))))
 
   (defn- autocomplete
@@ -343,49 +351,53 @@
   (defn- kleft
     [draw]
     (when (> cursor 0)
-      (def [_ w] (utf8/decode-rune-reverse buf pos))
+      (def [c len] (utf8/decode-rune-reverse buf pos))
       (-- cursor)
-      (-= pos w)
+      (-= wcursor (char-width c))
+      (-= pos len)
       (if draw (refresh))))
 
   (defn- kleftw
     []
     (while (and (> cursor 0) (= 32 (buf (dec pos)))) (kleft false))
-    (while (and (> pos 0) (not= 32 (buf (dec pos)))) (kleft false))
+    (while (and (> cursor 0) (not= 32 (buf (dec pos)))) (kleft false))
     (refresh))
 
   (defn- kright
     [draw]
     (when (< pos (length buf))
-      (def [_ w] (utf8/decode-rune buf pos))
+      (def [c len] (utf8/decode-rune buf pos))
       (++ cursor)
-      (+= pos w)
+      (+= wcursor (char-width c))
+      (+= pos len)
       (if draw (refresh))))
 
   (defn- krightw
     []
-    (while (and (< pos (length buf)) (not= 32 (buf pos))) (kright false))
-    (while (and (< pos (length buf)) (= 32 (buf pos))) (kright false))
+    (while (and (< cursor (length buf)) (not= 32 (buf pos))) (kright false))
+    (while (and (< cursor (length buf)) (= 32 (buf pos))) (kright false))
     (refresh))
 
   (defn- khome
     []
     (set pos 0)
+    (set wcursor 0)
     (set cursor 0)
     (refresh))
 
   (defn- kend
     []
     (set pos (length buf))
+    (set wcursor buf-width)
     (set cursor buf-char-count)
     (refresh))
 
   (defn- kdelete
     [draw]
     (when (not= pos (length buf))
-      (def [c w] (utf8/decode-rune buf pos))
-      (buffer/blit buf buf pos (+ pos w))
-      (buffer/popn buf w)
+      (def [c len] (utf8/decode-rune buf pos))
+      (buffer/blit buf buf pos (+ pos len))
+      (buffer/popn buf len)
       (-- buf-char-count)
       (-= buf-width (char-width c))
       (if draw (refresh))))
@@ -399,13 +411,15 @@
   (defn- kback
     [draw]
     (when (pos? pos)
-      (def [c w] (utf8/decode-rune-reverse buf pos))
+      (def [c len] (utf8/decode-rune-reverse buf pos))
+      (def w (char-width c))
       (-- cursor)
-      (-= pos w)
+      (-= wcursor w)
+      (-= pos len)
       (-- buf-char-count)
-      (-= buf-width (char-width c))
-      (buffer/blit buf buf pos (+ pos w))
-      (buffer/popn buf w)
+      (-= buf-width w)
+      (buffer/blit buf buf pos (+ pos len))
+      (buffer/popn buf len)
       (if draw (refresh))))
 
   (defn- kbackw
@@ -452,7 +466,7 @@
             (kback true)
             # default - keep default case not at bottom of case (micro-opt)
             (when (>= c 0x20)
-              (insert nil true)))
+              (insert c true true)))
           (case c
             1 # ctrl-a
             (khome)
@@ -497,7 +511,7 @@
                   (case (getc)
                     (chr "1") (khome)
                     (chr "3") (kdelete true)
-                    (chr "4") (kend)
+                    (chr "4") (kend))
                   (= c3 (chr "O"))
                   (case (getc)
                     (chr "H") (khome)
@@ -507,7 +521,7 @@
                   (= c3 (chr "C")) (kright true)
                   (= c3 (chr "D")) (kleft true)
                   (= c3 (chr "H")) (khome)
-                  (= c3 (chr "F")) (kend))))
+                  (= c3 (chr "F")) (kend)))
               (chr "d") (kdeletew) # alt-d
               (chr "b") (kleftw) # alt-b
               (chr "f") (krightw) # alt-f
