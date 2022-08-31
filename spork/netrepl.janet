@@ -156,11 +156,14 @@
         (def e (coerce-to-env env name stream))
         (def p (parser/new))
         (when (and welcome-msg auto-flush)
-          (send (string/format
-                  "\xFF%s"
-                  (if (bytes? welcome-msg)
-                    welcome-msg
-                    (welcome-msg name)))))
+          (def msg
+            (if (bytes? welcome-msg)
+              welcome-msg
+              (welcome-msg name)))
+          (when msg
+            (send (string/format
+                    "\xFF%s"
+                    msg))))
         (var is-first true)
         (defn getline-async
           [prmpt buf]
