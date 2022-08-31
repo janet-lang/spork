@@ -264,6 +264,8 @@
       (buffer/clear buf)
       (buffer/push buf (in history new-idx))
       (set pos (length buf))
+      (set buf-width (monowidth buf))
+      (set wcursor buf-width)
       (refresh))
     new-idx)
 
