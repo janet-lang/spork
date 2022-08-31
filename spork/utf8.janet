@@ -115,3 +115,16 @@
   (when rune
     (buffer/popn buf len))
   rune)
+
+(defmacro each-rune
+  "Runs body with x bound to every rune in str."
+  [x str & body]
+  (with-syms [$i $l $w]
+    ~(do
+      (var ,$i 0)
+      (def ,$l (length ,str))
+      (while (< ,$i ,$l)
+        (def [,x ,$w] (,decode-rune ,str ,$i))
+        (do ,;body)
+        (+= ,$i ,$w))
+      nil)))
