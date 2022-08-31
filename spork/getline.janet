@@ -452,6 +452,7 @@
       (set ret-value buf)
       (set pos 0)
       (set cursor 0)
+      (set wcursor 0)
       (set lines-below 0)
       (set more-input true)
       (eprin prpt)
