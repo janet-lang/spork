@@ -252,10 +252,15 @@
     new-idx)
 
   (defn- insert
+    "If nil is passed instead of c, copies directly out of input-buf to avoid
+    double UTF-8 encoding/decoding as a microoptimization -- assumes input-buf
+    contains only one UTF-8 character within it."
     [c draw]
     (if (= (length buf) pos)
       (do
-        (utf8/encode-rune c buf)
+        (if c
+          (utf8/encode-rune c buf)
+          (buffer/push buf input-buf))
         (set pos (length buf))
         (++ cursor)
         (++ buf-char-count)
@@ -264,9 +269,16 @@
           (def o (check-overflow))
           (if (pos? o)
             (refresh)
-            (do (utf8/encode-rune c tmp-buf) (flushs)))))
+            (do
+              (if c
+                (utf8/encode-rune c tmp-buf)
+                (buffer/push tmp-buf input-buf))
+              (flushs)))))
       (do
-        (def ch (utf8/encode-rune c))
+        (def ch
+          (if c
+            (utf8/encode-rune c)
+            input-buf))
         (def l (length buf))
         (def need-expand (- (length ch) (- (length buf) pos)))
         (when (pos? need-expand)
@@ -440,7 +452,7 @@
             (kback true)
             # default - keep default case not at bottom of case (micro-opt)
             (when (>= c 0x20)
-              (insert c true)))
+              (insert nil true)))
           (case c
             1 # ctrl-a
             (khome)
