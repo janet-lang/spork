@@ -203,6 +203,10 @@
     (def overflow-right (- buf-width wcursor))
     (def overflow-right (if (< overflow overflow-right) overflow overflow-right))
     (def overflow-left (- overflow overflow-right))
+    # If the cursor is on the right side but not at EOL, additionally show the
+    # character under the cursor.
+    (def overflow-right
+      (if (= buf-width wcursor) overflow-right (dec overflow-right)))
     (def visual-pos
       (if (pos? overflow)
         (+ prpt-width wcursor (- overflow-left))
@@ -222,6 +226,17 @@
               (when (not= w overflow-left)
                 (set overtrimmed-left? true))
               i))
+          # If we got one extra column freed up because the left side was
+          # overtrimmed, allow it to be untrimmed here.
+          # TODO: This is not entirely correct. It should be preferred to show
+          # the right-hand side symbol over which the cursor stands, even if
+          # that implies trimming the left side even more.
+          # Test case: stty width 14, Prompt `チェリー> `, entry `aライム`;
+          # having the cursor positioned over イ should hide the `a` and show
+          # イ, instead of showing the `a` and leaving only one column for イ
+          # where it obviously doesn't fit.
+          (def overflow-right
+            (if overtrimmed-left? (dec overflow-right) overflow-right))
           (def end
             (if (< overflow-right 1) -1
               (do
