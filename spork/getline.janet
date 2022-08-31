@@ -51,24 +51,7 @@
     "Copyright 2010-2013 Pieter Noordhuis <pcnoordhuis@gmail.com>\n")))
 (defn- bestline-noop [&])
 
-(defn- char-control? [c]
-  (or (<= c 0x1F) (<= 0x7F c 0x9F)))
-(defn- char-width [c]
-  (cond
-    (char-control? c) 0
-    (<= 0x1100 c 0x115f) 2
-    (= 0x2329 c) 2
-    (= 0x232a c) 2
-    (and (<= 0x2e80 c 0xa4cf) (not= 0x303f c)) 2
-    (<= 0xac00 c 0xd7a3) 2
-    (<= 0xf900 c 0xfaff) 2
-    (<= 0xfe10 c 0xfe19) 2
-    (<= 0xfe30 c 0xfe6f) 2
-    (<= 0xff00 c 0xff60) 2
-    (<= 0xffe0 c 0xffe6) 2
-    (<= 0x20000 c 0x2fffd) 2
-    (<= 0x30000 c 0x3fffd) 2
-    1))
+(def- char-width rawterm/rune-monowidth)
 
 (def max-history 500)
 
@@ -323,13 +306,21 @@
       1
       (do
         (def choice (get options 0))
-        (utf8/each-rune c (slice choice (length ctx-string) -1)
-          (insert c false))
+        (var i (length ctx-string))
+        (while (<= i (length choice))
+          (def [rune len] (utf8/decode-rune choice i))
+          (if (= rune nil) (break))
+          (insert rune false)
+          (+= i len))
         (refresh))
       (do # print all options
         (def gcp (reduce greatest-common-prefix (first options) options))
-        (utf8/each-rune c (string/slice gcp (length ctx-string) -1)
-          (insert c false))
+        (var i (length gcp))
+        (while (<= i (length gcp))
+          (def [rune len] (utf8/decode-rune gcp i))
+          (if (= rune nil) (break))
+          (insert rune false)
+          (+= i len))
         (def maxlen (extreme > (map length options)))
         (def colwidth (+ 4 maxlen))
         (def cols (max 1 (math/floor (/ w colwidth))))

@@ -32,6 +32,10 @@
   :source @["src/rawterm.c"])
 
 (declare-native
+  :name "spork/utf8"
+  :source @["src/utf8.c"])
+
+(declare-native
  :name "spork/tarray"
  :headers @["src/tarray.h"]
  :source @["src/tarray.c"])
