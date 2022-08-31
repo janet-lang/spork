@@ -293,7 +293,9 @@
             3 # ctrl-c
             (do (clear-lines) (eprint "^C") (eflush) (rawterm/end) (os/exit 1))
             4 # ctrl-d, eof
-            (do (set more-input false) (clear-lines))
+            (if (= pos (length buf))
+              (do (set more-input false) (clear-lines))
+              (kdelete true))
             5 # ctrl-e
             (do (set pos (length buf)) (refresh))
             6 # ctrl-f
@@ -314,6 +316,8 @@
             (set hindex (history-move hindex 1))
             17 # ctrl-q
             (do (set more-input false) (set ret-value :cancel) (clear-lines))
+            23 # ctrl-w
+            (kbackw)
             26 # ctrl-z
             (do (rawterm/ctrl-z) (refresh))
             27 # escape sequence, process more
