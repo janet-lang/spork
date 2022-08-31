@@ -194,7 +194,7 @@
 
   (defn- check-overflow
     []
-    (def available-w (- w (monowidth prpt)))
+    (def available-w (- w prpt-width))
     (- buf-width available-w -1))
 
   (defn- refresh
@@ -207,6 +207,7 @@
       (if (pos? overflow)
         (+ prpt-width wcursor (- overflow-left))
         (+ prpt-width wcursor)))
+    (var overtrimmed-left? false)
     (def visual-buf
       (if (pos? overflow)
         (do
@@ -218,6 +219,8 @@
                 (def [rune len] (utf8/decode-rune buf i))
                 (+= i len)
                 (+= w (char-width rune)))
+              (when (not= w overflow-left)
+                (set overtrimmed-left? true))
               i))
           (def end
             (if (< overflow-right 1) -1
@@ -231,7 +234,8 @@
                 i)))
           (string/slice buf start end))
         buf))
-    (buffer/format tmp-buf "\r%s%s\e[0K\r\e[%dC" prpt visual-buf visual-pos)
+    (buffer/format tmp-buf "\r%s%s\e[0K\r\e[%dC" prpt visual-buf
+      (if overtrimmed-left? (dec visual-pos) visual-pos))
     (flushs))
 
   (defn- clear-lines
