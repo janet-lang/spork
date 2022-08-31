@@ -149,16 +149,11 @@
     "Line buffer width in screen columns. Double-width characters cause
     this to increase by 2."
     0)
-  (var buf-char-count "Line buffer character count." 0)
   (var prpt "prompt string (line prefix)" "")
   (var prpt-width "prompt string character width" 0)
   (def history "history stack. Top item is current placeholder." @[])
   (def tmp-buf "Buffer to group writes to stderr for terminal rendering." @"")
   (var pos "Cursor byte position in buf" 0)
-  (var cursor
-    "Cursor character position in buf. Double-width characters cause this to
-    increase only by 1."
-    0)
   (var wcursor
     "Cursor column position in buf. Double-width characters cause this to
     increase by 2."
@@ -284,8 +279,6 @@
           (utf8/encode-rune c buf))
         (set pos (length buf))
         (def w (char-width c))
-        (++ cursor)
-        (++ buf-char-count)
         (+= wcursor w)
         (+= buf-width w)
         (when draw
@@ -310,8 +303,6 @@
         (buffer/blit buf ch pos)
         (def w (char-width c))
         (+= pos (length ch))
-        (++ cursor)
-        (++ buf-char-count)
         (+= wcursor w)
         (+= buf-width w)
         (if draw (refresh)))))
@@ -367,46 +358,42 @@
 
   (defn- kleft
     [draw]
-    (when (> cursor 0)
+    (when (> wcursor 0)
       (def [c len] (utf8/decode-rune-reverse buf pos))
-      (-- cursor)
       (-= wcursor (char-width c))
       (-= pos len)
       (if draw (refresh))))
 
   (defn- kleftw
     []
-    (while (and (> cursor 0) (= 32 (buf (dec pos)))) (kleft false))
-    (while (and (> cursor 0) (not= 32 (buf (dec pos)))) (kleft false))
+    (while (and (> wcursor 0) (= 32 (buf (dec pos)))) (kleft false))
+    (while (and (> wcursor 0) (not= 32 (buf (dec pos)))) (kleft false))
     (refresh))
 
   (defn- kright
     [draw]
     (when (< pos (length buf))
       (def [c len] (utf8/decode-rune buf pos))
-      (++ cursor)
       (+= wcursor (char-width c))
       (+= pos len)
       (if draw (refresh))))
 
   (defn- krightw
     []
-    (while (and (< cursor (length buf)) (not= 32 (buf pos))) (kright false))
-    (while (and (< cursor (length buf)) (= 32 (buf pos))) (kright false))
+    (while (and (< wcursor (length buf)) (not= 32 (buf pos))) (kright false))
+    (while (and (< wcursor (length buf)) (= 32 (buf pos))) (kright false))
     (refresh))
 
   (defn- khome
     []
     (set pos 0)
     (set wcursor 0)
-    (set cursor 0)
     (refresh))
 
   (defn- kend
     []
     (set pos (length buf))
     (set wcursor buf-width)
-    (set cursor buf-char-count)
     (refresh))
 
   (defn- kdelete
@@ -415,7 +402,6 @@
       (def [c len] (utf8/decode-rune buf pos))
       (buffer/blit buf buf pos (+ pos len))
       (buffer/popn buf len)
-      (-- buf-char-count)
       (-= buf-width (char-width c))
       (if draw (refresh))))
 
@@ -430,10 +416,8 @@
     (when (pos? pos)
       (def [c len] (utf8/decode-rune-reverse buf pos))
       (def w (char-width c))
-      (-- cursor)
       (-= wcursor w)
       (-= pos len)
-      (-- buf-char-count)
       (-= buf-width w)
       (buffer/blit buf buf pos (+ pos len))
       (buffer/popn buf len)
@@ -461,10 +445,8 @@
       (buffer/clear tmp-buf)
       (buffer/clear buf)
       (set buf-width 0)
-      (set buf-char-count 0)
       (set ret-value buf)
       (set pos 0)
-      (set cursor 0)
       (set wcursor 0)
       (set lines-below 0)
       (set more-input true)
