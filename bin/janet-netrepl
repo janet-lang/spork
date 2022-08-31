@@ -46,6 +46,16 @@
      :kind :option
      :help "Pass in a file to evaluate with dofile for each new environment table"}
 
+    "message"
+    {:short "m"
+     :kind :option
+     :help "Specify a short message to show clients on connection"}
+
+    "message-file"
+    {:short "M"
+     :kind :option
+     :help "Specify a file to load as a welcome message for new connections"}
+
     "single-env"
     {:short "s"
      :kind :flag
@@ -56,8 +66,14 @@
   (def host (ap "host"))
   (def port (ap "port"))
   (def dof (ap "dofile"))
+  (def msg (ap "message"))
+  (def msg-file (ap "message-file"))
   (def files (get ap :default []))
   (def libraries (get ap "library" []))
+  (defn make-msg
+    [&]
+    (if msg (string msg "\n")
+      (if msg-file (slurp msg-file))))
   (defn env-make
     [&]
     (let [e (make-env)]
@@ -69,5 +85,5 @@
   (if (ap "client")
     (netrepl/client host port (ap "client-name"))
     (if (ap "single-env")
-      (netrepl/server-single host port env-make)
-      (netrepl/server host port env-make))))
+      (netrepl/server-single host port env-make nil make-msg)
+      (netrepl/server host port env-make nil make-msg))))

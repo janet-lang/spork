@@ -116,8 +116,10 @@
   repl into the given env. If no env is provided, a new env will be created
   per connection. If env is a function, that function will be invoked with
   the name and stream on each connection to generate an environment. `cleanup` is
-  an optional function that will be called for each stream after closing if provided."
-  [&opt host port env cleanup]
+  an optional function that will be called for each stream after closing if provided.
+  `welcome-msg` is an optional string or function (welcome-msg client-name) to generate
+  a message to print for the client on connection."
+  [&opt host port env cleanup welcome-msg]
   (default host default-host)
   (default port default-port)
   (print "Starting networked repl server on " host ", port " port "...")
@@ -153,6 +155,12 @@
         (print "client " name " connected")
         (def e (coerce-to-env env name stream))
         (def p (parser/new))
+        (when (and welcome-msg auto-flush)
+          (send (string/format
+                  "\xFF%s"
+                  (if (bytes? welcome-msg)
+                    welcome-msg
+                    (welcome-msg name)))))
         (var is-first true)
         (defn getline-async
           [prmpt buf]
@@ -221,7 +229,7 @@
 (defn server-single
   "Short-hand for serving up a a repl that has a single environment table in it. `env`
   must be a proper env table, not a function as is possible in netrepl/server."
-  [&opt host port env cleanup]
+  [&opt host port env cleanup welcome-msg]
   (def client-table @{})
   (def inverse-client-table @{})
   (let [e (coerce-to-env (or env (make-env)) nil nil)]
@@ -237,7 +245,7 @@
       (put inverse-client-table stream nil))
     (put e :pretty-format "%.20Q")
     (put e :clients client-table)
-    (server host port env-factory cleanup2)))
+    (server host port env-factory cleanup2 welcome-msg)))
 
 (defn- make-recv-client
   "Similar to msg/make-recv, except has exceptions for out-of-band
