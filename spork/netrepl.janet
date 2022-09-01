@@ -65,7 +65,7 @@
 #   5b. goto 6b.
 # 6. Otherwise
 #   6a. Send chunk to repl input stream
-#   6b. server -> {(dyn :out) and (dyn :err) (empty at first)} -> client
+#   6b. Unless auto-flush is enabled, server -> {(dyn :out) and (dyn :err) (empty at first)} -> client
 #   6c. goto 2.
 
 (def- cmd-peg
@@ -139,6 +139,8 @@
         (def send (make-send stream))
         (def sync-chan (ev/chan 2))
         (var auto-flush false)
+
+        # Get name and client settings
         (defn get-name
           []
           (def msg (recv))
@@ -155,6 +157,8 @@
         (print "client " name " connected")
         (def e (coerce-to-env env name stream))
         (def p (parser/new))
+
+        # Print welcome message
         (when (and welcome-msg auto-flush)
           (def msg
             (if (bytes? welcome-msg)
@@ -164,17 +168,28 @@
             (send (string/format
                     "\xFF%s"
                     msg))))
+
+        (defn flush1
+          "Write stdout and stderr back to client if there is something to write."
+          []
+          (when (next outbuf)
+            (def msg (string "\xFF" outbuf))
+            (buffer/clear outbuf)
+            (send msg)))
+
         (var is-first true)
         (defn getline-async
           [prmpt buf]
-          (if is-first
-            (set is-first false)
-            (let [b (get outbuf 0)]
-              (when (or (= b 0xFF) (= b 0xFE))
-                (buffer/blit outbuf outbuf 1 0 -1)
-                (put outbuf 0 0xFE))
-              (send outbuf)
-              (buffer/clear outbuf)))
+          (if auto-flush
+            (flush1)
+            (if is-first # step 6b. is redundant with auto-flush, but needed for clients like Conjure.
+              (set is-first false)
+              (let [b (get outbuf 0)]
+                (when (or (= b 0xFF) (= b 0xFE))
+                  (buffer/blit outbuf outbuf 1 0 -1)
+                  (put outbuf 0 0xFE))
+                (send outbuf)
+                (buffer/clear outbuf))))
           (send prmpt)
           (var ret nil)
           (while (def msg (recv))
@@ -202,27 +217,26 @@
              :on-status (make-onsignal getline-async e e 1)
              :on-compile-error (wrapio bad-compile)
              :on-parse-error (wrapio bad-parse)
-             :evaluator (fn [x &]
-                          (setdyn :out outbuf)
-                          (setdyn :err outbuf)
-                          (if auto-flush
-                            (do
-                              (var evaling true)
-                              (defn flusher
-                                [&]
-                                (ev/sleep 0) # initial sleep so fast in the default case
-                                (while evaling
-                                  (when (next outbuf)
-                                    (def msg (string "\xFF" outbuf))
-                                    (buffer/clear outbuf)
-                                    (send msg))
-                                  (ev/sleep 0.1)))
-                              (ev/go flusher nil sync-chan)
-                              (def result (x))
-                              (set evaling false)
-                              (ev/take sync-chan) # sync with flusher
-                              result)
-                            (x)))
+             :evaluator
+               (fn [x &]
+                 (setdyn :out outbuf)
+                 (setdyn :err outbuf)
+                 (if auto-flush
+                   (do
+                     (var evaling true)
+                     (defn flusher
+                       [&]
+                       (ev/sleep 0) # initial sleep so fast in the default case
+                       (while evaling
+                         (flush1)
+                         (ev/sleep 0.1))
+                       (flush1))
+                     (ev/go flusher nil sync-chan)
+                     (def result (x))
+                     (set evaling false)
+                     (ev/take sync-chan) # sync with flusher
+                     result)
+                   (x)))
              :source "repl"
              :parser p})
           coro
@@ -317,8 +331,7 @@
     (def gl (make-getline nil get-completions get-docs))
     (forever
       (def p (recv))
-      (if (not p) (break))
+      (if-not p (break))
       (def line (gl p @"" root-env))
       (if (empty? line) (break))
-      (send (if (keyword? line) (string "\xFE" line) line))
-      (prin (or (recv) "")))))
+      (send (if (keyword? line) (string "\xFE" line) line)))))

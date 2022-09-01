@@ -4,8 +4,8 @@
 
 (start-suite 9)
 
-(with [wt (netrepl/server "localhost" "8000")]
-  (with [s (net/connect "localhost" "8000")]
+(with [wt (netrepl/server "127.0.0.1" "8000")]
+  (with [s (net/connect "127.0.0.1" "8000")]
     (def recv (msg/make-recv s))
     (def send (msg/make-send s))
     (send "test")
