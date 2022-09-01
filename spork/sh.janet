@@ -27,3 +27,13 @@
     nil nil # do nothing if file does not exist
     # Default, try to remove
     (os/rm path)))
+
+(defn create-dirs
+  "Create all directories in path specified as string including itself."
+  [dir-path]
+  (def dirs @[])
+  (each part (path/parts dir-path)
+    (array/push dirs part)
+    (def path (path/join ;dirs))
+    (if (not (os/stat path))
+        (os/mkdir path))))
