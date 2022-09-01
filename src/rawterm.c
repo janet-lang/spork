@@ -301,40 +301,6 @@ JANET_FN(cfun_rawterm_ctrlz,
     return janet_wrap_nil();
 }
 
-JANET_FN(cfun_rawterm_rune_monowidth,
-        "(rawterm/rune-monowidth rune)",
-        "Get the monospace width of a rune. Returns either 0, 1 or 2.") {
-    janet_fixarity(argc, 1);
-    int32_t rune = janet_getinteger(argv, 0);
-    /* TODO: This could use wcwidth, but it's dependent on LC_CTYPE? This is
-     * a simplification borrowed from bestline that is mostly, but not entirely,
-     * correct; notably, this doesn't account for combining diacritics that
-     * have 0 width on their own. Cosmopolitan uses its own implementation of
-     * wcwidth that's based on their internal tables; perhaps that might be
-     * borrowed for here as well, though a raw bitset is a bit expensive
-     * (~140 KiB) whereas they use a compressed form which would be needlessly
-     * complex. */
-    int32_t width;
-    if (rune <= 0x1f || (rune >= 0x7f && rune <= 0x9f)) {
-        width = 0;
-    } else if ((rune >= 0x1100 && rune <= 0x115f) ||
-               (rune == 0x2329) || (rune == 0x232a) ||
-               (rune >= 0x2e80 && rune <= 0xa4cf && rune != 0x303f) ||
-               (rune >= 0xac00 && rune <= 0xd7a3) ||
-               (rune >= 0xf900 && rune <= 0xfaff) ||
-               (rune >= 0xfe10 && rune <= 0xfe19) ||
-               (rune >= 0xfe30 && rune <= 0xfe6f) ||
-               (rune >= 0xff00 && rune <= 0xff60) ||
-               (rune >= 0xffe0 && rune <= 0xffe6) ||
-               (rune >= 0x20000 && rune <= 0x2fffd) ||
-               (rune >= 0x30000 && rune <= 0x3fffd)) {
-        width = 2;
-    } else {
-        width = 1;
-    }
-    return janet_wrap_integer(width);
-}
-
 /****************/
 /* Module Entry */
 /****************/
@@ -347,7 +313,6 @@ JANET_MODULE_ENTRY(JanetTable *env) {
         JANET_REG("getch", cfun_rawterm_getch),
         JANET_REG("size", cfun_rawterm_size),
         JANET_REG("ctrl-z", cfun_rawterm_ctrlz),
-        JANET_REG("rune-monowidth", cfun_rawterm_rune_monowidth),
         JANET_REG_END
     };
     janet_cfuns_ext(env, "rawterm", cfuns);

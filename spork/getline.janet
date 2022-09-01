@@ -8,50 +8,9 @@
 # - unit testing?
 # - character width detection for better utf-8 support
 
+(use spork/_getline)
 (import spork/rawterm)
 (import spork/utf8)
-
-###
-### Unicode tables
-###
-# Incorporates data from Bestline, used in accordance to this license.
-#
-# Copyright 2018-2021 Justine Tunney <jtunney@gmail.com>
-# Copyright 2010-2016 Salvatore Sanfilippo <antirez@gmail.com>
-# Copyright 2010-2013 Pieter Noordhuis <pcnoordhuis@gmail.com>
-#
-# All rights reserved.
-#
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions are met:
-#
-# * Redistributions of source code must retain the above copyright notice, this
-#   list of conditions and the following disclaimer.
-# * Redistributions in binary form must reproduce the above copyright notice,
-#   this list of conditions and the following disclaimer in the documentation
-#   and/or other materials provided with the distribution.
-#
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-# ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
-# LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-# CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-# SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-# INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-# ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-# POSSIBILITY OF SUCH DAMAGE.
-
-(def- bestline-license
-  (comptime (string
-    "Bestline (BSD-2)\n"
-    "Copyright 2018-2020 Justine Tunney <jtunney@gmail.com>\n"
-    "Copyright 2010-2016 Salvatore Sanfilippo <antirez@gmail.com>\n"
-    "Copyright 2010-2013 Pieter Noordhuis <pcnoordhuis@gmail.com>\n")))
-(defn- bestline-noop [&])
-
-(def- char-width rawterm/rune-monowidth)
 
 (def max-history 500)
 
@@ -112,7 +71,7 @@
   (while (< i l)
     (def [rune len] (utf8/decode-rune buf i))
     (+= i len)
-    (+= width (char-width rune)))
+    (+= width (rune-monowidth rune)))
   width)
 
 (defn make-getline
@@ -182,7 +141,7 @@
       (if (= pos (length buf))
         1 # implicit space
         (let [[rune _] (utf8/decode-rune buf pos)]
-          (char-width rune))))
+          (rune-monowidth rune))))
     (def overflow (+ overflow width-under-cursor))
     (def overflow-right (- buf-width wcursor))
     (def overflow-right (if (< overflow overflow-right) overflow overflow-right))
@@ -205,7 +164,7 @@
               (while (< w overflow-left)
                 (def [rune len] (utf8/decode-rune buf i))
                 (+= i len)
-                (+= w (char-width rune)))
+                (+= w (rune-monowidth rune)))
               (when (not= w overflow-left)
                 (set overtrimmed-left? true))
               i))
@@ -221,7 +180,7 @@
                 (while (< w overflow-right)
                   (def [rune len] (utf8/decode-rune-reverse buf i))
                   (-= i len)
-                  (+= w (char-width rune)))
+                  (+= w (rune-monowidth rune)))
                 i)))
           (string/slice buf start end))
         buf))
@@ -263,7 +222,7 @@
           (buffer/push buf input-buf)
           (utf8/encode-rune c buf))
         (set pos (length buf))
-        (def w (char-width c))
+        (def w (rune-monowidth c))
         (+= wcursor w)
         (+= buf-width w)
         (when draw
@@ -286,7 +245,7 @@
           (buffer/push buf (string/repeat "\0" need-expand)))
         (buffer/blit buf buf (+ pos (length ch)) pos l)
         (buffer/blit buf ch pos)
-        (def w (char-width c))
+        (def w (rune-monowidth c))
         (+= pos (length ch))
         (+= wcursor w)
         (+= buf-width w)
@@ -353,7 +312,7 @@
     [draw]
     (when (> wcursor 0)
       (def [c len] (utf8/decode-rune-reverse buf pos))
-      (-= wcursor (char-width c))
+      (-= wcursor (rune-monowidth c))
       (-= pos len)
       (if draw (refresh))))
 
@@ -367,7 +326,7 @@
     [draw]
     (when (< pos (length buf))
       (def [c len] (utf8/decode-rune buf pos))
-      (+= wcursor (char-width c))
+      (+= wcursor (rune-monowidth c))
       (+= pos len)
       (if draw (refresh))))
 
@@ -395,7 +354,7 @@
       (def [c len] (utf8/decode-rune buf pos))
       (buffer/blit buf buf pos (+ pos len))
       (buffer/popn buf len)
-      (-= buf-width (char-width c))
+      (-= buf-width (rune-monowidth c))
       (if draw (refresh))))
 
   (defn- kdeletew
@@ -408,7 +367,7 @@
     [draw]
     (when (pos? pos)
       (def [c len] (utf8/decode-rune-reverse buf pos))
-      (def w (char-width c))
+      (def w (rune-monowidth c))
       (-= wcursor w)
       (-= pos len)
       (-= buf-width w)
@@ -424,10 +383,6 @@
 
   (fn getline-fn
     [&opt prompt buff _]
-
-    # Ensure the Bestline license notice is included in the bytecode.
-    (bestline-noop bestline-license)
-
     (set buf (or buff @""))
     (set prpt (string prompt))
     (set prpt-width (monowidth prpt))
