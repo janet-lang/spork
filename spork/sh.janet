@@ -34,9 +34,9 @@
   (def dirs @[])
   (each part (path/parts dir-path)
     (array/push dirs part)
-    (def path (path/join ;dirs))
-    (if (not (os/stat path))
-        (os/mkdir path))))
+    (let [path (path/join ;dirs)]
+         (if (not (os/lstat path))
+             (os/mkdir path)))))
 
 (defmacro with-file
   "Create and open a file, creating all the directories leading to the file if
