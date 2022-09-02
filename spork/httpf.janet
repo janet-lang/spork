@@ -232,10 +232,13 @@
         (eprint "server closed on thread " tid))
       (ev-utils/multithread-service thread-main n-workers))
     (do
+      # Ensure env table is set in connection handler
+      (unless (curenv) (fiber/setenv (fiber/current) @{}))
+      (def cur (curenv))
       (eprintf "listening on %V:%V..." host port)
       (def s (net/listen host port))
       (put server :server s)
       (put server :close (fn close [svr] (:close s) svr))
-      (net/accept-loop s on-connection)
+      (net/accept-loop s (fn _on-connection [conn] (fiber/setenv (fiber/current) cur) (on-connection conn)))
       (print "server closed"))))
 

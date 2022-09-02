@@ -22,19 +22,20 @@
   "Create a task id"
   []
   (def bytes (string/bytes (os/cryptorand id-bytes)))
-  (string/format
-    (comptime (string "task-" (string/repeat "%.2X" id-bytes)))
-    ;bytes))
+  (keyword
+    (string/format
+      (comptime (string "task-" (string/repeat "%.2X" id-bytes)))
+      ;bytes)))
 
 (defn- ts [] (os/time))
 
-(defn- task-dir [tasker] (get tasker :task-dir "."))
+(defn- task-dir [tasker] (assert (get tasker :task-dir)))
 
 (def- task-record-validator
   "Check if records loaded from disk are valid"
   (schema/validator
     (props
-      :task-id (peg (* "task-" :w+))
+      :task-id (and :keyword (peg (* "task-" :w+)))
       :argv (and (or :tuple :array) (values :string))
       :priority (pred int?)
       :time-queued (pred int?)
@@ -257,7 +258,7 @@
   `detailed` is truthy, return full task metadata instead of ids."
   [tasker &opt detailed]
   (seq [dir :in (os/dir (task-dir tasker)) :when (string/has-prefix? "task-" dir)]
-    (if detailed (task-status tasker dir) dir)))
+    (if detailed (task-status tasker dir) (keyword dir))))
 
 (defn cancel-task
   "Cancel a queued or running task."
