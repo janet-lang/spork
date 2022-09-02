@@ -15,6 +15,7 @@
 (import ./rpc :export true)
 (import ./schema :export true)
 (import ./sh :export true)
+(import ./tasker :export true)
 (import ./temple :export true)
 (import ./test :export true)
 

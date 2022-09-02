@@ -18,8 +18,9 @@
   (peg/compile
     ~{:main (+
              (* '"text/html" (+ -1 ","))
+             (* "*/*" (constant "text/html") (+ -1 ",")) # default to text/html
              (* '"application/json" (+ -1 ","))
-             (* '"application/jdn" (* -1 ","))
+             (* '"application/jdn" (+ -1 ","))
              -1
              (* (thru ",") :main))}))
 
@@ -50,7 +51,7 @@
 
 (defn- read-json
   [body]
-  (json/decode body))
+  (json/decode body true))
 
 (defn- read-jdn
   [body]
@@ -161,14 +162,10 @@
        :body (render (wrapper content) @"")})
 
     (defn make-400-response
-      [content]
+      [content &opt f]
       (eprint "response error: " content)
+      (when f (debug/stacktrace f))
       (make-response 400 content))
-
-    # Check for bad mime types
-    (unless reader
-      (break
-        (make-response 400 (string "cannot read payload with mimetype " accepts))))
 
     # Check not found
     (unless handler (break (make-response 404 "not found")))
@@ -185,8 +182,8 @@
                     (when-let [validate (get schemas path)]
                       (validate post-data))
                     (handler req post-data)))
-                ([err] 
-                 (make-400-response (string err))))
+                ([err f]
+                 (make-400-response (string err) f)))
         "OPTIONS" {:status 200
                    :headers {"allow" "OPTIONS, GET, POST"
                              "content-type" render-mime
@@ -195,13 +192,15 @@
                                            :schema (get schema-sources path)}) @"")}
         "POST" (let [validate (get schemas path)
                      body (http/read-body req)
-                     data (if body (reader body))]
+                     data (when (and body (next body))
+                            (if reader (reader body) body))]
                    (try
                      (make-response 200 (do (if validate (validate data)) (handler req data)))
-                     ([err] (make-400-response (string err)))))
+                     ([err f] (make-400-response (string err) f))))
         (make-response 405 "Method not allowed. Use GET, OPTIONS, or POST."))
-    ([err]
-     (eprint "internal server error: " (string err))
+    ([err f]
+     (eprint "internal server error: " (string err) f)
+     (debug/stacktrace (fiber/current))
      (make-response 500 err))))
 
   (put state :on-connection
