@@ -28,6 +28,42 @@
     # Default, try to remove
     (os/rm path)))
 
+(defn exists?
+  "Check if the given file or directory exists. (Follows symlinks)"
+  [path]
+  (not (nil? (os/stat path))))
+
+(defn scan-directory
+  "Scan a directory recursively, applying the given function on all files and
+  directories in a depth-first manner. This function has no effect if the
+  directory does not exist."
+  [dir func]
+  (def names (map (fn [name] (path/join dir name))
+    (try (os/dir dir) ([err] @[]))))
+  (defn filter-names [mode]
+    (filter
+      (fn [name] (= mode (os/stat name :mode)))
+      names))
+  (def files (filter-names :file))
+  (def dirs (filter-names :directory))
+  (each dir dirs
+    (scan-directory dir func))
+  (each file files
+    (func file))
+  (each dir dirs
+    (func dir)))
+
+(defn list-all-files
+  "List the files in the given directory recursively. Return the paths to all
+  files found, relative to the current working directory if the given path is a
+  relative path, or as an absolute path otherwise."
+  [dir]
+  (def files @[])
+  (scan-directory dir (fn [file]
+    (when (= :file (os/stat file :mode))
+      (array/push files file))))
+  files)
+
 (defn create-dirs
   "Create all directories in path specified as string including itself."
   [dir-path]
@@ -46,7 +82,7 @@
   ~(do
     (def parent-path (,path/dirname ,path))
     (when (and (not (,exists? ,path)) (not (,exists? parent-path)))
-      (,create-directories parent-path))
+      (,create-dirs parent-path))
     (def ,binding (file/open ,path ,mode))
     ,(apply defer [:close binding] body)))
 
