@@ -74,17 +74,15 @@
          (if (not (os/lstat path))
              (os/mkdir path)))))
 
-(defmacro with-file
+(defn make-new-file
   "Create and open a file, creating all the directories leading to the file if
-  they do not exist, apply the given body on the file resource, and then close
-  the file."
-  [[binding path mode] & body]
-  ~(do
-    (def parent-path (,path/dirname ,path))
-    (when (and (not (,exists? ,path)) (not (,exists? parent-path)))
-      (,create-dirs parent-path))
-    (def ,binding (file/open ,path ,mode))
-    ,(apply defer [:close binding] body)))
+  they do not exist, and return it."
+  [file-path]
+    (let [parent-path (path/dirname file-path)]
+      (when (and (not (exists? file-path))
+                 (not (exists? parent-path)))
+            (create-dirs parent-path)))
+    (file/open file-path :w))
 
 (defn copy-file
   "Copy a file from source to destination. Creates all directories in the path
@@ -93,7 +91,7 @@
   (def buf-size 4096)
   (def buf (buffer/new buf-size))
   (with [src (file/open src-path :rb)]
-    (with-file [dst dst-path :wb]
+    (with [dst (make-new-file dst-path)]
       (while (def bytes (file/read src buf-size buf))
         (file/write dst bytes)
         (buffer/clear buf)))))
