@@ -13,7 +13,7 @@
   (sh/copy-file (path/join base-path "assets/17/test.file")
                 (path/join base-path "assets/17/test2.file"))
   (def new_file (slurp (path/join base-path "assets/17/test2.file")))
-  (assert (deep= (sh/list-all-files (path/join base-path "assets"))
+  (assert (deep= (sort (sh/list-all-files (path/join base-path "assets")))
                  (map |(path/join base-path $0)
                       @["assets/17/test.file" "assets/17/test2.file"]))
           "sh/list-all-files didn't list the correct files")
