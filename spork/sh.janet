@@ -31,38 +31,33 @@
 (defn exists?
   "Check if the given file or directory exists. (Follows symlinks)"
   [path]
-  (not (nil? (os/stat path))))
+  (not= nil (os/stat path)))
 
 (defn scan-directory
   "Scan a directory recursively, applying the given function on all files and
   directories in a depth-first manner. This function has no effect if the
   directory does not exist."
   [dir func]
-  (def names (map (fn [name] (path/join dir name))
-    (try (os/dir dir) ([err] @[]))))
-  (defn filter-names [mode]
-    (filter
-      (fn [name] (= mode (os/stat name :mode)))
-      names))
-  (def files (filter-names :file))
-  (def dirs (filter-names :directory))
-  (each dir dirs
-    (scan-directory dir func))
-  (each file files
-    (func file))
-  (each dir dirs
-    (func dir)))
+  (each name (try (os/dir dir) ([_] @[]))
+    (def fullpath (path/join dir name))
+    (case (os/stat fullpath :mode)
+      :file (func fullpath)
+      :directory (do
+                   (scan-directory fullpath func)
+                   (func fullpath)))))
 
 (defn list-all-files
   "List the files in the given directory recursively. Return the paths to all
   files found, relative to the current working directory if the given path is a
   relative path, or as an absolute path otherwise."
-  [dir]
-  (def files @[])
-  (scan-directory dir (fn [file]
-    (when (= :file (os/stat file :mode))
-      (array/push files file))))
-  files)
+  [dir &opt into]
+  (default into @[])
+  (each name (try (os/dir dir) ([_] @[]))
+    (def fullpath (path/join dir name))
+    (case (os/stat fullpath :mode)
+      :file (array/push into fullpath)
+      :directory (list-all-files fullpath into)))
+  into)
 
 (defn create-dirs
   "Create all directories in path specified as string including itself."
@@ -71,18 +66,19 @@
   (each part (path/parts dir-path)
     (array/push dirs part)
     (let [path (path/join ;dirs)]
-         (if (not (os/lstat path))
+         (if-not (os/lstat path)
              (os/mkdir path)))))
 
 (defn make-new-file
   "Create and open a file, creating all the directories leading to the file if
-  they do not exist, and return it."
-  [file-path]
-    (let [parent-path (path/dirname file-path)]
-      (when (and (not (exists? file-path))
-                 (not (exists? parent-path)))
-            (create-dirs parent-path)))
-    (file/open file-path :w))
+  they do not exist, and return it. By default, open as a writable file (mode is `:w`)."
+  [file-path &opt mode]
+  (default mode :w)
+  (let [parent-path (path/dirname file-path)]
+    (when (and (not (exists? file-path))
+               (not (exists? parent-path)))
+      (create-dirs parent-path)))
+  (file/open file-path :w))
 
 (defn copy-file
   "Copy a file from source to destination. Creates all directories in the path
