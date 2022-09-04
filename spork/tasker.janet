@@ -248,6 +248,12 @@
   (each chan (tasker :queues)
     (ev/chan-close chan)))
 
+(defn task-file
+  "Get a log file for a path. By default, will get a path to out.log."
+  [tasker task-id &opt file-name]
+  (default file-name out-file-name)
+  (path/join (task-dir tasker) task-id file-name))
+
 (defn task-status
   "Look up the status of a given task by id."
   [tasker task-id]

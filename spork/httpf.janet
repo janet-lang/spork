@@ -18,9 +18,9 @@
   (peg/compile
     ~{:main (+
              (* '"text/html" (+ -1 ","))
-             (* "*/*" (constant "text/html") (+ -1 ",")) # default to text/html
              (* '"application/json" (+ -1 ","))
              (* '"application/jdn" (+ -1 ","))
+             (* '"text/plain" (+ -1 ","))
              -1
              (* (thru ",") :main))}))
 
@@ -44,8 +44,14 @@
       buf)
     (htmlgen/html data buf)))
 
+(defn- render-plain-text
+  [data buf]
+  (assert (bytes? data))
+  (buffer/push buf data))
+
 (def- render-map
   {"text/html" render-html
+   "text/plain" render-plain-text
    "application/json" render-json
    "application/jdn" render-jdn})
 
@@ -85,19 +91,23 @@
 
 (defn add-route
   "Add a single manually route to a server. Prefer using `httpf/add-bindings-as-routes` for the usual case."
-  [server path docstring schema handler]
+  [server path docstring schema handler &opt read-mime render-mime]
   (def routes (get server :routes))
   (def docs (get server :route-docs))
   (def schemas (get server :schemas))
   (def schema-sources (get server :schema-sources))
+  (def mime-read-default (get server :default-mime-read))
+  (def mime-render-default (get server :default-mime-render))
   (when (get routes path)
     (errorf "duplicate routes for " path))
   (put docs path docstring)
   (put routes path handler)
   (put schemas path ((schema/make-validator schema)))
   (put schema-sources path (make-schema-rep schema))
+  (put mime-read-default path read-mime)
+  (put mime-render-default path render-mime)
   (if (string/has-suffix? "/" path)
-    (add-route server (string/slice path 0 -2) docstring schema handler)
+    (add-route server (string/slice path 0 -2) docstring schema handler read-mime render-mime)
     server))
 
 (defn add-bindings-as-routes
@@ -111,10 +121,12 @@
          :let [path (get meta :path)
                schema (get meta :schema)
                value (get meta :value)
+               read-mime (get meta :read-mime)
+               render-mime (get meta :render-mime)
                docstring (get meta :route-doc (get meta :doc))]
          :when value
          :when (bytes? path)]
-    (add-route server path docstring schema value))
+    (add-route server path docstring schema value read-mime render-mime))
   server)
 
 (defn default-payload-wrapper
@@ -133,9 +145,13 @@
   (def schemas @{})
   (def schema-sources @{})
   (def route-docs @{})
+  (def default-mime-read @{})
+  (def default-mime-render @{})
   (def wrapper default-payload-wrapper)
   (def state @{:routes routes
                :schemas schemas
+               :default-mime-read default-mime-read
+               :default-mime-render default-mime-render
                :schema-sources schema-sources
                :route-docs route-docs})
 
@@ -144,14 +160,19 @@
     (def path (get req :route (get req :path)))
     (def method (get req :method))
     (def headers (get req :headers))
-    (def reader-mime (get headers "content-type" "application/json"))
-    (def accepts (get headers "accept" reader-mime))
+    (def mime-read-default
+      (get default-mime-read path 
+           (if (= method "POST") "application/json" "text/html")))
+    (def mime-render-default
+      (get default-mime-render path mime-read-default))
+    (def reader-mime (get headers "content-type" mime-read-default))
+    (def accepts (get headers "accept" mime-render-default))
     (def render-mime
       (if-let [res (peg/match accept-peg accepts)]
         (in res 0)
-        reader-mime))
+        mime-render-default))
     (def reader (get reader-map reader-mime))
-    (def render (get render-map render-mime))
+    (def render (get render-map render-mime render-plain-text))
     (def handler (get routes path))
 
     (defn make-response
@@ -192,8 +213,9 @@
                                            :schema (get schema-sources path)}) @"")}
         "POST" (let [validate (get schemas path)
                      body (http/read-body req)
-                     data (when (and body (next body))
-                            (if reader (reader body) body))]
+                     data (if (and body (next body))
+                            (if reader (reader body) body)
+                            body)]
                    (try
                      (make-response 200 (do (if validate (validate data)) (handler req data)))
                      ([err f] (make-400-response (string err) f))))
