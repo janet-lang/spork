@@ -313,8 +313,14 @@
     (default draw true)
     (when (> wcursor 0)
       (def [c len] (utf8/decode-rune-reverse buf pos))
-      (-= wcursor (rune-monowidth c))
+      (def cw (rune-monowidth c))
+      (-= wcursor cw)
       (-= pos len)
+      (when (and (= 0 cw) (not= 0 wcursor))
+        # Skip over zero-width characters until we encounter one that isn't.
+        # The check for pos prevents recursing if we're at the start, which
+        # could cause the refresh to become lost.
+        (break (kleft draw)))
       (if draw (refresh))))
 
   (defn- kleftw
@@ -330,6 +336,16 @@
       (def [c len] (utf8/decode-rune buf pos))
       (+= wcursor (rune-monowidth c))
       (+= pos len)
+      # If the next character is zero-width, skip forwards until we encounter
+      # one that isn't.
+      # See note in kleft for pos check.
+      (while (not= pos (length buf))
+        (def [next-ch len] (utf8/decode-rune buf pos))
+        (when (nil? next-ch) (break))
+        (def cw (rune-monowidth next-ch))
+        (if (= 0 cw)
+          (+= pos len)
+          (break)))
       (if draw (refresh))))
 
   (defn- krightw
@@ -355,9 +371,21 @@
     (default draw true)
     (when (not= pos (length buf))
       (def [c len] (utf8/decode-rune buf pos))
-      (buffer/blit buf buf pos (+ pos len))
-      (buffer/popn buf len)
-      (-= buf-width (rune-monowidth c))
+      (def cw (rune-monowidth c))
+      (var group-len len)
+
+      # Remove trailing zero-width characters as well.
+      (while (not= (+ pos group-len) (length buf))
+        (def [c len] (utf8/decode-rune buf (+ pos group-len)))
+        (when (= nil c) (break))
+        (def cw (rune-monowidth c))
+        (if (= 0 cw)
+          (+= group-len len)
+          (break)))
+
+      (buffer/blit buf buf pos (+ pos group-len))
+      (buffer/popn buf group-len)
+      (-= buf-width cw)
       (if draw (refresh))))
 
   (defn- kdeletew
@@ -371,12 +399,24 @@
     (default draw true)
     (when (pos? pos)
       (def [c len] (utf8/decode-rune-reverse buf pos))
-      (def w (rune-monowidth c))
-      (-= wcursor w)
-      (-= pos len)
-      (-= buf-width w)
-      (buffer/blit buf buf pos (+ pos len))
-      (buffer/popn buf len)
+      (var group-len len)
+
+      (var cw (rune-monowidth c))
+      (when (= 0 cw)
+        (forever
+          (def [c len] (utf8/decode-rune-reverse buf (- pos group-len)))
+          (when (= nil c) (break))
+          (def cw* (rune-monowidth c))
+          (+= group-len len)
+          (when (not= 0 cw*)
+            (set cw cw*)
+            (break))))
+
+      (-= wcursor cw)
+      (-= pos group-len)
+      (-= buf-width cw)
+      (buffer/blit buf buf pos (+ pos group-len))
+      (buffer/popn buf group-len)
       (if draw (refresh))))
 
   (defn- kbackw
