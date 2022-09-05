@@ -22,6 +22,10 @@
 
 #include <janet.h>
 
+/* TODO: It might be wise to disallow overlong sequences for security reasons.
+ * See https://www.cl.cam.ac.uk/~mgk25/ucs/examples/UTF-8-test.txt for a list
+ * of test cases. */
+
 JANET_FN(cfun_utf8_decode_rune,
         "(utf8/decode-rune buf &opt start)",
         "Read a UTF-8 encoded Unicode codepoint from the buffer which starts at the given index. Returns a tuple [value width], where width = number of bytes consumed. If at the end of buffer or the buffer contains malformed UTF-8, returns [nil 0].") {
@@ -91,6 +95,7 @@ JANET_FN(cfun_utf8_decode_rune_reverse,
         end = buf.len;
     }
 
+    Janet res[2] = { janet_wrap_nil(), janet_wrap_integer(0) };
     int32_t i = end - 1;
     uint32_t len = 1,
              rune = 0,
@@ -106,9 +111,12 @@ JANET_FN(cfun_utf8_decode_rune_reverse,
         } else {
             break;
         }
+        if (len > 4) {
+            /* Overlong sequence. Just treat it as invalid. */
+            goto exit;
+        }
     }
 
-    Janet res[2] = { janet_wrap_nil(), janet_wrap_integer(0) };
     /* No initial byte found; sequence is incomplete. */
     if (i < 0 || buf.len == 0) {
         goto exit;
@@ -124,9 +132,11 @@ JANET_FN(cfun_utf8_decode_rune_reverse,
     } else if ((ch & 0xE0) == 0xC0) {
         if (len != 2) goto exit;
         rune |= (ch & 0x1F) << offset;
-    } else {
+    } else if ((ch & 0x80) == 0) {
         if (len != 1) goto exit;
         rune = ch;
+    } else {
+        goto exit;
     }
     res[0] = janet_wrap_integer((int32_t)rune);
     res[1] = janet_wrap_integer((int32_t)len);
