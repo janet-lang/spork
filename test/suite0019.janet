@@ -1,5 +1,5 @@
 (use ../spork/test)
-(import spork/_getline)
+(import spork/rawterm)
 
 (start-suite 19)
 
@@ -40,8 +40,8 @@
         [0x20000 0x2FFFD]
         [0x30000 0x3FFFD]]
   (for ch lo (inc hi)
-    (assert (= 2 (_getline/rune-monowidth ch))
+    (assert (= 2 (rawterm/rune-monowidth ch))
             (string/format "rune-monowidth: %X (expected 2, got %d)"
-              ch (_getline/rune-monowidth ch)))))
+              ch (rawterm/rune-monowidth ch)))))
 
 (end-suite)

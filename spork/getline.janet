@@ -7,7 +7,6 @@
 ### TODO
 # - unit testing?
 
-(use spork/_getline)
 (import spork/rawterm)
 (import spork/utf8)
 
@@ -59,19 +58,6 @@
     (set env (table/getproto env)))
   (sort ret)
   ret)
-
-(defn- monowidth
-  "Get the monospace character width of a buffer. Assumes contents are UTF-8
-  encoded."
-  [buf]
-  (var width 0)
-  (var i 0)
-  (def l (length buf))
-  (while (< i l)
-    (def [rune len] (utf8/decode-rune buf i))
-    (+= i len)
-    (+= width (rune-monowidth rune)))
-  width)
 
 (defn make-getline
   "Reads a line of input into a buffer, like `getline`. However, allow looking up entries with a general
@@ -140,7 +126,7 @@
       (if (= pos (length buf))
         1 # implicit space
         (let [[rune _] (utf8/decode-rune buf pos)]
-          (rune-monowidth rune))))
+          (rawterm/rune-monowidth rune))))
     (def overflow (+ overflow width-under-cursor))
     (def overflow-right (- buf-width wcursor))
     (def overflow-right (if (< overflow overflow-right) overflow overflow-right))
@@ -163,7 +149,7 @@
               (while (< w overflow-left)
                 (def [rune len] (utf8/decode-rune buf i))
                 (+= i len)
-                (+= w (rune-monowidth rune)))
+                (+= w (rawterm/rune-monowidth rune)))
               (when (not= w overflow-left)
                 (set overtrimmed-left? true))
               i))
@@ -179,7 +165,7 @@
                 (while (< w overflow-right)
                   (def [rune len] (utf8/decode-rune-reverse buf i))
                   (-= i len)
-                  (+= w (rune-monowidth rune)))
+                  (+= w (rawterm/rune-monowidth rune)))
                 i)))
           (string/slice buf start end))
         buf))
@@ -205,7 +191,7 @@
       (buffer/clear buf)
       (buffer/push buf (in history new-idx))
       (set pos (length buf))
-      (set buf-width (monowidth buf))
+      (set buf-width (rawterm/monowidth buf))
       (set wcursor buf-width)
       (refresh))
     new-idx)
@@ -221,7 +207,7 @@
           (buffer/push buf input-buf)
           (utf8/encode-rune c buf))
         (set pos (length buf))
-        (def w (rune-monowidth c))
+        (def w (rawterm/rune-monowidth c))
         (+= wcursor w)
         (+= buf-width w)
         (when draw
@@ -244,7 +230,7 @@
           (buffer/push buf (string/repeat "\0" need-expand)))
         (buffer/blit buf buf (+ pos (length ch)) pos l)
         (buffer/blit buf ch pos)
-        (def w (rune-monowidth c))
+        (def w (rawterm/rune-monowidth c))
         (+= pos (length ch))
         (+= wcursor w)
         (+= buf-width w)
@@ -312,7 +298,7 @@
     (default draw true)
     (when (> wcursor 0)
       (def [c len] (utf8/decode-rune-reverse buf pos))
-      (def cw (rune-monowidth c))
+      (def cw (rawterm/rune-monowidth c))
       (-= wcursor cw)
       (-= pos len)
       (when (and (= 0 cw) (not= 0 wcursor))
@@ -333,7 +319,7 @@
     (default draw true)
     (when (< pos (length buf))
       (def [c len] (utf8/decode-rune buf pos))
-      (+= wcursor (rune-monowidth c))
+      (+= wcursor (rawterm/rune-monowidth c))
       (+= pos len)
       # If the next character is zero-width, skip forwards until we encounter
       # one that isn't.
@@ -341,7 +327,7 @@
       (while (not= pos (length buf))
         (def [next-ch len] (utf8/decode-rune buf pos))
         (when (nil? next-ch) (break))
-        (def cw (rune-monowidth next-ch))
+        (def cw (rawterm/rune-monowidth next-ch))
         (if (= 0 cw)
           (+= pos len)
           (break)))
@@ -370,14 +356,14 @@
     (default draw true)
     (when (not= pos (length buf))
       (def [c len] (utf8/decode-rune buf pos))
-      (def cw (rune-monowidth c))
+      (def cw (rawterm/rune-monowidth c))
       (var group-len len)
 
       # Remove trailing zero-width characters as well.
       (while (not= (+ pos group-len) (length buf))
         (def [c len] (utf8/decode-rune buf (+ pos group-len)))
         (when (= nil c) (break))
-        (def cw (rune-monowidth c))
+        (def cw (rawterm/rune-monowidth c))
         (if (= 0 cw)
           (+= group-len len)
           (break)))
@@ -400,12 +386,12 @@
       (def [c len] (utf8/decode-rune-reverse buf pos))
       (var group-len len)
 
-      (var cw (rune-monowidth c))
+      (var cw (rawterm/rune-monowidth c))
       (when (= 0 cw)
         (forever
           (def [c len] (utf8/decode-rune-reverse buf (- pos group-len)))
           (when (= nil c) (break))
-          (def cw* (rune-monowidth c))
+          (def cw* (rawterm/rune-monowidth c))
           (+= group-len len)
           (when (not= 0 cw*)
             (set cw cw*)
@@ -428,7 +414,7 @@
     [&opt prompt buff _]
     (set buf (or buff @""))
     (set prpt (string prompt))
-    (set prpt-width (monowidth prpt))
+    (set prpt-width (rawterm/monowidth prpt))
     (unless (rawterm/isatty)
       (break (getline prpt buf)))
     (defer (rawterm/end)
