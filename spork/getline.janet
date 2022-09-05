@@ -309,7 +309,8 @@
     (refresh))
 
   (defn- kleft
-    [draw]
+    [&opt draw]
+    (default draw true)
     (when (> wcursor 0)
       (def [c len] (utf8/decode-rune-reverse buf pos))
       (-= wcursor (rune-monowidth c))
@@ -323,7 +324,8 @@
     (refresh))
 
   (defn- kright
-    [draw]
+    [&opt draw]
+    (default draw true)
     (when (< pos (length buf))
       (def [c len] (utf8/decode-rune buf pos))
       (+= wcursor (rune-monowidth c))
@@ -349,7 +351,8 @@
     (refresh))
 
   (defn- kdelete
-    [draw]
+    [&opt draw]
+    (default draw true)
     (when (not= pos (length buf))
       (def [c len] (utf8/decode-rune buf pos))
       (buffer/blit buf buf pos (+ pos len))
@@ -364,7 +367,8 @@
     (refresh))
 
   (defn- kback
-    [draw]
+    [&opt draw]
+    (default draw true)
     (when (pos? pos)
       (def [c len] (utf8/decode-rune-reverse buf pos))
       (def w (rune-monowidth c))
@@ -411,7 +415,7 @@
         (if (>= c 0x20)
           (case c
             127 # backspace
-            (kback true)
+            (kback)
             # default - keep default case not at bottom of case (micro-opt)
             (when (>= c 0x20)
               (insert c true true)))
@@ -425,7 +429,7 @@
             4 # ctrl-d, eof
             (if (= pos (length buf))
               (do (set more-input false) (clear-lines))
-              (kdelete true))
+              (kdelete))
             5 # ctrl-e
             (kend)
             6 # ctrl-f
@@ -433,7 +437,7 @@
             7 # ctrl-g
             (showdoc)
             8 # ctrl-h
-            (kback true)
+            (kback)
             9 # tab
             (autocomplete)
             12 # ctrl-l
@@ -458,7 +462,7 @@
                   (and (>= c3 (chr "0")) (<= c3 (chr "9")))
                   (case (getc)
                     (chr "1") (khome)
-                    (chr "3") (kdelete true)
+                    (chr "3") (kdelete)
                     (chr "4") (kend))
                   (= c3 (chr "O"))
                   (case (getc)
@@ -466,8 +470,8 @@
                     (chr "F") (kend))
                   (= c3 (chr "A")) (set hindex (history-move hindex -1))
                   (= c3 (chr "B")) (set hindex (history-move hindex 1))
-                  (= c3 (chr "C")) (kright true)
-                  (= c3 (chr "D")) (kleft true)
+                  (= c3 (chr "C")) (kright)
+                  (= c3 (chr "D")) (kleft)
                   (= c3 (chr "H")) (khome)
                   (= c3 (chr "F")) (kend)))
               (chr "d") (kdeletew) # alt-d
