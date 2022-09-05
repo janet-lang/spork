@@ -6,7 +6,6 @@
 
 ### TODO
 # - unit testing?
-# - character width detection for better utf-8 support
 
 (use spork/_getline)
 (import spork/rawterm)
