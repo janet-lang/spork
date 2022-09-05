@@ -14,7 +14,7 @@
 
 (def- sym-prefix-peg
   (peg/compile
-    ~{:symchar (+ (range "\x80\xff" "az" "az" "09") (set "!$%&*+-./:<?=>@^_"))
+    ~{:symchar (+ (range "\x80\xff" "AZ" "az" "09") (set "!$%&*+-./:<?=>@^_"))
       :anchor (drop (cmt ($) ,|(= $ 0)))
       :cap (* (+ (> -1 (not :symchar)) :anchor) (* ($) '(some :symchar)))
       :recur (+ :cap (> -1 :recur))

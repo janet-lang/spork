@@ -206,6 +206,7 @@ static void rawterm_begin(void) {
 
     if (rawterm_stream == NULL) {
         rawterm_stream = janet_stream(STDIN_FILENO, JANET_STREAM_READABLE, NULL);
+        janet_gcroot(janet_wrap_abstract(rawterm_stream));
     }
 
     // one time setup
