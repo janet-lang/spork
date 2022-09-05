@@ -23,8 +23,7 @@
         [0x309B 0x30FF] # U+3100..U+3104 unallocated
         [0x3105 0x312F] # U+3130 unallocated
         [0x3131 0x318E] # U+318F unallocated
-        [0x3190 0x31BA] # U+31BB..U+31BF TODO: Allocated in 13.0; outdated source data?
-        [0x31C0 0x31E3] # U+31E4..U+31EF unallocated
+        [0x3190 0x31E3] # U+31E4..U+31EF unallocated
         [0x31F0 0x321E] # U+321F unallocated
         [0x3220 0x3247] # U+3248..U+324F single-width
         [0x3250 0x4DBF] # U+4DC0..U+4DFF single-width
