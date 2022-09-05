@@ -21,6 +21,13 @@
   [req data]
   (* data 2))
 
+(defn route-static
+  "Serve some text"
+  {:path "/text"
+   :render-mime "text/plain"}
+  [&]
+  "Hello, world!<>")
+
 (defn iterate-directories
   "Iterate the current directory."
   {:path "/ls"}
