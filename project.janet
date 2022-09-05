@@ -28,8 +28,16 @@
   :source @["src/json.c"])
 
 (declare-native
+  :name "spork/_getline"
+  :source @["src/getline.c"])
+
+(declare-native
   :name "spork/rawterm"
   :source @["src/rawterm.c"])
+
+(declare-native
+  :name "spork/utf8"
+  :source @["src/utf8.c"])
 
 (declare-native
  :name "spork/tarray"

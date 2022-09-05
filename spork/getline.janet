@@ -6,9 +6,10 @@
 
 ### TODO
 # - unit testing?
-# - character width detection for better utf-8 support
 
+(use spork/_getline)
 (import spork/rawterm)
+(import spork/utf8)
 
 (def max-history 500)
 
@@ -59,6 +60,19 @@
   (sort ret)
   ret)
 
+(defn- monowidth
+  "Get the monospace character width of a buffer. Assumes contents are UTF-8
+  encoded."
+  [buf]
+  (var width 0)
+  (var i 0)
+  (def l (length buf))
+  (while (< i l)
+    (def [rune len] (utf8/decode-rune buf i))
+    (+= i len)
+    (+= width (rune-monowidth rune)))
+  width)
+
 (defn make-getline
   "Reads a line of input into a buffer, like `getline`. However, allow looking up entries with a general
   lookup function rather than a environment table."
@@ -72,10 +86,19 @@
   (var w "last measured terminal width (columns)" 0)
   (var h "last measured height (rows)" 0)
   (var buf "line buffer" @"")
+  (var buf-width
+    "Line buffer width in screen columns. Double-width characters cause
+    this to increase by 2."
+    0)
   (var prpt "prompt string (line prefix)" "")
+  (var prpt-width "prompt string character width" 0)
   (def history "history stack. Top item is current placeholder." @[])
   (def tmp-buf "Buffer to group writes to stderr for terminal rendering." @"")
-  (var pos "Cursor posiiton in buf" 0)
+  (var pos "Cursor byte position in buf" 0)
+  (var wcursor
+    "Cursor column position in buf. Double-width characters cause this to
+    increase by 2."
+    0)
   (var lines-below "Number of dirty lines below input line for drawing cleanup." 0)
   (var ret-value "Value to return to caller, usually the mutated buffer." buf)
   (var more-input "Loop condition variable" true)
@@ -85,7 +108,14 @@
     []
     (buffer/clear input-buf)
     (rawterm/getch input-buf)
-    (get input-buf 0))
+    (def c (get input-buf 0))
+    (var len (utf8/prefix->width c))
+    (-- len)
+    (while (not= len 0)
+      (rawterm/getch input-buf)
+      (-- len))
+    (def [rune _] (utf8/decode-rune input-buf))
+    rune)
 
   (defn- flushs
     []
@@ -100,24 +130,61 @@
 
   (defn- check-overflow
     []
-    (def available-w (- w (length prpt)))
-    (- (length buf) available-w -1))
+    (def available-w (- w prpt-width))
+    (- buf-width available-w))
 
   (defn- refresh
     []
     (def overflow (check-overflow))
-    (def overflow-right (- (length buf) pos))
+    (def width-under-cursor
+      (if (= pos (length buf))
+        1 # implicit space
+        (let [[rune _] (utf8/decode-rune buf pos)]
+          (rune-monowidth rune))))
+    (def overflow (+ overflow width-under-cursor))
+    (def overflow-right (- buf-width wcursor))
     (def overflow-right (if (< overflow overflow-right) overflow overflow-right))
     (def overflow-left (- overflow overflow-right))
+    # If the cursor is on the right side but not at EOL, additionally show the
+    # character under the cursor.
+    (def overflow-right (- overflow-right width-under-cursor))
     (def visual-pos
       (if (pos? overflow)
-        (+ (length prpt) pos (- overflow-left))
-        (+ (length prpt) pos)))
+        (+ prpt-width wcursor (- overflow-left))
+        (+ prpt-width wcursor)))
+    (var overtrimmed-left? false)
     (def visual-buf
       (if (pos? overflow)
-        (string/slice buf overflow-left (if (< overflow-right 1) -1 (- overflow-right)))
+        (do
+          (def start # transform cursor position to byte position
+            (do
+              (var i 0)
+              (var w 0)
+              (while (< w overflow-left)
+                (def [rune len] (utf8/decode-rune buf i))
+                (+= i len)
+                (+= w (rune-monowidth rune)))
+              (when (not= w overflow-left)
+                (set overtrimmed-left? true))
+              i))
+          # If we got one extra column freed up because the left side was
+          # overtrimmed, allow it to be untrimmed here.
+          (def overflow-right
+            (if overtrimmed-left? (dec overflow-right) overflow-right))
+          (def end
+            (if (< overflow-right 1) -1
+              (do
+                (var i (length buf))
+                (var w 0)
+                (while (< w overflow-right)
+                  (def [rune len] (utf8/decode-rune-reverse buf i))
+                  (-= i len)
+                  (+= w (rune-monowidth rune)))
+                i)))
+          (string/slice buf start end))
         buf))
-    (buffer/format tmp-buf "\r%s%s\e[0K\r\e[%dC" prpt visual-buf visual-pos)
+    (buffer/format tmp-buf "\r%s%s\e[0K\r\e[%dC" prpt visual-buf
+      (if overtrimmed-left? (dec visual-pos) visual-pos))
     (flushs))
 
   (defn- clear-lines
@@ -138,24 +205,49 @@
       (buffer/clear buf)
       (buffer/push buf (in history new-idx))
       (set pos (length buf))
+      (set buf-width (monowidth buf))
+      (set wcursor buf-width)
       (refresh))
     new-idx)
 
   (defn- insert
-    [c draw]
+    "If from-input-buf? is truthy, as a microopt, copies the input character
+    from input-buf, assuming that it contains only one."
+    [c draw &opt from-input-buf?]
+    (default from-input-buf? false)
     (if (= (length buf) pos)
       (do
-        (buffer/push buf c)
-        (++ pos)
+        (if from-input-buf?
+          (buffer/push buf input-buf)
+          (utf8/encode-rune c buf))
+        (set pos (length buf))
+        (def w (rune-monowidth c))
+        (+= wcursor w)
+        (+= buf-width w)
         (when draw
           (def o (check-overflow))
           (if (pos? o)
             (refresh)
-            (do (buffer/push tmp-buf c) (flushs)))))
+            (do
+              (if from-input-buf?
+                (buffer/push tmp-buf input-buf)
+                (utf8/encode-rune c tmp-buf))
+              (flushs)))))
       (do
-        (buffer/blit buf buf (inc pos) pos)
-        (put buf pos c)
-        (++ pos)
+        (def ch
+          (if from-input-buf?
+            input-buf
+            (utf8/encode-rune c)))
+        (def l (length buf))
+        (def need-expand (- (length ch) (- (length buf) pos)))
+        (when (pos? need-expand)
+          (buffer/push buf (string/repeat "\0" need-expand)))
+        (buffer/blit buf buf (+ pos (length ch)) pos l)
+        (buffer/blit buf ch pos)
+        (def w (rune-monowidth c))
+        (+= pos (length ch))
+        (+= wcursor w)
+        (+= buf-width w)
         (if draw (refresh)))))
 
   (defn- autocomplete
@@ -172,13 +264,21 @@
       1
       (do
         (def choice (get options 0))
-        (each b (slice choice (length ctx-string) -1)
-          (insert b false))
+        (var i (length ctx-string))
+        (while (<= i (length choice))
+          (def [rune len] (utf8/decode-rune choice i))
+          (if (= rune nil) (break))
+          (insert rune false)
+          (+= i len))
         (refresh))
       (do # print all options
         (def gcp (reduce greatest-common-prefix (first options) options))
-        (each b (string/slice gcp (length ctx-string) -1)
-          (insert b false))
+        (var i (length gcp))
+        (while (<= i (length gcp))
+          (def [rune len] (utf8/decode-rune gcp i))
+          (if (= rune nil) (break))
+          (insert rune false)
+          (+= i len))
         (def maxlen (extreme > (map length options)))
         (def colwidth (+ 4 maxlen))
         (def cols (max 1 (math/floor (/ w colwidth))))
@@ -208,30 +308,83 @@
     (refresh))
 
   (defn- kleft
-    []
-    (when (> pos 0) (-- pos) (refresh)))
+    [&opt draw]
+    (default draw true)
+    (when (> wcursor 0)
+      (def [c len] (utf8/decode-rune-reverse buf pos))
+      (def cw (rune-monowidth c))
+      (-= wcursor cw)
+      (-= pos len)
+      (when (and (= 0 cw) (not= 0 wcursor))
+        # Skip over zero-width characters until we encounter one that isn't.
+        # The check for pos prevents recursing if we're at the start, which
+        # could cause the refresh to become lost.
+        (break (kleft draw)))
+      (if draw (refresh))))
 
   (defn- kleftw
     []
-    (while (and (> pos 0) (= 32 (buf (dec pos)))) (-- pos))
-    (while (and (> pos 0) (not= 32 (buf (dec pos)))) (-- pos))
+    (while (and (> wcursor 0) (= 32 (buf (dec pos)))) (kleft false))
+    (while (and (> wcursor 0) (not= 32 (buf (dec pos)))) (kleft false))
     (refresh))
 
   (defn- kright
-    []
-    (when (< pos (length buf)) (++ pos) (refresh)))
+    [&opt draw]
+    (default draw true)
+    (when (< pos (length buf))
+      (def [c len] (utf8/decode-rune buf pos))
+      (+= wcursor (rune-monowidth c))
+      (+= pos len)
+      # If the next character is zero-width, skip forwards until we encounter
+      # one that isn't.
+      # See note in kleft for pos check.
+      (while (not= pos (length buf))
+        (def [next-ch len] (utf8/decode-rune buf pos))
+        (when (nil? next-ch) (break))
+        (def cw (rune-monowidth next-ch))
+        (if (= 0 cw)
+          (+= pos len)
+          (break)))
+      (if draw (refresh))))
 
   (defn- krightw
     []
-    (while (and (< pos (length buf)) (not= 32 (buf pos))) (++ pos))
-    (while (and (< pos (length buf)) (= 32 (buf pos))) (++ pos))
+    (while (and (< wcursor (length buf)) (not= 32 (buf pos))) (kright false))
+    (while (and (< wcursor (length buf)) (= 32 (buf pos))) (kright false))
+    (refresh))
+
+  (defn- khome
+    []
+    (set pos 0)
+    (set wcursor 0)
+    (refresh))
+
+  (defn- kend
+    []
+    (set pos (length buf))
+    (set wcursor buf-width)
     (refresh))
 
   (defn- kdelete
-    [draw]
+    [&opt draw]
+    (default draw true)
     (when (not= pos (length buf))
-      (buffer/blit buf buf pos (inc pos))
-      (buffer/popn buf 1)
+      (def [c len] (utf8/decode-rune buf pos))
+      (def cw (rune-monowidth c))
+      (var group-len len)
+
+      # Remove trailing zero-width characters as well.
+      (while (not= (+ pos group-len) (length buf))
+        (def [c len] (utf8/decode-rune buf (+ pos group-len)))
+        (when (= nil c) (break))
+        (def cw (rune-monowidth c))
+        (if (= 0 cw)
+          (+= group-len len)
+          (break)))
+
+      (buffer/blit buf buf pos (+ pos group-len))
+      (buffer/popn buf group-len)
+      (-= buf-width cw)
       (if draw (refresh))))
 
   (defn- kdeletew
@@ -241,11 +394,28 @@
     (refresh))
 
   (defn- kback
-    [draw]
+    [&opt draw]
+    (default draw true)
     (when (pos? pos)
-      (-- pos)
-      (buffer/blit buf buf pos (inc pos))
-      (buffer/popn buf 1)
+      (def [c len] (utf8/decode-rune-reverse buf pos))
+      (var group-len len)
+
+      (var cw (rune-monowidth c))
+      (when (= 0 cw)
+        (forever
+          (def [c len] (utf8/decode-rune-reverse buf (- pos group-len)))
+          (when (= nil c) (break))
+          (def cw* (rune-monowidth c))
+          (+= group-len len)
+          (when (not= 0 cw*)
+            (set cw cw*)
+            (break))))
+
+      (-= wcursor cw)
+      (-= pos group-len)
+      (-= buf-width cw)
+      (buffer/blit buf buf pos (+ pos group-len))
+      (buffer/popn buf group-len)
       (if draw (refresh))))
 
   (defn- kbackw
@@ -258,14 +428,17 @@
     [&opt prompt buff _]
     (set buf (or buff @""))
     (set prpt (string prompt))
+    (set prpt-width (monowidth prpt))
     (unless (rawterm/isatty)
       (break (getline prpt buf)))
     (defer (rawterm/end)
       (rawterm/begin)
       (buffer/clear tmp-buf)
       (buffer/clear buf)
+      (set buf-width 0)
       (set ret-value buf)
       (set pos 0)
+      (set wcursor 0)
       (set lines-below 0)
       (set more-input true)
       (eprin prpt)
@@ -281,13 +454,13 @@
         (if (>= c 0x20)
           (case c
             127 # backspace
-            (kback true)
+            (kback)
             # default - keep default case not at bottom of case (micro-opt)
             (when (>= c 0x20)
-              (insert c true)))
+              (insert c true true)))
           (case c
             1 # ctrl-a
-            (do (set pos 0) (refresh))
+            (khome)
             2 # ctrl-b
             (kleft)
             3 # ctrl-c
@@ -295,15 +468,15 @@
             4 # ctrl-d, eof
             (if (= pos (length buf))
               (do (set more-input false) (clear-lines))
-              (kdelete true))
+              (kdelete))
             5 # ctrl-e
-            (do (set pos (length buf)) (refresh))
+            (kend)
             6 # ctrl-f
             (kright)
             7 # ctrl-g
             (showdoc)
             8 # ctrl-h
-            (kback true)
+            (kback)
             9 # tab
             (autocomplete)
             12 # ctrl-l
@@ -327,19 +500,19 @@
                 (cond
                   (and (>= c3 (chr "0")) (<= c3 (chr "9")))
                   (case (getc)
-                    (chr "1") (do (set pos 0) (refresh))
-                    (chr "3") (kdelete true)
-                    (chr "4") (do (set pos (length buf)) (refresh)))
+                    (chr "1") (khome)
+                    (chr "3") (kdelete)
+                    (chr "4") (kend))
                   (= c3 (chr "O"))
                   (case (getc)
-                    (chr "H") (do (set pos 0) (refresh))
-                    (chr "F") (do (set pos (length buf)) (refresh)))
+                    (chr "H") (khome)
+                    (chr "F") (kend))
                   (= c3 (chr "A")) (set hindex (history-move hindex -1))
                   (= c3 (chr "B")) (set hindex (history-move hindex 1))
                   (= c3 (chr "C")) (kright)
                   (= c3 (chr "D")) (kleft)
-                  (= c3 (chr "H")) (do (set pos 0) (refresh))
-                  (= c3 (chr "F")) (do (set pos (length buf)) (refresh))))
+                  (= c3 (chr "H")) (khome)
+                  (= c3 (chr "F")) (kend)))
               (chr "d") (kdeletew) # alt-d
               (chr "b") (kleftw) # alt-b
               (chr "f") (krightw) # alt-f
