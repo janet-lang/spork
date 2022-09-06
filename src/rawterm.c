@@ -302,6 +302,49 @@ JANET_FN(cfun_rawterm_ctrlz,
     return janet_wrap_nil();
 }
 
+/* Extract a UTF-8 codepoint, advancing a cursor pointer, with end-of-string detection. */
+static uint32_t extract_codepoint(const uint8_t **pstr, const uint8_t *end) {
+    const uint8_t *str = *pstr;
+    uint8_t a = *str++;
+    uint32_t codepoint = 0;
+    if ((a & 0x80) == 0) {
+        codepoint = a;
+    } else if ((a & 0xE0) == 0xC0) {
+        if (str >= end) goto exit;
+        uint8_t b = *str++;
+        if ((b & 0xC0) != 0x80) goto exit;
+        codepoint = (uint32_t)(a & 0x1F) << 6 |
+            (uint32_t)(b & 0x3F);
+    } else if ((a & 0xF0) == 0xE0) {
+        if ((str + 1) >= end) goto exit;
+        uint8_t b = *str++;
+        uint8_t c = *str++;
+        if ((b & 0xC0) != 0x80) goto exit;
+        if ((c & 0xC0) != 0x80) goto exit;
+        codepoint = (uint32_t)(a & 0x0F) << 12 |
+            (uint32_t)(b & 0x3F) <<  6 |
+            (uint32_t)(c & 0x3F);
+    } else if ((a & 0xF8) == 0xF0) {
+        if ((str + 2) >= end) goto exit;
+        uint8_t b = *str++;
+        uint8_t c = *str++;
+        uint8_t d = *str++;
+        if ((b & 0xC0) != 0x80) goto exit;
+        if ((c & 0xC0) != 0x80) goto exit;
+        if ((d & 0xC0) != 0x80) goto exit;
+        codepoint = (uint32_t)(a & 0x07) << 18 |
+            (uint32_t)(b & 0x3F) << 12 |
+            (uint32_t)(c & 0x3F) <<  6 |
+            (uint32_t)(d & 0x3F);
+    } else {
+        goto exit;
+    }
+    *pstr = str;
+    return codepoint;
+exit:
+    janet_panics("invalid codepoint");
+}
+
 /* Measure the size of a single character in a monospaced terminal */
 static int measure_rune(uint32_t rune) {
     static const struct {
@@ -553,52 +596,86 @@ JANET_FN(cfun_rawterm_rune_monowidth,
 }
 
 JANET_FN(cfun_rawterm_monowidth,
-        "(rawterm/monowidth bytes &opt start-index)",
+        "(rawterm/monowidth bytes &opt start-index end-index)",
         "Measure the monospace width of a string.") {
-    janet_arity(argc, 1, 2);
+    janet_arity(argc, 1, 3);
     JanetByteView buf = janet_getbytes(argv, 0);
-    uint32_t i = janet_optnat(argv, argc, 1, 0);
+    JanetRange slice = janet_getslice(argc, argv);
     uint32_t length = 0;
-    while (i < buf.len) {
-        uint8_t a = buf.bytes[i++];
-        uint32_t codepoint = 0;
-        if ((a & 0x80) == 0) {
-            codepoint = a;
-        } else if ((a & 0xE0) == 0xC0) {
-            if (i >= buf.len) goto exit;
-            uint8_t b = buf.bytes[i++];
-            if ((b & 0xC0) != 0x80) goto exit;
-            codepoint = (uint32_t)(a & 0x1F) << 6 |
-                (uint32_t)(b & 0x3F);
-        } else if ((a & 0xF0) == 0xE0) {
-            if ((i + 1) >= buf.len) goto exit;
-            uint8_t b = buf.bytes[i++],
-                    c = buf.bytes[i++];
-            if ((b & 0xC0) != 0x80) goto exit;
-            if ((c & 0xC0) != 0x80) goto exit;
-            codepoint = (uint32_t)(a & 0x0F) << 12 |
-                (uint32_t)(b & 0x3F) <<  6 |
-                (uint32_t)(c & 0x3F);
-        } else if ((a & 0xF8) == 0xF0) {
-            if ((i + 2) >= buf.len) goto exit;
-            uint8_t b = buf.bytes[i++],
-                    c = buf.bytes[i++],
-                    d = buf.bytes[i++];
-            if ((b & 0xC0) != 0x80) goto exit;
-            if ((c & 0xC0) != 0x80) goto exit;
-            if ((d & 0xC0) != 0x80) goto exit;
-            codepoint = (uint32_t)(a & 0x07) << 18 |
-                (uint32_t)(b & 0x3F) << 12 |
-                (uint32_t)(c & 0x3F) <<  6 |
-                (uint32_t)(d & 0x3F);
-        } else {
-            goto exit;
-        }
+    const uint8_t *end = buf.bytes + slice.end;
+    const uint8_t *cursor = buf.bytes + slice.start;
+    while (cursor < end) {
+        uint32_t codepoint = extract_codepoint(&cursor, end);
         length += measure_rune(codepoint);
     }
     return janet_wrap_integer(length);
-exit:
-    janet_panicf("bad utf-8 at byte position %d", i);
+}
+
+JANET_FN(cfun_rawterm_slice_monowidth,
+        "(rawterm/slice-monowidth bytes columns &opt start-index into)",
+        "Get a byte slice that will fit into a number of columns.") {
+    janet_arity(argc, 2, 4);
+    JanetByteView buf = janet_getbytes(argv, 0);
+    JanetBuffer *into = janet_optbuffer(argv, argc, 3, 0);
+    uint32_t columns = janet_getnat(argv, 1);
+    uint32_t start_index = janet_optnat(argv, argc, 2, 0);
+    uint32_t length = 0;
+    const uint8_t *end = buf.bytes + buf.len;
+    const uint8_t *start = buf.bytes + start_index;
+    const uint8_t *cursor = start;
+    while (cursor < end) {
+        const uint8_t *old_cursor = cursor;
+        uint32_t codepoint = extract_codepoint(&cursor, end);
+        length += measure_rune(codepoint);
+        if (length > columns) {
+            cursor = old_cursor;
+            break;
+        }
+    }
+    janet_buffer_push_bytes(into, start, cursor - start);
+    return janet_wrap_buffer(into);
+}
+
+JANET_FN(cfun_rawterm_traverse,
+        "(rawterm/buffer-traverse bytes index delta &opt skip-zerowidth)",
+        "Move to a new position in a buffer from index by incrementing by `delta` codepoints. Can "
+        "also skip zero-width codepoints if desired.") {
+    janet_arity(argc, 3, 4);
+    JanetByteView bytes = janet_getbytes(argv, 0);
+    int32_t index = (int32_t) janet_getnat(argv, 1);
+    int32_t delta = janet_getinteger(argv, 2);
+    int zw = janet_optboolean(argv, argc, 3, 0);
+    const uint8_t *end = bytes.bytes + bytes.len;
+
+    /* scan forward */
+    for (int32_t i = 0; i < delta && index < bytes.len; i++) {
+        /* skip current lead byte and then trailing bytes */
+        index++;
+        while (index < bytes.len && (0x2 == (bytes.bytes[index] >> 6))) {
+            index++;
+        }
+        /* if zero-width, add 1 more iteration */
+        const uint8_t *c = bytes.bytes + index;
+        if (zw && c < end && !measure_rune(extract_codepoint(&c, end))) {
+            i--;
+        }
+    }
+
+    /* scan backward */
+    for (int32_t i = 0; i > delta && index >= 0; i--) {
+        /* skip over current current lead byte and then previous trailing bytes. */
+        index--;
+        while (index >= 0 && (0x2 == (bytes.bytes[index] >> 6))) {
+            index--;
+        }
+        /* if zero-width, add 1 more iteration */
+        const uint8_t *c = bytes.bytes + index;
+        if (zw && index > 0 && !measure_rune(extract_codepoint(&c, end))) {
+            i++;
+        }
+    }
+
+    return (index >= 0 && index < bytes.len) ? janet_wrap_integer(index) : janet_wrap_nil();
 }
 
 /****************/
@@ -615,6 +692,8 @@ JANET_MODULE_ENTRY(JanetTable *env) {
         JANET_REG("ctrl-z", cfun_rawterm_ctrlz),
         JANET_REG("rune-monowidth", cfun_rawterm_rune_monowidth),
         JANET_REG("monowidth", cfun_rawterm_monowidth),
+        JANET_REG("slice-monowidth", cfun_rawterm_slice_monowidth),
+        JANET_REG("buffer-traverse", cfun_rawterm_traverse),
         JANET_REG_END
     };
     janet_cfuns_ext(env, "rawterm", cfuns);

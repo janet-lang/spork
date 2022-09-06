@@ -197,7 +197,6 @@ JANET_FN(cfun_utf8_prefixtowidth,
 JANET_MODULE_ENTRY(JanetTable *env) {
     JanetRegExt cfuns[] = {
         JANET_REG("decode-rune", cfun_utf8_decode_rune),
-        JANET_REG("decode-rune-reverse", cfun_utf8_decode_rune_reverse),
         JANET_REG("encode-rune", cfun_utf8_encode_rune),
         JANET_REG("prefix->width", cfun_utf8_prefixtowidth),
         JANET_REG_END

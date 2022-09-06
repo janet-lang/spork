@@ -22,3 +22,5 @@
 # native dependencies
 (import spork/json :export true)
 (import spork/tarray :export true)
+(import spork/rawterm :export true)
+(import spork/utf8 :export true)
