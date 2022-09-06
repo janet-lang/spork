@@ -4,7 +4,7 @@
 (start-suite 18)
 
 ###
-### utf8/decode-rune and utf8/decode-rune-reverse
+### utf8/decode-rune
 ###
 
 (eachp [enc dec]
@@ -13,9 +13,7 @@
         "ა" 0x10D0
         "𐊀" 0x10280}
   (assert (= [dec (length enc)] (utf8/decode-rune enc))
-          (string/format "utf8: decode (U+%X)" dec))
-  (assert (= [dec (length enc)] (utf8/decode-rune-reverse enc))
-          (string/format "utf8: decode-reverse (U+%X)" dec)))
+          (string/format "utf8: decode (U+%X)" dec)))
 
 (each inv
       ["\x81" # stray continuation
@@ -23,9 +21,7 @@
        "\x90\x8a\x80" "\x8a\x80" "\x80" # truncated backward
        "\xfe" "\xff"] # invalid
   (assert (= [nil 0] (utf8/decode-rune inv))
-          (string/format "utf8: decode invalid (%q)" inv))
-  (assert (= [nil 0] (utf8/decode-rune-reverse inv))
-          (string/format "utf8: decode-reverse invalid (%q)" inv)))
+          (string/format "utf8: decode invalid (%q)" inv)))
 
 (defn- decode-iterate [buf]
   (var i 0)
@@ -37,33 +33,18 @@
     (+= i i+)
     (array/push iter ch))
   iter)
-(defn- decode-iterate-reverse [buf]
-  (var i (length buf))
-  (def iter @[])
-  (while (> i 0)
-    (def [ch i-] (utf8/decode-rune-reverse buf i))
-    (when (nil? ch)
-      (errorf "invalid UTF-8 sequence: %q (rev pos %d)" buf i))
-    (-= i i-)
-    (array/insert iter 0 ch))
-  iter)
 (eachp [utf8 codepoints]
        {"ķēķī" @[0x137 0x113 0x137 0x12B]
         "チェリー" @[0x30C1 0x30A7 0x30EA 0x30FC]
         "🤣😜🐕" @[0x1F923 0x1F61C 0x1F415]
         "あaá🇦" @[0x3042 0x61 0xE1 0x1F1E6]}
   (assert (deep= codepoints (decode-iterate utf8))
-          (string/format "utf8: decode iterate (%q)" codepoints))
-  (assert (deep= codepoints (decode-iterate-reverse utf8))
-          (string/format "utf8: decode iterate reverse (%q)" codepoints)))
+          (string/format "utf8: decode iterate (%q)" codepoints)))
 
 (let [enc "あ"]
   (loop [i :range [1 3]]
     (assert (= [nil 0] (utf8/decode-rune enc i))
-            (string/format "utf8: decode from truncated start (%d)" i)))
-  (loop [i :range [2 0 -1]]
-    (assert (= [nil 0] (utf8/decode-rune-reverse enc i))
-            (string/format "utf8: decode-reverse from truncated end (%d)" i))))
+            (string/format "utf8: decode from truncated start (%d)" i))))
 
 ###
 ### utf8/prefix->width
