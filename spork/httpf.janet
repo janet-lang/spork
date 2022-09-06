@@ -31,6 +31,7 @@
 
 (defn- render-jdn
   [data buf]
+  (def data (or (get data :data) data))
   (buffer/format buf "%j\n" data))
 
 (defn- render-html
@@ -46,6 +47,7 @@
 
 (defn- render-plain-text
   [data buf]
+  (def data (or (get data :data) data))
   (assert (bytes? data))
   (buffer/push buf data))
 
@@ -160,19 +162,19 @@
     (def path (get req :route (get req :path)))
     (def method (get req :method))
     (def headers (get req :headers))
-    (def mime-read-default
-      (get default-mime-read path 
-           (if (= method "POST") "application/json" "text/html")))
-    (def mime-render-default
-      (get default-mime-render path mime-read-default))
+    (def mime-read-default (get default-mime-read path "application/json"))
+    (def mime-render-default (get default-mime-render path))
     (def reader-mime (get headers "content-type" mime-read-default))
-    (def accepts (get headers "accept" mime-render-default))
-    (def render-mime
-      (if-let [res (peg/match accept-peg accepts)]
-        (in res 0)
-        mime-render-default))
     (def reader (get reader-map reader-mime))
-    (def render (get render-map render-mime render-plain-text))
+    # for rendering, render-mime is a hard override
+    (def accepts (get headers "accept"))
+    (def render-mime
+      (if mime-render-default
+        mime-render-default
+        (if-let [res (if accepts (peg/match accept-peg accepts))]
+          (get res 0 "text/html")
+          "text/html")))
+    (def render (get render-map render-mime render-html))
     (def handler (get routes path))
 
     (defn make-response
