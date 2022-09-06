@@ -162,7 +162,7 @@
     (def path (get req :route (get req :path)))
     (def method (get req :method))
     (def headers (get req :headers))
-    (def mime-read-default (get default-mime-read path "application/json"))
+    (def mime-read-default (get default-mime-read path (if (= "POST" method) "application/json" "text/html")))
     (def mime-render-default (get default-mime-render path))
     (def reader-mime (get headers "content-type" mime-read-default))
     (def reader (get reader-map reader-mime))
@@ -172,9 +172,9 @@
       (if mime-render-default
         mime-render-default
         (if-let [res (if accepts (peg/match accept-peg accepts))]
-          (get res 0 "text/html")
-          "text/html")))
-    (def render (get render-map render-mime render-html))
+          (get res 0 mime-read-default)
+          mime-read-default)))
+    (def render (get render-map render-mime render-plain-text))
     (def handler (get routes path))
 
     (defn make-response
