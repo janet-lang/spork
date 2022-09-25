@@ -19,7 +19,7 @@
 
   Each option is a table or struct that specifies a flag or option
   for the script. The name of the option should be a string, specified
-  via `(argparse/argparse \"...\" op1-name {...} op2-name {...} ...)`. A help option
+  via `(argparse/argparse "..." op1-name {...} op2-name {...} ...)`. A help option
   and usage text is automatically generated for you.
 
   The keys in each option table are as follows:
@@ -43,7 +43,7 @@
   After "--", every argument is treated as an unnamed argument.
 
   Once parsed, values are accessible in the returned table by the name
-  of the option. For example `(result \"verbose\")` will check if the verbose
+  of the option. For example `(result "verbose")` will check if the verbose
   flag is enabled.
   ```
   [description &keys options]
