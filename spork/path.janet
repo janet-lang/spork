@@ -25,6 +25,14 @@
   [from to]
   (setdyn (symbol to) (dyn (symbol from))))
 
+(defn- parent? [source-parts target-parts]
+  (if (< (length target-parts) (length source-parts)) (error "target too short"))
+  (label is-parent
+    (loop [i :range [0 (length source-parts)]]
+      (if (not= (source-parts i) (target-parts i))
+        (return is-parent false)))
+    (return is-parent true)))
+
 #
 # Generating Macros
 #
@@ -119,6 +127,24 @@
        (,(symbol pre "/normalize") path)
        (,(symbol pre "/join") (or (dyn :path-cwd) (os/cwd)) path))))
 
+(defmacro- decl-relpath
+  [pre]
+  ~(defn ,(symbol pre "/relpath")
+     "Get the relative path between two subpaths."
+     [source target]
+       (def source-parts (,(symbol pre "/parts") (,(symbol pre "/abspath") source)))
+       (def target-parts (,(symbol pre "/parts") (,(symbol pre "/abspath") target)))
+       (var up 0)
+       (forever
+         (if (parent? source-parts target-parts) (break))
+         (if (array/pop source-parts)
+             (+= up 1)
+             (break)))
+       (def ret @[])
+       (loop [i :range [0 up]]
+         (array/push ret ".."))
+       (,(symbol pre "/join") ;(array/concat ret (slice target-parts (length source-parts) -1)))))
+
 #
 # Posix
 #
@@ -138,6 +164,7 @@
 (decl-normalize "posix" "/" "/" "/")
 (decl-join "posix" "/")
 (decl-abspath "posix")
+(decl-relpath "posix")
 
 #
 # Windows
@@ -160,6 +187,7 @@
 (decl-normalize "win32" `\` (set `\/`) (* (? (* (range "AZ" "az") `:`)) `\`))
 (decl-join "win32" "\\")
 (decl-abspath "win32")
+(decl-relpath "win32")
 
 
 #
@@ -191,7 +219,8 @@
    "abspath"
    "parts"
    "normalize"
-   "join"])
+   "join"
+   "relpath"])
 (let [pre (if (= :windows (os/which)) "win32" "posix")]
   (each sym syms
     (redef (string pre "/" sym) sym)))
