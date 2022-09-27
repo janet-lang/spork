@@ -25,9 +25,11 @@
   [from to]
   (setdyn (symbol to) (dyn (symbol from))))
 
-(defn- parent? [source-parts target-parts]
-  (if (< (length target-parts) (length source-parts)) (error "target too short"))
+(defn- parent?
+  "Returns true if source-parts are a parent of target-parts"
+  [source-parts target-parts]
   (label is-parent
+    (if (< (length target-parts) (length source-parts)) (return is-parent false))
     (loop [i :range [0 (length source-parts)]]
       (if (not= (source-parts i) (target-parts i))
         (return is-parent false)))
