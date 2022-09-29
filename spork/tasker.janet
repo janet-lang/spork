@@ -17,6 +17,10 @@
 (def default-priority 4)
 (def default-expiration (* 30 24 3600))
 
+(def statuses
+  "A tuple of all possible statuses that a task can have."
+  [:pending :running :done :canceled :timeout])
+
 (def- id-bytes 10)
 (defn- make-id
   "Create a task id"
