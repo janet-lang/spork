@@ -74,7 +74,7 @@
       :kchar (+ :qchar (* (not (set "&=;")) '1))
       :vchar (+ :qchar (* (not (set "&;")) '1))
       :key (accumulate (some :kchar))
-      :value (accumulate (some :vchar))
+      :value (accumulate (any :vchar))
       :entry (* :key (+ (* "=" :value) (constant true)) (+ (set ";&") -1))
       :main (/ (any :entry) ,table)}))
 
