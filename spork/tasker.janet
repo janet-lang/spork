@@ -9,13 +9,13 @@
 (import ./sh)
 
 (def task-meta-name "Name of the task metadata file" "task.jdn")
-(def out-file-name "out.log")
-(def err-file-name "err.log")
+(def out-file-name "Name of the file for general logging" "out.log")
+(def err-file-name "Name of the file for logging errors" "err.log")
 
 (def min-priority "Minimum allowed priority (lower priority tasks will execute first)" 0)
 (def max-priority "Maximum allowed priority (lower priority tasks will execute first)" 9)
-(def default-priority 4)
-(def default-expiration (* 30 24 3600))
+(def default-priority "Default task priority" 4)
+(def default-expiration "Default expiration time. One day." (* 30 24 3600))
 
 (def- id-bytes 10)
 (defn- make-id
@@ -93,7 +93,7 @@
                        (put contents :status :canceled)
                        (task-to-disk contents))))
         ([err]
-         (log "failed to read suspected task " dir " : " (describe err)))))))
+          (log "failed to read suspected task " dir " : " (describe err)))))))
 
 
 (defn- run-task
@@ -126,8 +126,8 @@
       (put payload :return-code return-code)
       (put payload :status :done))
     ([err]
-     (put payload :status :timeout)
-     (os/proc-kill proc)))
+      (put payload :status :timeout)
+      (os/proc-kill proc)))
   (put (tasker :task-proc-map) task-id nil)
   (put (tasker :task-queued-map) task-id nil)
   (put payload :time-finished (ts))
@@ -178,7 +178,7 @@
   (def meta-file (path/abspath (path/join dir task-meta-name)))
   (def timestamp (ts))
   (def payload
-    @{:task-id id 
+    @{:task-id id
       :argv argv
       :priority priority
       :time-queued timestamp
@@ -207,30 +207,30 @@
     (def channels (seq [[[q p] c] :pairs (tasker :queues) :when (= q qname)] c))
     (for n 0 workers-per-queue
       (ev-utils/spawn-nursery nurse
-        (log "starting executor " n " for queue " qname)
-        (while (next channels)
-          (def [msg chan x] (ev/select ;channels))
-          (case msg
-            :close
-            (array/remove channels (index-of chan channels))
-            :take
-            (do
-              (try
-                (do
-                  (def task-id (get x :task-id))
-                  (log "starting task " task-id)
-                  (when pre-task
-                    (pre-task tasker x)
-                    (task-to-disk x))
-                  (run-task tasker x)
-                  (when post-task
-                    (post-task tasker x)
-                    (task-to-disk x))
-                  (log "finished task " task-id " normally"))
-              ([err f]
-               (log (string/format "error running job: %V" err))
-               (debug/stacktrace f))))))
-        (log "executor " n " for queue " qname " completed"))))
+                              (log "starting executor " n " for queue " qname)
+                              (while (next channels)
+                                (def [msg chan x] (ev/select ;channels))
+                                (case msg
+                                  :close
+                                  (array/remove channels (index-of chan channels))
+                                  :take
+                                  (do
+                                    (try
+                                      (do
+                                        (def task-id (get x :task-id))
+                                        (log "starting task " task-id)
+                                        (when pre-task
+                                          (pre-task tasker x)
+                                          (task-to-disk x))
+                                        (run-task tasker x)
+                                        (when post-task
+                                          (post-task tasker x)
+                                          (task-to-disk x))
+                                        (log "finished task " task-id " normally"))
+                                      ([err f]
+                                        (log (string/format "error running job: %V" err))
+                                        (debug/stacktrace f))))))
+                              (log "executor " n " for queue " qname " completed"))))
   tasker)
 
 (defn run-executors
@@ -293,5 +293,5 @@
             (sh/rm (path/join td dir))
             (++ num-removed)))
         ([err]
-         (log "failed to clean up task " dir " : " (describe err))))))
+          (log "failed to clean up task " dir " : " (describe err))))))
   (log "removed " num-removed " expired task records in " td))
