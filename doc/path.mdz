@@ -29,4 +29,5 @@ path/delim # -> ":" on posix, ";" on windows
 (path/join "some/path" "../thing/file.txt") # -> "some/thing/file.txt"
 (path/abspath? "/home/blah") # -> true
 (path/abspath "file.txt") # -> "/home/me/cwd/file.txt"
+(path/relpath "a/nested/directory/with/a/few/children" "a/nested/directory/with/different/children") # -> "../../../different/children"
 ```

@@ -6,11 +6,9 @@
 
 (print "press z to quit")
 
-(def buf @"")
 (defer (rawterm/end)
   (rawterm/begin on-winch)
   (forever
-    (buffer/clear buf)
     (def [c] (rawterm/getch))
     (case c
       (chr "a") (print "Got an A an for Alan!")

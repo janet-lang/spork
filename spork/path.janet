@@ -29,8 +29,10 @@
 # Generating Macros
 #
 
-(defmacro- decl-sep [pre sep] ~(def ,(symbol pre "/sep") ,sep))
-(defmacro- decl-delim [pre d] ~(def ,(symbol pre "/delim") ,d))
+(defmacro- decl-sep [pre sep]
+  ~(def ,(symbol pre "/sep") "Platform separator" ,sep))
+(defmacro- decl-delim [pre d]
+  ~(def ,(symbol pre "/delim") "Platform delimiter" ,d))
 
 (defmacro- decl-last-sep
   [pre sep]
@@ -119,6 +121,18 @@
        (,(symbol pre "/normalize") path)
        (,(symbol pre "/join") (or (dyn :path-cwd) (os/cwd)) path))))
 
+(defmacro- decl-relpath
+  [pre]
+  ~(defn ,(symbol pre "/relpath")
+     "Get the relative path between two subpaths."
+     [source target]
+     (def source-parts (,(symbol pre "/parts") (,(symbol pre "/abspath") source)))
+     (def target-parts (,(symbol pre "/parts") (,(symbol pre "/abspath") target)))
+     (def same-parts (length (take-until identity (map not= source-parts target-parts))))
+     (def up-walk (array/new-filled (- (length source-parts) same-parts) ".."))
+     (def down-walk (tuple/slice target-parts same-parts -1))
+     (,(symbol pre "/join") ;up-walk ;down-walk)))
+
 #
 # Posix
 #
@@ -138,6 +152,7 @@
 (decl-normalize "posix" "/" "/" "/")
 (decl-join "posix" "/")
 (decl-abspath "posix")
+(decl-relpath "posix")
 
 #
 # Windows
@@ -160,6 +175,7 @@
 (decl-normalize "win32" `\` (set `\/`) (* (? (* (range "AZ" "az") `:`)) `\`))
 (decl-join "win32" "\\")
 (decl-abspath "win32")
+(decl-relpath "win32")
 
 
 #
@@ -167,7 +183,7 @@
 #
 
 (def ext nil)
-(def sep nil)
+(def sep "HOHOHO" nil)
 (def delim nil)
 (def basename nil)
 (def dirname nil)
@@ -191,7 +207,8 @@
    "abspath"
    "parts"
    "normalize"
-   "join"])
+   "join"
+   "relpath"])
 (let [pre (if (= :windows (os/which)) "win32" "posix")]
   (each sym syms
     (redef (string pre "/" sym) sym)))
