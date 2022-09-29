@@ -9,7 +9,7 @@
 
 (import spork/rawterm)
 
-(def max-history 500)
+(def max-history "Maximal amount of items in the history" 500)
 
 (def- sym-prefix-peg
   (peg/compile
@@ -92,7 +92,7 @@
                 (= (band c 0xF8) 0xF0) 3
                 (= (band c 0xF0) 0xE0) 2
                 1)
-              (rawterm/getch input-buf)))
+        (rawterm/getch input-buf)))
     c)
 
   (defn- flushs
@@ -109,7 +109,7 @@
   (defn- clear-lines
     []
     (repeat lines-below
-            (buffer/push tmp-buf "\e[1B\e[999D\e[K"))
+      (buffer/push tmp-buf "\e[1B\e[999D\e[K"))
     (when (pos? lines-below)
       (buffer/format tmp-buf "\e[%dA\e[999D" lines-below)
       (set lines-below 0))
@@ -387,4 +387,3 @@
           (put history (dec (length history)) (string/trimr buf "\n")))
         (array/pop history))
       ret-value)))
-

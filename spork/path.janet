@@ -132,18 +132,18 @@
   ~(defn ,(symbol pre "/relpath")
      "Get the relative path between two subpaths."
      [source target]
-       (def source-parts (,(symbol pre "/parts") (,(symbol pre "/abspath") source)))
-       (def target-parts (,(symbol pre "/parts") (,(symbol pre "/abspath") target)))
-       (var up 0)
-       (forever
-         (if (parent? source-parts target-parts) (break))
-         (if (array/pop source-parts)
-             (+= up 1)
-             (break)))
-       (def ret @[])
-       (loop [i :range [0 up]]
-         (array/push ret ".."))
-       (,(symbol pre "/join") ;(array/concat ret (slice target-parts (length source-parts) -1)))))
+     (def source-parts (,(symbol pre "/parts") (,(symbol pre "/abspath") source)))
+     (def target-parts (,(symbol pre "/parts") (,(symbol pre "/abspath") target)))
+     (var up 0)
+     (forever
+       (if (parent? source-parts target-parts) (break))
+       (if (array/pop source-parts)
+         (+= up 1)
+         (break)))
+     (def ret @[])
+     (loop [i :range [0 up]]
+       (array/push ret ".."))
+     (,(symbol pre "/join") ;(array/concat ret (slice target-parts (length source-parts) -1)))))
 
 #
 # Posix
@@ -195,8 +195,8 @@
 #
 
 (def ext nil)
-(def sep nil)
-(def delim nil)
+(def sep "hoho" nil)
+(def delim "hoho" nil)
 (def basename nil)
 (def dirname nil)
 (def abspath? nil)
