@@ -28,6 +28,8 @@
 (defn- parent?
   "Returns true if source-parts are a parent of target-parts"
   [source-parts target-parts]
+  (if (< (length target-parts) (length source-parts))
+    (error "target too short"))
   (label is-parent
     (if (< (length target-parts) (length source-parts)) (return is-parent false))
     (loop [i :range [0 (length source-parts)]]
@@ -39,8 +41,10 @@
 # Generating Macros
 #
 
-(defmacro- decl-sep [pre sep] ~(def ,(symbol pre "/sep") ,sep))
-(defmacro- decl-delim [pre d] ~(def ,(symbol pre "/delim") ,d))
+(defmacro- decl-sep [pre sep]
+  ~(def ,(symbol pre "/sep") "Platform separator" ,sep))
+(defmacro- decl-delim [pre d]
+  ~(def ,(symbol pre "/delim") "Platform delimiter" ,d))
 
 (defmacro- decl-last-sep
   [pre sep]
@@ -134,18 +138,18 @@
   ~(defn ,(symbol pre "/relpath")
      "Get the relative path between two subpaths."
      [source target]
-       (def source-parts (,(symbol pre "/parts") (,(symbol pre "/abspath") source)))
-       (def target-parts (,(symbol pre "/parts") (,(symbol pre "/abspath") target)))
-       (var up 0)
-       (forever
-         (if (parent? source-parts target-parts) (break))
-         (if (array/pop source-parts)
-             (+= up 1)
-             (break)))
-       (def ret @[])
-       (loop [i :range [0 up]]
-         (array/push ret ".."))
-       (,(symbol pre "/join") ;(array/concat ret (slice target-parts (length source-parts) -1)))))
+     (def source-parts (,(symbol pre "/parts") (,(symbol pre "/abspath") source)))
+     (def target-parts (,(symbol pre "/parts") (,(symbol pre "/abspath") target)))
+     (var up 0)
+     (forever
+       (if (parent? source-parts target-parts) (break))
+       (if (array/pop source-parts)
+         (+= up 1)
+         (break)))
+     (def ret @[])
+     (loop [i :range [0 up]]
+       (array/push ret ".."))
+     (,(symbol pre "/join") ;(array/concat ret (slice target-parts (length source-parts) -1)))))
 
 #
 # Posix
@@ -197,7 +201,7 @@
 #
 
 (def ext nil)
-(def sep nil)
+(def sep "HOHOHO" nil)
 (def delim nil)
 (def basename nil)
 (def dirname nil)

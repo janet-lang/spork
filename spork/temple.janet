@@ -5,13 +5,14 @@
 
 (defmacro- defenv
   "Define a module inline as if returned by require."
-  [what & forms]
+  [what docstring & forms]
   (def env (make-env))
   (each f forms
     (resume (fiber/setenv (coro (eval f)) env)))
-  ~(def ,what ',env))
+  ~(def ,what ,docstring ',env))
 
 (defenv base-env
+  "Base environment for rendering"
   # Define forms available inside the temple DSL here
   (def- escape-peg
     (peg/compile
@@ -127,7 +128,7 @@
   (with-dyns [:current-file path]
     (let [tmpl (create (slurp path) path)]
       @{'render @{:doc "Main template function."
-                  :value (fn render [&keys args] (tmpl args)) }
+                  :value (fn render [&keys args] (tmpl args))}
         'render-dict @{:doc "Template function, but pass arguments as a dictionary."
                        :value tmpl}})))
 
