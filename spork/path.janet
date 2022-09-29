@@ -25,18 +25,6 @@
   [from to]
   (setdyn (symbol to) (dyn (symbol from))))
 
-(defn- parent?
-  "Returns true if source-parts are a parent of target-parts"
-  [source-parts target-parts]
-  (if (< (length target-parts) (length source-parts))
-    (error "target too short"))
-  (label is-parent
-    (if (< (length target-parts) (length source-parts)) (return is-parent false))
-    (loop [i :range [0 (length source-parts)]]
-      (if (not= (source-parts i) (target-parts i))
-        (return is-parent false)))
-    (return is-parent true)))
-
 #
 # Generating Macros
 #
@@ -140,16 +128,10 @@
      [source target]
      (def source-parts (,(symbol pre "/parts") (,(symbol pre "/abspath") source)))
      (def target-parts (,(symbol pre "/parts") (,(symbol pre "/abspath") target)))
-     (var up 0)
-     (forever
-       (if (parent? source-parts target-parts) (break))
-       (if (array/pop source-parts)
-         (+= up 1)
-         (break)))
-     (def ret @[])
-     (loop [i :range [0 up]]
-       (array/push ret ".."))
-     (,(symbol pre "/join") ;(array/concat ret (slice target-parts (length source-parts) -1)))))
+     (def same-parts (length (take-until identity (map not= source-parts target-parts))))
+     (def up-walk (array/new-filled (- (length source-parts) same-parts) ".."))
+     (def down-walk (tuple/slice target-parts same-parts -1))
+     (,(symbol pre "/join") ;up-walk ;down-walk)))
 
 #
 # Posix
