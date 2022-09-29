@@ -139,3 +139,14 @@ Runs the form, but supresses its stderr.
 (suppress-stderr (eprint "Hello world!"))
 # => nil
 ```
+
+## assert-docs
+
+Asserts that all public bindings from the environment have docstring, 
+when the `path` is required.
+
+@codeblock[janet]```
+(assert-doc "/spork/test")
+✘  suppress-stderr does not have proper doc
+```
+

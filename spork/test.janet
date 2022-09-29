@@ -33,13 +33,15 @@
   (def errsym (gensym))
   ~(,assert (not= ',errsym (try (do ,;forms) ([_] ',errsym))) ,msg))
 
-(defn start-suite [x]
+(defn start-suite
   "Starts test suite."
+  [x]
   (set suite-num x)
   (set start-time (os/clock)))
 
-(defn end-suite []
+(defn end-suite
   "Ends test suite."
+  []
   (def delta (- (os/clock) start-time))
   (prinf "test suite %d finished in %.3f seconds - " suite-num delta)
   (print num-tests-passed " of " num-tests-run " tests passed.")
@@ -89,10 +91,27 @@
 (defmacro- suppress-* [out & body]
   ~(with-dyns [,out @""] ,;body))
 
-(defmacro suppress-stdout [& body]
+(defmacro suppress-stdout
   "Suppreses stdout from the body"
+  [& body]
   ~(as-macro ,suppress-* :out ,;body))
 
-(defmacro suppress-stderr [& body]
+(defmacro suppress-stderr
   "Suppreses stdout from the body"
+  [& body]
   ~(as-macro ,suppress-* :err ,;body))
+
+(defn assert-docs
+  ```
+  Assert that all symbols, when module on the path is required,
+  have proper doc string
+  ```
+  [path]
+  (loop [[sym val] :pairs (require path)
+         :when (and (symbol? sym) (not (val :private)) (not (val :ref)))]
+    (assert (and (val :doc)
+                 (peg/match '(* (+ (* "(" (thru ")\n\n"))
+                                   (not "("))
+                                (some 1) -1)
+                            (val :doc)))
+            (string sym " does not have proper doc"))))

@@ -11,4 +11,6 @@
 
 (assert (= (path/posix/relpath "a/bit/deeper/with/some/nested/dir" "a/bit/deeper/with/other/nested/dir") "../../../other/nested/dir"))
 
+(assert-docs "/spork/test")
+
 (end-suite)
