@@ -26,7 +26,8 @@
   (setdyn (symbol to) (dyn (symbol from))))
 
 (defn- parent? [source-parts target-parts]
-  (if (< (length target-parts) (length source-parts)) (error "target too short"))
+  (if (< (length target-parts) (length source-parts))
+    (error "target too short"))
   (label is-parent
     (loop [i :range [0 (length source-parts)]]
       (if (not= (source-parts i) (target-parts i))
@@ -37,8 +38,10 @@
 # Generating Macros
 #
 
-(defmacro- decl-sep [pre sep] ~(def ,(symbol pre "/sep") ,sep))
-(defmacro- decl-delim [pre d] ~(def ,(symbol pre "/delim") ,d))
+(defmacro- decl-sep [pre sep]
+  ~(def ,(symbol pre "/sep") "Platform separator" ,sep))
+(defmacro- decl-delim [pre d]
+  ~(def ,(symbol pre "/delim") "Platform delimiter" ,d))
 
 (defmacro- decl-last-sep
   [pre sep]
@@ -195,8 +198,8 @@
 #
 
 (def ext nil)
-(def sep "hoho" nil)
-(def delim "hoho" nil)
+(def sep "HOHOHO" nil)
+(def delim nil)
 (def basename nil)
 (def dirname nil)
 (def abspath? nil)

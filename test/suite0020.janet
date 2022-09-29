@@ -22,7 +22,7 @@
 (assert-docs "/spork/misc")
 (assert-docs "/spork/msg")
 (assert-docs "/spork/netrepl")
-# (assert-docs "/spork/path") needs more investigation
+(assert-docs "/spork/path")
 (assert-docs "/spork/regex")
 (assert-docs "/spork/rpc")
 (assert-docs "/spork/schema")
