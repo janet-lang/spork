@@ -17,7 +17,7 @@ Remove indentation after concatenating the arguments.
 ``))))) => "ho\n  hoho\n    hohoho"
 ```
 
-## `set*`
+## set*
 
 Allow parallel mutation of multiple mutable variables.  (All right
 hand sides are computed before setting the left hand sides.)
@@ -35,7 +35,7 @@ hand sides are computed before setting the left hand sides.)
 x => @[3 5]
 ```
 
-## `print-table`
+## print-table
 
 Given a list of tables containing column keys with corresponding row
 values, print its content to stdout in a human-readable tabular
@@ -98,8 +98,8 @@ Returns the value mutated if any condition is truthy.
 
 @codeblock[janet]```
 (misc/cond-> @{:a :b}
-                 (pos? 1) (put :a :c)
-                 (pos? 0) (put :a :d))
+             (pos? 1) (put :a :c)
+             (pos? 0) (put :a :d))
 # => @{:a :c}
 ```
 
@@ -120,9 +120,8 @@ Returns mutated value if any condition is truthy.
 
 ## make
 
-Creates new table from even number of key value pairs in a variadic arguments,
-or take existing table if it is one argument. Then it sets tables' prototype
-to the prototype argument.
+Convenience macro for creating new table from even number of kvs pairs in a variadic 
+pairs arguments and setting its prototype to prototype.
 
 Factory function for creating new objects from prototypes.
 
@@ -176,6 +175,7 @@ a buffer.
   (prin p))
 # => @"HOHOHO"
 ```
+
 ## vars
 
 Defines many variables as in let bindings, but without creating new scope.
@@ -183,6 +183,7 @@ Defines many variables as in let bindings, but without creating new scope.
 @codeblock[janet]```
 (do (misc/vars a 2 b 1) a) 
 # => 2
+```
 
 ## always
 
@@ -233,6 +234,7 @@ Get the third-to-last element from an indexed data structure.
 (misc/antepenultimate [1 2 3 4 5]) 
 # => 3
 ```
+
 ## int/
 
 Perform an integer division.

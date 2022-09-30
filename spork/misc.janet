@@ -269,18 +269,14 @@
            (partition 2 clauses))
        ,res)))
 
-(defn make
+(defmacro make
   ```
-  Creates new table from even number of kvs pairs in a variadic `table-or-pairs`
-  arguments, or take existing table if it is one argument. Then sets tables'
-  prototype to `prototype`.
+  Convenience macro for creating new table from even number of kvs pairs in a variadic `table-or-pairs`
+  arguments and setting its prototype to `prototype`.
   Factory function for creating new objects from prototypes.
   ```
-  [prototype & table-or-pairs]
-  (def object
-    (if (one? (length table-or-pairs))
-      (in table-or-pairs 0) (table ;table-or-pairs)))
-  (table/setproto object prototype))
+  [prototype & pairs]
+  ~(table/setproto (table ,;pairs) ,prototype))
 
 (defmacro do-var
   ```
