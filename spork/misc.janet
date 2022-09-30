@@ -306,23 +306,29 @@
                (with-dyns [,out ,o] ,;body))))
 
 (defmacro capout
-  "Captures the standart output."
+  ```
+  Captures the standart output of the variadic `body` and returns it as
+  a buffer.
+  ```
   [& body]
   ~(as-macro ,cap* :out ,;body))
 
 (defmacro caperr
-  "Captures the error output of the variadic `body`."
+  ```
+  Captures the standart error output of the variadic `body` and returns it
+  as a buffer.
+  ```
   [& body]
   ~(as-macro ,cap* :err ,;body))
 
 (defmacro vars
-  "Defines many variables as in let `bindings`."
+  "Defines many variables as in let `bindings`, but without creating new scope."
   [& bindings]
   ~(upscope
      ,;(seq [[n v] :in (partition 2 bindings)] (tuple 'var n v))))
 
 (defmacro defs
-  "Defines many constants as in let `bindings`."
+  "Defines many constants as in let `bindings`, but without creating new scope."
   [& bindings]
   ~(upscope
      ,;(seq [[n v] :in (partition 2 bindings)] (tuple 'def n v))))

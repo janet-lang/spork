@@ -89,10 +89,11 @@
     "Hello pepe")
   "make")
 
-(assert (one? (misc/do-var res 0 (++ res)))
+(assert (= (misc/do-var res 0 (set res 100) (++ res))
+           101)
         "do-var")
 
-(assert (deep= @"a" (misc/do-def res @"" (buffer/push res "a")))
+(assert (deep= (misc/do-def res @"" (buffer/push res "a")) @"a")
         "do-def")
 
 (assert (deep= (misc/capout (prin "HOHOHO"))
@@ -113,10 +114,10 @@
                @"HOHOHO")
         "caperr many")
 
-(assert (= 2 (do (misc/vars a 2 b 1) a))
+(assert (= (do (misc/vars a 2 b 1) a) 2)
         "vars")
 
-(assert (= 2 (do (misc/defs a 2 b 1) a))
+(assert (= (do (misc/defs a 2 b 1) a) 2)
         "defs")
 
 (let [always-true (misc/always true)]
@@ -125,35 +126,35 @@
   (assert (always-true) "always true")
   (assert (always-true 1 2 3) "always true (args)"))
 
-(assert (= 2 (misc/second [1 2 3]))
+(assert (= (misc/second [1 2 3]) 2)
         "second")
 (assert (nil? (misc/second [1]))
         "second (short)")
 (assert (nil? (misc/second []))
         "second (empty)")
 
-(assert (= 3 (misc/third [1 2 3]))
+(assert (= (misc/third [1 2 3]) 3)
         "third")
 (assert (nil? (misc/third [1 2]))
         "third (short)")
 (assert (nil? (misc/third []))
         "third (empty)")
 
-(assert (= 4 (misc/penultimate [1 2 3 4 5]))
+(assert (= (misc/penultimate [1 2 3 4 5]) 4)
         "penultimate")
 (assert (nil? (misc/penultimate [1]))
         "penultimate (short)")
 (assert (nil? (misc/penultimate []))
         "penultimate (empty)")
 
-(assert (= 3 (misc/antepenultimate [1 2 3 4 5]))
+(assert (= (misc/antepenultimate [1 2 3 4 5]) 3)
         "antepenultimate")
 (assert (nil? (misc/antepenultimate [1 2]))
         "antepenultimate (short)")
 (assert (nil? (misc/antepenultimate []))
         "antepenultimate (empty)")
 
-(assert (= 3 (misc/int/ 11 3))
+(assert (= (misc/int/ 11 3) 3)
         "int/ (pos/pos)")
 (assert (= 3 (misc/int/ -11 -3))
         "int/ (neg/neg)")
@@ -162,14 +163,14 @@
 (assert (= -3 (misc/int/ 11 -3))
         "int/ (pos/neg)")
 
-(assert (= :c (misc/gett {:a {:b {:c :c}}} :a :b :c))
+(assert (= (misc/gett {:a {:b {:c :c}}} :a :b :c) :c)
         "gett")
 (assert (nil? (misc/gett {:a {:b {:c :c}}} :d :b :c))
         "gett (nil)")
 
 (assert
-  (= 4 (misc/do-var res 0
-                    (misc/until (> res 3) (++ res))))
+  (= (misc/do-var res 0 (misc/until (> res 3) (++ res)))
+     4)
   "until")
 
 (assert (deep= (misc/table/filter |(even? $1) @{:zero 0 :one 1 :two 2 :three 3})
@@ -202,7 +203,7 @@
 (assert (= (misc/int->string 36rxyzzy 36) "xyzzy")
         "int->string (base 36)")
 
-(assert (= 0 (misc/first-index-where (misc/always true) [1 2 3]))
+(assert (= (misc/first-index-where (misc/always true) [1 2 3]) 0)
         "first-index-where 1")
 (assert (nil? (misc/first-index-where (misc/always true) []))
         "first-index-where 2")
