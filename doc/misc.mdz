@@ -17,7 +17,7 @@ Remove indentation after concatenating the arguments.
 ``))))) => "ho\n  hoho\n    hohoho"
 ```
 
-## `set*`
+## set*
 
 Allow parallel mutation of multiple mutable variables.  (All right
 hand sides are computed before setting the left hand sides.)
@@ -35,7 +35,7 @@ hand sides are computed before setting the left hand sides.)
 x => @[3 5]
 ```
 
-## `print-table`
+## print-table
 
 Given a list of tables containing column keys with corresponding row
 values, print its content to stdout in a human-readable tabular
@@ -59,4 +59,328 @@ x       y
    hello   world
   banana  orange
      cat     dog
+```
+
+## map-keys
+
+Returns new table with function applied to table's keys recursively.
+
+@codeblock[janet]```
+(misc/map-keys string {1 2 3 4}) 
+# => @{"1" 2 "3" 4}
+```
+
+## map-vals
+
+Returns new table with function applied to table's values.
+
+@codeblock[janet]```
+(misc/map-vals string {1 2 3 4}) 
+# => @{1 "2" 3 "4"}
+```
+
+## select-keys
+
+Returns new table with selected keys from dictionary.
+
+@codeblock[janet]```
+(misc/select-keys {1 2 3 4 5 6} [1 5]) 
+# => @{1 2 5 6}
+```
+
+## cond->
+
+Threading conditional macro. It takes value to mutate, and clauses pairs with a
+condition and a operation to which the value is put as the first argument. All
+conditions are tried and for truthy conditions the operation is performed.
+
+Returns the value mutated if any condition is truthy.
+
+@codeblock[janet]```
+(misc/cond-> @{:a :b}
+             (pos? 1) (put :a :c)
+             (pos? 0) (put :a :d))
+# => @{:a :c}
+```
+
+## cond->>
+
+Threading conditional macro. It takes value to mutate, and clauses pairs of a
+condition and a operation to which the value, is put as the last argument. All
+conditions are tried and for truthy the operation is performed.
+
+Returns mutated value if any condition is truthy.
+
+@codeblock[janet]```
+(misc/cond->> @{:a :b}
+              (pos? 1) (merge {:d :e})
+              (pos? 0) (merge {:e :f}))
+# => @{:a :b :d :e}
+```
+
+## make
+
+Convenience macro for creating new table from even number of kvs pairs in a variadic 
+pairs arguments and setting its prototype to prototype.
+
+Factory function for creating new objects from prototypes.
+
+@codeblock[janet]```
+(def Proto @{:greet |(string "Hello " ($ :name))})
+(def t (misc/make Proto :name "pepe"))
+(:greet t)
+# => "Hello pepe"
+```
+
+## do-var
+
+Convenience macro for defining varible with value before body and returning
+it after evaluating body, that presumably modifies variable.
+
+@codeblock[janet]```
+(misc/do-var res 0 (set res 100) (++ res))
+# => 101
+```
+
+## do-def
+
+Convenience macro for defining constant with value before body and returning it
+after evaluating body, that presumably modifies the const refered content. For
+example buffer, table or array.
+
+@codeblock[janet]```
+(misc/do-def res @"" (buffer/push res "a")) 
+# => @"a"
+```
+
+## capout
+
+Captures the standart output of the variadic body and returns it as a buffer.
+
+@codeblock[janet]```
+(misc/capout 
+  (def p "HOHOHO")
+  (prin p))
+# => @"HOHOHO"
+```
+
+## caperr
+
+Captures the standart error output of the variadic body and returns it as
+a buffer.
+
+@codeblock[janet]```
+(misc/caperr
+  (def p "HOHOHO")
+  (eprin p))
+# => @"HOHOHO"
+```
+
+## vars
+
+Defines many variables as in let bindings, but without creating new scope.
+
+@codeblock[janet]```
+(do (misc/vars a 2 b 1) a) 
+# => 2
+```
+
+## always
+
+Return a function that discards any arguments and always returns its argument.
+
+@codeblock[janet]```
+(def always-true (misc/always true))
+(always-true)
+# => true
+(always-true)
+# => true
+(always-true 1 2 3)
+# => true
+```
+
+## second
+
+Get the second element from an indexed data structure.
+
+@codeblock[janet]```
+(misc/second [1 2 3]) 
+# => 2
+```
+
+## third
+
+Get the third element from an indexed data structure.
+
+@codeblock[janet]```
+(misc/third [1 2 3]) 
+# => 3
+```
+
+## penultimate
+
+Get the second-to-last element from an indexed data structure.
+
+@codeblock[janet]```
+(misc/penultimate [1 2 3 4 5]) 
+# => 4
+```
+
+## antepenultimate
+
+Get the third-to-last element from an indexed data structure.
+
+@codeblock[janet]```
+(misc/antepenultimate [1 2 3 4 5]) 
+# => 3
+```
+
+## int/
+
+Perform an integer division.
+
+@codeblock[janet]```
+(misc/int/ 11 3) 3
+```
+
+## gett
+
+Recursive macro get. Similar to get-in, but keys are variadic argument.
+
+@codeblock[janet]```
+(misc/gett {:a {:b {:c :c}}} :a :b :c) 
+# => :c
+```
+
+## until
+Repeat the body while the condition is false.
+
+Equivalent to `(while (not cnd) ;body)`.
+
+@codeblock[janet]```
+(misc/do-var res 0 (misc/until (> res 3) (++ res)))
+# => 4
+```
+
+## table/filter
+
+Filter a key-value structure info a table. Semantics are the same as for
+built-in filter, except that predicate takes two arguments (key and value.)
+
+Does not consider prototypes.
+
+@codeblock[janet]```
+(misc/table/filter |(even? $1) @{:zero 0 :one 1 :two 2 :three 3})
+# => @{:zero 0 :two 2}
+```
+
+## buffer/reverse
+
+Reverse a buffer in-place.
+
+@codeblock[janet]```
+(misc/buffer/reverse @"abcd") 
+# => @"dcba"
+```
+
+## string->int
+
+Parses an integer in the given base. Defaults to decimal (base 10). Differs
+from scan-number in that this does not recognize floating point notation.
+
+@codeblock[janet]```
+(misc/string->int "101" 2) 
+# => 2r101
+```
+
+## int->string
+
+Stringify an integer in a particular base. Defaults to decimal (base 10).
+
+@codeblock[janet]```
+(misc/int->string 2r11011011 2) 
+# => "11011011"
+```
+
+## first-index-where
+
+Return the index of the first element for which function returns true. Scans
+the data structure linearly.
+
+@codeblock[janet]```
+(misc/first-index-where (misc/always true) [1 2 3]) 
+# => 0
+```
+
+## array/insert-sorted
+
+Insert elements in array such that it remains sorted by the comparator. If
+array is not sorted beforehand, the results are undefined. Returns array.
+
+@codeblock[janet]```
+(misc/array/insert-sorted @[1 2 3 5] < 4)
+# => @[1 2 3 4 5]
+```
+
+## array/insert-sorted-by
+
+Insert elements in array such that it remains sorted by the value returned
+when function is called with the element, comparing the values with <. If the
+array is not sorted beforehand, the results are undefined. Returns the array.
+
+@codeblock[janet]```
+(misc/array/insert-sorted-by @[1 2 3 5] identity 4)
+# => @[1 2 3 4 5]
+```
+
+## peg-grammar
+
+Custom peg grammar with crlf, to end and split defs.
+
+## setup-peg-grammar
+
+Merges `peg-grammar` into `:peg-grammar` dynamic.
+
+@codeblock[janet]```
+(misc/setup-peg-grammar)
+(peg/match ~(* :cap-to-crlf :crlf) "hoho\r\n\r\n")
+# => @["hoho"]
+```
+
+## pgp/hex->word
+
+Returns pgp word for hex string <100 for a position in the number.
+
+@codeblock[janet]```
+(misc/pgp/hex->word "01" 0) 
+# => "absurd"
+```
+
+## pgp/hexs->words
+
+Returns an array of pgp words for arbitrary long string of hexs.
+
+Sanitizes out the white space from hex-string.
+
+@codeblock[janet]```
+(misc/pgp/hexs->words "01d1 02EE")
+# => @["absurd" "scavenger" "accrue" "universe"]
+```
+
+## pgp/word->hex
+
+Returns a hex number as string for the pgp word.
+
+@codeblock[janet]```
+(misc/pgp/word->hex "absurd")
+# => "01"
+```
+
+## pgp/words->hexs
+
+Returns an array of hexs from the string with pgp words.
+
+@codeblock[janet]```
+(misc/pgp/words->hexs "absurd-scavenger accrue_universe upshot.village")
+# => @["01" "D1" "02" "EE" "F4" "F6"]
 ```
