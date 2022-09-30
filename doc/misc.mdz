@@ -170,9 +170,9 @@ Captures the standart error output of the variadic body and returns it as
 a buffer.
 
 @codeblock[janet]```
-(misc/capout
+(misc/caperr
   (def p "HOHOHO")
-  (prin p))
+  (eprin p))
 # => @"HOHOHO"
 ```
 
