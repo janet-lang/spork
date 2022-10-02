@@ -22,9 +22,6 @@
       nil)
     (in ds n)))
 
-(comment 
-  (def ds a))
-
 (defn- arr [a]
   (apply array a))
 
@@ -35,9 +32,6 @@
              (fn [result [k v]] (put result k v))
              (array/new-filled (apply max (keys m)))
              (pairs m)))))
-
-(comment 
-  (def m @{2 3}))
 
 (defn- diff-associative-key [a b k]
   (let [va (safe-in a k)
@@ -52,13 +46,6 @@
      (when (and in-b (or (not (nil? b*)) (not same))) {k b*})
      (when same {k ab})
      ]))
-
-(comment 
-  (def diff1 (diff-associative-key a b :a))
-  (def diff2 (diff-associative-key a b :b))
-  (def diff2 (diff-associative-key a b :c))
-  
-  (def k 2))
 
 (defn- diff-associative [a b ks]
   (reduce 
@@ -100,54 +87,3 @@
     (if (= (categorize a) (categorize b))
       (diff-similar (type a) a b)
       (atom-diff a b))))
-
-(comment
-  (def a {:a 1 :b 2})
-
-  (def b {:a 1 :b 3})
-
-  (def kind (type a))
-
-  (def ks (distinct (array/concat (keys a) (keys b))))
-
-  (def k (in ks 1))
-  )
-
-(comment
-  (def a 2)
-
-  (def b 3)
-
-  (def kind (type a))
-
-  (def ks (distinct (array/concat (keys a) (keys b))))
-
-  (def k (in ks 1))
-  )
-
-(comment
-  (def a [1 2])
-
-  (def b [1 2 3])
-
-  (def kind (type a))
-
-  (def ks (distinct (array/concat (keys a) (keys b))))
-
-  (def k (in ks 1))
-  )
-
-(comment
-  (def a {:map1 {:a 1 :b 2} :map2 {:c 3 :d 4}})
-
-  (def b {:map1 {:a 1 :b 2} :map2 {:c 3 :d 5}})
-
-  (def kind (type a))
-
-  (def ks (distinct (array/concat (keys a) (keys b))))
-
-  (def k (in ks 1))
-  )
-
-(comment 
-  (diff a b))
