@@ -11,7 +11,7 @@
 (def cases
   [[1 1 @[nil nil 1] "Should be: Integers, same"]
    [1 2 @[1 2 nil] "Should be: Integers, different"]
-   
+
    ["1" "1" @[nil nil "1"] "Should be: Strings, same"]
    ["1" "2" @["1" "2" nil] "Should be: Strings, different"]
 
@@ -46,10 +46,10 @@
    [@{:a 1 :b {:c 1 :d 2}} @{:a 1 :b {:c 1}} @[@{:b @{:d 2}} nil @{:a 1 :b @{:c 1}}] "Should be: Nested Tables, element removed"]
    [@{:a 1 :b {:c 1 :d 2}} @{:a 1 :b {:c 1 :d 5}} @[@{:b @{:d 2}} @{:b @{:d 5}} @{:a 1 :b @{:c 1}}] "Should be: Nested Tables, element changed"]
    [@{:a 1 :b {:c 1 :d 2}} @{:b {:c 1 :d 5}} @[@{:a 1 :b @{:d 2}} @{:b @{:d 5}} @{:b @{:c 1}}] "Should be: Nested Tables, element changed and element removed"]
-   
+
    [{:a 1 :b 2} @{:a 1 :b 2} @[nil nil @{:a 1 :b 2}] "Should be: Struct and Table, same"]
    [{:a 1 :b 2} @{:a 1 :b 2 :c 4 :d 5} @[nil @{:c 4 :d 5} @{:a 1 :b 2}] "Should be: Struct and Table, different"]
-   
+
    [@[1 2 3] [1 2 3] @[nil nil @[1 2 3]] "Should be: Array and Tuple, same"]
    [@[1 2 3] [1 2 3 4 5] @[nil @[nil nil nil 4 5] @[1 2 3]] "Should be: Array and Tuple, different"]])
 
