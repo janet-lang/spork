@@ -40,6 +40,12 @@
    [@{:a 1 :b 2} @{:a 1} @[@{:b 2} nil @{:a 1}] "Should be: Tables, element removed"]
    [@{:a 1 :b 2} @{:a 1 :b 5} @[@{:b 2} @{:b 5} @{:a 1}] "Should be: Tables, element changed"]
    [@{:a 1 :b 2} @{:b 5} @[@{:a 1 :b 2} @{:b 5} nil] "Should be: Tables, element changed and element removed"]
+
+   [@{:a 1 :b {:c 1 :d 2}} @{:a 1 :b {:c 1 :d 2}} @[nil nil @{:a 1 :b @{:c 1 :d 2}}] "Should be: Nested Tables, same"]
+   [@{:a 1 :b {:c 1 :d 2}} @{:a 1 :b {:c 1 :d 2 :e {:f 1 :g 2}} :h 3} @[nil @{:b @{:e {:f 1 :g 2}} :h 3} @{:a 1 :b @{:c 1 :d 2}}] "Should be: Nested Tables, element added"]
+   [@{:a 1 :b {:c 1 :d 2}} @{:a 1 :b {:c 1}} @[@{:b @{:d 2}} nil @{:a 1 :b @{:c 1}}] "Should be: Nested Tables, element removed"]
+   [@{:a 1 :b {:c 1 :d 2}} @{:a 1 :b {:c 1 :d 5}} @[@{:b @{:d 2}} @{:b @{:d 5}} @{:a 1 :b @{:c 1}}] "Should be: Nested Tables, element changed"]
+   [@{:a 1 :b {:c 1 :d 2}} @{:b {:c 1 :d 5}} @[@{:a 1 :b @{:d 2}} @{:b @{:d 5}} @{:b @{:c 1}}] "Should be: Nested Tables, element changed and element removed"]
    
    [{:a 1 :b 2} @{:a 1 :b 2} @[nil nil @{:a 1 :b 2}] "Should be: Struct and Table, same"]
    [{:a 1 :b 2} @{:a 1 :b 2 :c 4 :d 5} @[nil @{:c 4 :d 5} @{:a 1 :b 2}] "Should be: Struct and Table, different"]
