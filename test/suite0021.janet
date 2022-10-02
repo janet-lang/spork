@@ -53,6 +53,6 @@
    [@[1 2 3] [1 2 3] @[nil nil @[1 2 3]] "Should be: Array and Tuple, same"]
    [@[1 2 3] [1 2 3 4 5] @[nil @[nil nil nil 4 5] @[1 2 3]] "Should be: Array and Tuple, different"]])
 
-(map |(apply diff-assert $) cases)
+(map |(diff-assert ;$) cases)
 
 (end-suite)

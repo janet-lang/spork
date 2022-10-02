@@ -22,15 +22,12 @@
       nil)
     (in ds n)))
 
-(defn- arr [a]
-  (apply array a))
-
 (defn- vectorize [m]
   (unless (or (nil? m) (empty? m))
     (when (in? (type m) [:array :tuple :table :struct])
       (reduce
         (fn [result [k v]] (put result k v))
-        (array/new-filled (apply max (keys m)))
+        (array/new-filled (max ;(keys m)))
         (pairs m)))))
 
 (defn- diff-associative-key [a b k]
@@ -58,8 +55,8 @@
 
 (defn- diff-sequential [a b]
   (map vectorize (diff-associative
-                   (if (array? a) a (arr a))
-                   (if (array? b) b (arr b))
+                   (if (array? a) a (array ;a))
+                   (if (array? b) b (array ;b))
                    (range (max (length a) (length b))))))
 
 (defn- diff-similar [kind a b]
@@ -81,7 +78,7 @@
   ```
   [a b]
   (if (= a b)
-    @[nil nil (cond (tuple? a) (apply array a)
+    @[nil nil (cond (tuple? a) (array ;a)
                 (struct? a) (struct/to-table a) a)]
     (if (= (categorize a) (categorize b))
       (diff-similar (type a) a b)
