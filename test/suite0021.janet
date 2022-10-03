@@ -4,6 +4,8 @@
 
 (start-suite 0)
 
+(assert-docs "/spork/stats")
+
 (assert (= (extent (range 10)) [0 9])
         "extent")
 
@@ -312,5 +314,4 @@
 (assert (deep= (permutations @[1 2]) @[@[1 2] @[2 1]])
         "permutations")
 
-(assert-docs "/paula/stats")
 (end-suite)

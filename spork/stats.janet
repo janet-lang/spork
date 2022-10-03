@@ -1,16 +1,12 @@
-(use ./misc)
+(use spork/misc)
 
 (defn extent
-  ```
-  Returns the minimum & maximum number in an `xs` as tuple.
-  ```
+  "Returns the minimum & maximum number in an `xs` as tuple."
   [xs]
   [(min ;xs) (max ;xs)])
 
 (defn sum-compensated
-  ```
-  Returns sum of the members of `xs` with Kahan-Babushka algorithm
-  ```
+  "Returns sum of the members of `xs` with Kahan-Babushka algorithm."
   [xs]
   (if (empty? xs)
     0
@@ -44,7 +40,7 @@
   are the smallest.
   The `k`-th element will have the `(k - left + 1)`-th smallest value
   in `[left, right]`.
-  Mutates `arr`
+  Mutates `arr`.
   ```
   [arr k &opt left right]
   (var l (or left 0))
@@ -81,9 +77,7 @@
     (if (<= k j) (set r (dec j)))))
 
 (defn quantile-sorted
-  ```
-  Gets the quantile value from `xs` at `p` from sorted population.
-  ```
+  "Gets the quantile value from `xs` at `p` from sorted population."
   [xs p]
   (def idx (* (length xs) p))
   (assert (not (empty? xs))
@@ -95,7 +89,6 @@
     (not (zero? (mod idx 1))) (xs (dec (math/ceil idx)))
     (zero? (mod (length xs) 2)) (mean [(xs (dec idx)) (xs idx)])
     (xs idx)))
-
 
 (defn- quantile-index [xsl p]
   (def idx (* xsl p))
@@ -115,9 +108,7 @@
       (quickselect xs (inc fk) (inc left) right))))
 
 (defn quantile
-  ```
-  Gets the quantile value from `xs` at `p` from unsorted population.
-  ```
+  "Gets the quantile value from `xs` at `p` from unsorted population."
   [xs p]
   (def copy (array/slice xs))
   (def cpl (length copy))
@@ -126,9 +117,7 @@
   (quantile-sorted copy p))
 
 (defn quantile-rank-sorted
-  ```
-  Gets the quantile rank of value `v` from sorted `xs`.
-  ```
+  "Gets the quantile rank of value `v` from sorted `xs`."
   [xs v]
   (defn lower-bound [val]
     (var mid 0)
@@ -168,32 +157,24 @@
       (/ m (length xs)))))
 
 (defn quantile-rank
-  ```
-  Gets the quantile rank of value `v` from unsorted `xs`.
-  ```
+  "Gets the quantile rank of value `v` from unsorted `xs`."
   [xs p]
   (quantile-rank-sorted (sorted xs) p))
 
 (defn add-to-mean
-  ```
-  Adds new value `v` to mean `m` from `n` values.
-  ```
+  "Adds new value `v` to mean `m` from `n` values."
   [m n v]
   (+ m (/ (- v m) (+ n 1))))
 
 (defn mode
-  ```
-  Gets the mode value from `xs`
-  ```
+  "Gets the mode value from `xs`."
   [xs]
   (def ifq (invert (frequencies xs)))
   (def k (max ;(keys ifq)))
   (ifq k))
 
 (defn median
-  ```
-  Gets the median value from `xs`
-  ```
+  "Gets the median value from `xs`"
   [xs]
   (quantile xs 0.5))
 
@@ -220,9 +201,7 @@
   (<= (relative-err a e) t))
 
 (defn harmonic-mean
-  ```
-  Gets the harmonic mean from `xs`
-  ```
+  "Gets the harmonic mean from `xs`."
   [xs]
   (assert (not (empty? xs)) "xs cannot be empty")
   (var rs 0)
@@ -232,9 +211,7 @@
   (/ (length xs) rs))
 
 (defn geometric-mean
-  ```
-  Gets the geometric mean from `xs`
-  ```
+  "Gets the geometric mean from `xs`."
   [xs]
   (assert (not (empty? xs)) "xs cannot be empty")
   (var v 1)
@@ -244,9 +221,7 @@
   (math/pow v (/ 1 (length xs))))
 
 (defn root-mean-square
-  ```
-  Gets the root mean square from `xs`.
-  ```
+  "Gets the root mean square from `xs`."
   [xs]
   (assert (not (empty? xs)) "xs cannot be empty")
   (var sos 0)
@@ -255,9 +230,7 @@
   (math/sqrt (/ sos (length xs))))
 
 (defn sample-skewness
-  ```
-  Gets the sample skeweness from the `xs`.
-  ```
+  "Gets the sample skeweness from the `xs`."
   [xs]
   (assert (> (length xs) 2)
           "xs must have at least three items")
@@ -276,9 +249,7 @@
   (/ (* n scd) (* (dec n) (- n 2) cs)))
 
 (defn sum-nth-power-deviations
-  ```
-  Get the sum of deviations to the n power.
-  ```
+  "Get the sum of deviations to the n power."
   [xs n]
   (def m (mean xs))
   (var s 0)
@@ -288,17 +259,13 @@
   s)
 
 (defn variance
-  ```
-  Get the variance from the `xs`.
-  ```
+  "Get the variance from the `xs`."
   [xs]
   (assert (not (empty? xs)) "xs cannot be empty")
   (/ (sum-nth-power-deviations xs 2) (length xs)))
 
 (defn sample-variance
-  ```
-  Get the sample variance from `xs`
-  ```
+  "Get the sample variance from `xs`."
   [xs]
   (assert (> (length xs) 1)
           "xs must have at least two items")
@@ -307,25 +274,19 @@
   (/ ssdv bc))
 
 (defn standard-deviation
-  ```
-  Gets the standard deviation from `ds`
-  ```
+  "Gets the standard deviation from `ds`."
   [xs]
   (if (one? (length xs))
     0
     (math/sqrt (variance xs))))
 
 (defn sample-standard-deviation
-  ```
-  Gets sample standard deviation from `xs`.
-  ```
+  "Gets sample standard deviation from `xs`."
   [xs]
   (math/sqrt (sample-variance xs)))
 
 (defn median-absolute-deviation
-  ```
-  Gets median absolute deviation from `xs`
-  ```
+  "Gets median absolute deviation from `xs`."
   [xs]
   (def m (median xs))
   (def mad @[])
@@ -334,24 +295,20 @@
   (median mad))
 
 (defn interquartile-range
-  ```
-  Gets the interquartile range from `xs`.
-  ```
+  "Gets the interquartile range from `xs`."
   [xs]
   (- (quantile xs 0.75) (quantile xs 0.25)))
 
 (defn z-score
   ```
-  Gets the standard score for number `x`
-  from mean `m` and standard deviation `d`
+  Gets the standard score for number `x` from mean `m` 
+  and standard deviation `d`.
   ```
   [x m d]
   (/ (- x m) d))
 
 (defn sample-covariance
-  ```
-  Gets the sample covariance between `xs` and `ys`
-  ```
+  "Gets the sample covariance between `xs` and `ys`."
   [xs ys]
   (def xl (length xs))
   (assert (= xl (length ys))
@@ -366,9 +323,7 @@
   (/ s bc))
 
 (defn sample-correlation
-  ```
-  Gets the sample correlation between `xs` and `ys`
-  ```
+  "Gets the sample correlation between `xs` and `ys`."
   [xs ys]
   (/ (sample-covariance xs ys)
      (sample-standard-deviation xs)
@@ -399,10 +354,7 @@
        :b (- (/ sy cl) (/ (* m sx) cl))})))
 
 (defn linear-regression-line
-  ```
-  Constructs function from struct returned
-  by linear regression.
-  ```
+  "Constructs function from struct returned by linear regression."
   [{:m m :b b}]
   (fn linear-regression-line [x]
     (+ b (* m x))))
@@ -413,10 +365,7 @@
   (assert (<= 0 p 1) "propability must be between 0 and 1"))
 
 (defn bernoulli-distribution
-  ```
-  Creates Bernoulli distribution from popability `p`
-  in the tuple.
-  ```
+  "Creates Bernoulli distribution from popability `p` in the tuple."
   [p]
   (check-propability p)
   [(- 1 p) p])
@@ -444,11 +393,8 @@
     (if-not (< cp (- 1 epsilon)) (break)))
   (tuple/brackets ;cells))
 
-
 (defn poisson-distribution
-  ```
-  Creates Poisson distribution from `lambda` in tuple.
-  ```
+  "Creates Poisson distribution from `lambda` in tuple."
   [lambda]
   (assert (pos? lambda) "lambda must be positive")
   (var x 0)
@@ -464,7 +410,6 @@
     (++ x)
     (*= fx x)
     (if-not (< cp (- 1 epsilon)) (break)))
-
   (tuple/brackets ;cells))
 
 (defn- cumulative-distribution [z]
@@ -482,7 +427,7 @@
      10000))
 
 (def standard-normal-table
-  "Computed standard normal table"
+  "Computed standard normal table."
   (do
     (def res @[])
     (loop [z :range-to [0 3.09 0.01]]
@@ -492,7 +437,7 @@
 (defn t-test
   ```
   Computes one sample t-test comparing the mean of `xs`
-  to known value `expv`
+  to known value `expv`.
   ```
   [xs expv]
   (def sm (mean xs))
@@ -536,7 +481,6 @@
     (set t (xs xl))
     (set (xs xl) (xs i))
     (set (xs i) t))
-
   xs)
 
 (defn permutation-test
@@ -579,9 +523,7 @@
   (/ nes k))
 
 (def chi-squared-distribution-table
-  ```
-  Chi Squared distribution table.
-  ```
+  "Chi Squared distribution table."
   {1 {0.995 0
       0.99 0
       0.975 0
@@ -991,9 +933,7 @@
         0.005 140.17}})
 
 (defn cumulative-std-normal-probability
-  ```
-  Computes standard normal probability for `y`
-  ```
+  "Computes standard normal probability for `y`."
   [z]
   (def i (min (math/round (* 100 (math/abs z)))
               (dec (length standard-normal-table))))
@@ -1002,9 +942,7 @@
     (standard-normal-table i)))
 
 (defn factorial
-  ```
-  Returns factorial of `n`.
-  ```
+  "Returns factorial of `n`."
   [n]
   (if (zero? n) 1 (product (range 1 (inc n)))))
 
