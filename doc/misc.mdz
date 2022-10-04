@@ -126,7 +126,7 @@ pairs arguments and setting its prototype to prototype.
 Factory function for creating new objects from prototypes.
 
 @codeblock[janet]```
-(def Proto @{:greet |(string "Hello " ($ :name))})
+(def Proto @{:greet (fn [self] (string "Hello " (self :name)))})
 (def t (misc/make Proto :name "pepe"))
 (:greet t)
 # => "Hello pepe"
