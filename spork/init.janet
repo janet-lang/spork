@@ -18,6 +18,7 @@
 (import ./tasker :export true)
 (import ./temple :export true)
 (import ./test :export true)
+(import ./base64 :export true)
 
 # native dependencies
 (import spork/json :export true)
