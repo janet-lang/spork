@@ -35,15 +35,16 @@
 
 (defn start-suite
   "Starts test suite."
-  [x]
-  (set suite-num x)
+  [&opt name]
+  (default name (dyn :current-file))
+  (set suite-num name)
   (set start-time (os/clock)))
 
 (defn end-suite
   "Ends test suite."
   []
   (def delta (- (os/clock) start-time))
-  (prinf "test suite %d finished in %.3f seconds - " suite-num delta)
+  (prinf "test suite %V finished in %.3f seconds - " suite-num delta)
   (print num-tests-passed " of " num-tests-run " tests passed.")
   (if (not= num-tests-passed num-tests-run) (os/exit 1)))
 
