@@ -22,7 +22,7 @@ output.
 
 ### foo.temple
 
-@codeblock[janet]```
+@codeblock```
 {$ (def n 20) # Run at template compile time $}
 <html>
   <body>
