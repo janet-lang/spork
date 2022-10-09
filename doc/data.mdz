@@ -1,0 +1,37 @@
+{:title "data"
+ :author "Caleb Figgers"
+ :license "MIT"
+ :template "mdzdoc/main.html"
+ :order 0}
+---
+@link[https://clojure.org/]{Clojure} contains a very useful core library (or "namespace" in Clojure parlance) called @link[https://clojure.github.io/clojure/clojure.data-api.html]{clojure.data} (@link[https://github.com/clojure/clojure/blob/51c6d7a70912a8f65e81a8e11ae6f56c94920725/src/clj/clojure/data.clj]{source}). It contains one "exported" function: @code`clojure.data/diff`. This addition to spork, @code`data.janet`, should exactly replicate the behavior of @code`clojure.data/diff` using Janet tables, structs, arrays, and tuples in place of their Clojure equivalents.
+
+## Function
+
+The @code`diff` function recursively compares the structure and contents of two data structures (struct, table, tuple, array) and returns an array with three elements:
+
+@code`@[things-only-in-a things-only-in-b things-in-both]`
+
+In the case of nested associative data structures (i.e., tables and structs), the comparison is recursive and the data structures are neatly partitioned into the same @code`@[things-only-in-a things-only-in-b things-in-both]` structure, but arbitrary levels deep in the two original associative data structures.
+
+This function makes comparing two structs or tables for changes trivial. (An example use case: compare the decoded JSON returned from a REST API call made seconds ago against the version of that same decoded JSON from that same API that was returned from the same call made an hour ago and stored locally in a database for comparison an hour later.)
+
+## Example
+
+So for example, @code`diff`'ing the two nested structs @code`{:a 1 :b 2 :c {:d 3 :e 4}}` and @code`{:a 4 :b 2 :c {:d 3 :e 5 :f 6}}` looks like this:
+
+@codeblock[janet]```
+repl:1:> (import spork/data :as d)
+repl:2:> (d/diff {:a 1 :b 2 :c {:d 3 :e 4}} {:a 4 :b 2 :c {:d 3 :e 5 :f 6}})
+@[@{:a 1 :c @{:e 4}} @{:a 4 :c @{:e 5 :f 6}} @{:b 2 :c @{:d 3}}]
+```
+
+The return is @code`@[@{:a 1 :c @{:e 4}} @{:a 4 :c @{:e 5 :f 6}} @{:b 2 :c @{:d 3}}]` because:
+
+@ul{
+  @li{the value for @code`:a` appears in both and is different in each one (so @code`:a` is a key in both the first and second returned table, with each value set as seen in the first and second original structs)}
+  @li{the value for @code`:b` appears in both and is the same in each (so @code`:b` is a key only in the third returned table, containing the shared value in both original strucs)}
+  @li{the nested value of @code`:d` appears in both and is the same in each (so @code`:c` is a key in the third returned table, containing the value of @code`:d` that is shared in both original structs)}
+  @li{the nested value of @code`:e` appears in both and is different in each one (so @code`:c` is a key in both the first and second returned table, containing the value @code`:e` with with each value set as seen in the first and second original structs), and}
+  @li{the key/value pair @code`:f` 6 only appears in the latter original struct (so only the second returned table contains @code`:f` and its value).}
+}
