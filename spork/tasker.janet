@@ -15,7 +15,8 @@
 (def min-priority "Minimum allowed priority (lower priority tasks will execute first)" 0)
 (def max-priority "Maximum allowed priority (lower priority tasks will execute first)" 9)
 (def default-priority "Default task priority" 4)
-(def default-expiration "Default expiration time. One day." (* 30 24 3600))
+(def default-expiration "Default expiration time (1 day)" (* 30 24 3600))
+(def default-task-directory "Default location of task records" "./tasks")
 
 (def statuses
   "A tuple of all possible statuses that a task can have."
@@ -148,13 +149,14 @@
 (defn new-tasker
   "Create queues and various settings to run tasks. Create a new tasker table."
   [&opt task-directory queues queue-size]
-  (default task-directory "./tasks")
+  (default task-directory default-task-directory)
   (default queue-size 10)
   (default queues [:default])
   (os/mkdir task-directory)
   (def all-queues @{})
   (def ret
     @{:queues all-queues
+      :queue-names queues
       :task-dir task-directory
       :nurse (ev-utils/nursery)
       :task-proc-map @{}
