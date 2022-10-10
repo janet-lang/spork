@@ -131,6 +131,7 @@
       (put payload :return-code return-code)
       (put payload :status :done))
     ([err]
+      (put payload :return-code (string err))
       (put payload :status :timeout)
       (os/proc-kill proc)))
   (put (tasker :task-proc-map) task-id nil)
@@ -150,7 +151,7 @@
   "Create queues and various settings to run tasks. Create a new tasker table."
   [&opt task-directory queues queue-size]
   (default task-directory default-task-directory)
-  (default queue-size 10)
+  (default queue-size 100)
   (default queues [:default])
   (os/mkdir task-directory)
   (def all-queues @{})
@@ -235,7 +236,8 @@
                                         (log "finished task " task-id " normally"))
                                       ([err f]
                                         (log (string/format "error running job: %V" err))
-                                        (debug/stacktrace f))))))
+                                        (debug/stacktrace f)))))
+                                (ev/sleep 0))
                               (log "executor " n " for queue " qname " completed"))))
   tasker)
 

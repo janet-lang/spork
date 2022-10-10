@@ -263,6 +263,10 @@
       (def s (net/listen host port))
       (put server :server s)
       (put server :close (fn close [svr] (:close s) svr))
-      (net/accept-loop s (fn _on-connection [conn] (fiber/setenv (fiber/current) cur) (on-connection conn)))
+      (forever
+        (def conn (net/accept s))
+        (ev/spawn
+          (fiber/setenv (fiber/current) cur)
+          (on-connection conn)))
       (print "server closed"))))
 
