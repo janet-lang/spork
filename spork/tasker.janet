@@ -20,7 +20,7 @@
 
 (def statuses
   "A tuple of all possible statuses that a task can have."
-  [:pending :running :done :canceled :timeout])
+  [:pending :running :done :canceled :timeout :error])
 
 (def- id-bytes 10)
 (defn- make-id
@@ -47,11 +47,12 @@
       :queue-name :keyword
       :delete-after (pred int?)
       :timeout (or :nil (pred int?))
+      :error (or nil :string)
       :input (any)
       :note :string
       :dir :string
       :meta-file :string
-      :status (enum :pending :running :canceled :done :timeout))))
+      :status (enum :pending :running :canceled :done :timeout :error))))
 
 (defmacro- log
   "Write a log message"
@@ -118,22 +119,27 @@
   (put env :err err-stream)
   (put env :out out-stream)
   (put payload :time-started (ts))
-  (def proc (os/spawn (get payload :argv) :ep env))
-  (put (tasker :task-proc-map) task-id proc)
-  (put (tasker :task-queued-map) task-id payload)
-  (put payload :pid (get proc :pid))
-  (task-to-disk payload)
   (try
     (do
-      (when timeout (ev/deadline timeout))
-      (os/proc-wait proc)
-      (def return-code (get proc :return-code))
-      (put payload :return-code return-code)
-      (put payload :status :done))
-    ([err]
-      (put payload :return-code (string err))
-      (put payload :status :timeout)
-      (os/proc-kill proc)))
+      (def proc (os/spawn (get payload :argv) :ep env))
+      (put (tasker :task-proc-map) task-id proc)
+      (put (tasker :task-queued-map) task-id payload)
+      (put payload :pid (get proc :pid))
+      (task-to-disk payload)
+      (try
+        (do
+          (when timeout (ev/deadline timeout))
+          (os/proc-wait proc)
+          (def return-code (get proc :return-code))
+          (put payload :return-code return-code)
+          (put payload :status (if (= 0 return-code) :done :error)))
+        ([err]
+          (put payload :error (string err))
+          (put payload :status :timeout)
+          (os/proc-kill proc))))
+      ([err]
+          (put payload :error (string err))
+          (put payload :status :error)))
   (put (tasker :task-proc-map) task-id nil)
   (put (tasker :task-queued-map) task-id nil)
   (put payload :time-finished (ts))
@@ -209,36 +215,37 @@
   [tasker &opt qnames workers-per-queue pre-task post-task]
   (default workers-per-queue 1)
   (def nurse (tasker :nurse))
-  (default qnames (distinct (map first (keys (tasker :queues)))))
+  (default qnames (tasker :queue-names))
   (each qname qnames
     (def channels (seq [[[q p] c] :pairs (tasker :queues) :when (= q qname)] c))
     (for n 0 workers-per-queue
-      (ev-utils/spawn-nursery nurse
-                              (log "starting executor " n " for queue " qname)
-                              (while (next channels)
-                                (def [msg chan x] (ev/select ;channels))
-                                (case msg
-                                  :close
-                                  (array/remove channels (index-of chan channels))
-                                  :take
-                                  (do
-                                    (try
-                                      (do
-                                        (def task-id (get x :task-id))
-                                        (log "starting task " task-id)
-                                        (when pre-task
-                                          (pre-task tasker x)
-                                          (task-to-disk x))
-                                        (run-task tasker x)
-                                        (when post-task
-                                          (post-task tasker x)
-                                          (task-to-disk x))
-                                        (log "finished task " task-id " normally"))
-                                      ([err f]
-                                        (log (string/format "error running job: %V" err))
-                                        (debug/stacktrace f)))))
-                                (ev/sleep 0))
-                              (log "executor " n " for queue " qname " completed"))))
+      (ev-utils/spawn-nursery
+        nurse
+        (log "starting executor " n " for queue " qname)
+        (while (next channels)
+          (def [msg chan x] (ev/select ;channels))
+          (case msg
+            :close
+            (array/remove channels (index-of chan channels))
+            :take
+            (do
+              (try
+                (do
+                  (def task-id (get x :task-id))
+                  (log "starting task " task-id)
+                  (when pre-task
+                    (pre-task tasker x)
+                    (task-to-disk x))
+                  (run-task tasker x)
+                  (when post-task
+                    (post-task tasker x)
+                    (task-to-disk x))
+                  (log "finished task " task-id " normally"))
+                ([err f]
+                 (log (string/format "error running job: %V" err))
+                 (debug/stacktrace f)))))
+          (ev/sleep 0))
+        (log "executor " n " for queue " qname " completed"))))
   tasker)
 
 (defn run-executors
