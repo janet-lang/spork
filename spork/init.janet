@@ -1,6 +1,7 @@
 # make (use spork) useful
 
 (import ./argparse :export true)
+(import ./base64 :export true)
 (import ./fmt :export true)
 (import ./generators :export true)
 (import ./getline :export true)
@@ -11,6 +12,7 @@
 (import ./msg :export true)
 (import ./netrepl :export true)
 (import ./path :export true)
+(import ./randgen :exxport true)
 (import ./regex :export true)
 (import ./rpc :export true)
 (import ./schema :export true)
@@ -18,7 +20,6 @@
 (import ./tasker :export true)
 (import ./temple :export true)
 (import ./test :export true)
-(import ./base64 :export true)
 
 # native dependencies
 (import spork/json :export true)
