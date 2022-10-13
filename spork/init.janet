@@ -4,6 +4,7 @@
 (import ./base64 :export true)
 (import ./cron :export true)
 (import ./fmt :export true)
+(import ./ev-utils :export true)
 (import ./generators :export true)
 (import ./getline :export true)
 (import ./htmlgen :export true)
