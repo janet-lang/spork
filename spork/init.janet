@@ -2,6 +2,7 @@
 
 (import ./argparse :export true)
 (import ./base64 :export true)
+(import ./cron :export true)
 (import ./fmt :export true)
 (import ./generators :export true)
 (import ./getline :export true)
