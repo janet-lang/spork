@@ -3,6 +3,21 @@
 ### 
 ### Timer library for interfacing with the UNIX crontab format.
 ###
+### The cron format support is based on the unix cron syntax, with an optional
+### seconds field. Each field can be a comma separated  list of individual values
+### or a range of values. A range is specified by two values with a "-" between them, optional
+### followed by a "/" and a step value. An asterix ("*") can be used to denote all possible values.
+###
+### The fields:
+###  * minutes: 0-59
+###  * hours: 0-23
+###  * day of month: 1-31
+###  * month: 1-12. Also allowed are the following month codes in any casing:
+###    jan,feb,mar,apr,may,jun,jul,aug,sep,oct,nov,dec
+###  * day of week: 0-7, where 0 or 7 is sunday, monday is 1, etc. allows the following day codes (any case):
+###    sun,mon,tue,wed,thu,fri,sat
+###  * seconds (optional): 0-59
+###
 ### Cron schedules are represented as tuples of 7 values, a string representation, followed
 ### by 6 bitmaps representing matching timestamps. Bitmaps are represented as any byte sequence.
 ###
@@ -216,30 +231,3 @@
     (if (zero? (-- recur-limit)) (error "could not find next timestamp"))
     (set test-time (next-candidate cron test-time local)))
   test-time)
-
-###
-### Debug
-###
-
-(defn format-time
-  "Convert an integer time since epoch to generally readable string."
-  [time &opt local]
-  (unless time (break ""))
-  (def {:hours hours
-        :minutes minutes
-        :seconds seconds
-        :month month
-        :month-day month-day
-        :year year} (os/date time local))
-  (string/format "%d-%.2d-%.2d %.2d:%.2d:%.2d"
-                 year (inc month) (inc month-day)
-                 hours minutes seconds))
-
-(defn print-sequence
-  "Print the next n timestamps of a cron sequence"
-  [cron n &opt start-time local]
-  (var time start-time)
-  (def cron (if (bytes? cron) (parse-cron cron) cron))
-  (repeat n
-    (set time (next-timestamp cron time local))
-    (print (format-time time local))))
