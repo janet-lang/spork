@@ -2,7 +2,7 @@
  :author "Calvin Rose"
  :license "MIT"
  :template "mdzdoc/main.html"
- :order 12}
+ :order 4}
 ---
 
 HTMLgen is a rendering engine that can render plain data structures into

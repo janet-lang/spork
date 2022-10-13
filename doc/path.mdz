@@ -2,9 +2,8 @@
  :author "Calvin Rose"
  :license "MIT"
  :template "mdzdoc/main.html"
- :order 5}
+ :order 10}
 ---
-
 Simple path manipulation module for Janet. Supports manipulation both
 windows and posix paths on any platform, and provides functions that
 work according to the current host platform.
@@ -14,6 +13,7 @@ All functions have three forms, under @code`path`, @code`path/win`, and
 manipulates.
 
 @codeblock[janet]```
+
 (import spork/path)
 
 # Examples for a non-windows system, use path/win/ for windows and
@@ -29,5 +29,7 @@ path/delim # -> ":" on posix, ";" on windows
 (path/join "some/path" "../thing/file.txt") # -> "some/thing/file.txt"
 (path/abspath? "/home/blah") # -> true
 (path/abspath "file.txt") # -> "/home/me/cwd/file.txt"
-(path/relpath "a/nested/directory/with/a/few/children" "a/nested/directory/with/different/children") # -> "../../../different/children"
+(path/relpath
+  "a/nested/directory/with/a/few/children"
+  "a/nested/directory/with/different/children") # -> "../../../different/children"
 ```

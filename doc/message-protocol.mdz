@@ -2,7 +2,7 @@
  :author "Calvin Rose"
  :license "MIT"
  :template "mdzdoc/main.html"
- :order 2}
+ :order 7}
 ---
 
 Provide a symmetric way to send and receive seqential messages over a

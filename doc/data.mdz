@@ -2,7 +2,7 @@
  :author "Caleb Figgers"
  :license "MIT"
  :template "mdzdoc/main.html"
- :order 0}
+ :order 1}
 ---
 @link[https://clojure.org/]{Clojure} contains a very useful core library (or "namespace" in Clojure parlance) called @link[https://clojure.github.io/clojure/clojure.data-api.html]{clojure.data} (@link[https://github.com/clojure/clojure/blob/51c6d7a70912a8f65e81a8e11ae6f56c94920725/src/clj/clojure/data.clj]{source}). It contains one "exported" function: @code`clojure.data/diff`. This addition to spork, @code`data.janet`, should exactly replicate the behavior of @code`clojure.data/diff` using Janet tables, structs, arrays, and tuples in place of their Clojure equivalents.
 
@@ -10,7 +10,7 @@
 
 The @code`diff` function recursively compares the structure and contents of two data structures (struct, table, tuple, array) and returns an array with three elements:
 
-@code`@[things-only-in-a things-only-in-b things-in-both]`
+@codeblock`@[things-only-in-a things-only-in-b things-in-both]`
 
 In the case of nested associative data structures (i.e., tables and structs), the comparison is recursive and the data structures are neatly partitioned into the same @code`@[things-only-in-a things-only-in-b things-in-both]` structure, but arbitrary levels deep in the two original associative data structures.
 
