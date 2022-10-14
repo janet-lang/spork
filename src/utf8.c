@@ -83,68 +83,6 @@ exit:
     return janet_wrap_tuple(janet_tuple_n(&res[0], 2));
 }
 
-JANET_FN(cfun_utf8_decode_rune_reverse,
-        "(utf8/decode-rune-reverse buf &opt end)",
-        "Similar to decode-rune, but operates in the buffer backwards. The start index must be 1 past the final byte, defaulting to the end of the buffer.") {
-    janet_arity(argc, 1, 2);
-    JanetByteView buf = janet_getbytes(argv, 0);
-    int end;
-    if (argc > 1) {
-        end = janet_getinteger(argv, 1);
-    } else {
-        end = buf.len;
-    }
-
-    Janet res[2] = { janet_wrap_nil(), janet_wrap_integer(0) };
-    int32_t i = end - 1;
-    uint32_t len = 1,
-             rune = 0,
-             offset = 0;
-
-    while (i >= 0) {
-        uint8_t ch = buf.bytes[i];
-        if ((ch & 0xC0) == 0x80) {
-            rune |= ((ch & 0x3F) << offset);
-            offset += 6;
-            len += 1;
-            i -= 1;
-        } else {
-            break;
-        }
-        if (len > 4) {
-            /* Overlong sequence. Just treat it as invalid. */
-            goto exit;
-        }
-    }
-
-    /* No initial byte found; sequence is incomplete. */
-    if (i < 0 || buf.len == 0) {
-        goto exit;
-    }
-
-    uint8_t ch = buf.bytes[i];
-    if ((ch & 0xF8) == 0xF0) {
-        if (len != 4) goto exit;
-        rune |= (ch & 0x07) << offset;
-    } else if ((ch & 0xF0) == 0xE0) {
-        if (len != 3) goto exit;
-        rune |= (ch & 0x0F) << offset;
-    } else if ((ch & 0xE0) == 0xC0) {
-        if (len != 2) goto exit;
-        rune |= (ch & 0x1F) << offset;
-    } else if ((ch & 0x80) == 0) {
-        if (len != 1) goto exit;
-        rune = ch;
-    } else {
-        goto exit;
-    }
-    res[0] = janet_wrap_integer((int32_t)rune);
-    res[1] = janet_wrap_integer((int32_t)len);
-
-exit:
-    return janet_wrap_tuple(janet_tuple_n(&res[0], 2));
-}
-
 JANET_FN(cfun_utf8_encode_rune,
         "(utf8/encode-rune rune &opt buf)",
         "Encode a Unicode codepoint into the end of a buffer.") {

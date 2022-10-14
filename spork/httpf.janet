@@ -194,34 +194,38 @@
     (unless handler (break (make-response 404 "not found")))
 
     (try
-      (case method
-        "GET" (try
-                (make-response
-                  200
-                  (do
-                    (def query (get req :query {}))
-                    (def raw-post-data (get query "data"))
-                    (def post-data (if raw-post-data (parse raw-post-data)))
-                    (when-let [validate (get schemas path)]
-                      (validate post-data))
-                    (handler req post-data)))
-                ([err f]
-                 (make-400-response (string err) f)))
-        "OPTIONS" {:status 200
-                   :headers {"allow" "OPTIONS, GET, POST"
-                             "content-type" render-mime
-                             "server" "spork/httpf"}
-                   :body (render (wrapper {:doc (get route-docs path "no docs found")
-                                           :schema (get schema-sources path)}) @"")}
-        "POST" (let [validate (get schemas path)
-                     body (http/read-body req)
-                     data (if (and body (next body))
-                            (if reader (reader body) body)
-                            body)]
+      (do
+        # Expose dynamic request in dynamic bindings
+        (table/setproto req (curenv))
+        (fiber/setenv (fiber/current) req)
+        (case method
+          "GET" (try
+                  (make-response
+                    200
+                    (do
+                      (def query (get req :query {}))
+                      (def raw-post-data (get query "data"))
+                      (def post-data (if raw-post-data (parse raw-post-data)))
+                      (when-let [validate (get schemas path)]
+                        (validate post-data))
+                      (handler req post-data)))
+                  ([err f]
+                   (make-400-response (string err) f)))
+          "OPTIONS" {:status 200
+                     :headers {"allow" "OPTIONS, GET, POST"
+                               "content-type" render-mime
+                               "server" "spork/httpf"}
+                     :body (render (wrapper {:doc (get route-docs path "no docs found")
+                                             :schema (get schema-sources path)}) @"")}
+          "POST" (let [validate (get schemas path)
+                       body (http/read-body req)
+                       data (if (and body (next body))
+                              (if reader (reader body) body)
+                              body)]
                    (try
                      (make-response 200 (do (if validate (validate data)) (handler req data)))
                      ([err f] (make-400-response (string err) f))))
-        (make-response 405 "Method not allowed. Use GET, OPTIONS, or POST."))
+          (make-response 405 "Method not allowed. Use GET, OPTIONS, or POST.")))
     ([err f]
      (eprint "internal server error: " (string err) f)
      (debug/stacktrace (fiber/current))
