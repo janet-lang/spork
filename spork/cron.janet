@@ -139,13 +139,15 @@
         dow-ranges
         second-ranges] (assert matched))
   (default second-ranges @[[0 0 1]])
+  # unix cron quirk - if both dow and dom are not asterix, then special behavior
   [str
    (validate-ranges "minute" minute-ranges minute-buffer 0 59)
    (validate-ranges "hour" hour-ranges hour-buffer 0 23)
    (validate-ranges "day of month" dom-ranges dom-buffer 1 31 -1)
    (validate-ranges "month" month-ranges month-buffer 1 12 -1 month-codes)
    (validate-ranges "day of week" dow-ranges dow-buffer 0 7 0 dow-codes)
-   (validate-ranges "second" second-ranges second-buffer 0 59)])
+   (validate-ranges "second" second-ranges second-buffer 0 59)
+   (and (not= :* dom-ranges) (not= :* dow-ranges))])
 
 (defn check
   "Check if a given time matches a cron specifier."
@@ -160,20 +162,26 @@
         :year-day d
         :seconds s}
     (os/date time local))
-  (def [_ minutes hours day-of-month month day-of-week seconds] cron)
+  (def [_ minutes hours day-of-month month day-of-week seconds dow-or-dom] cron)
+  (def day-correct
+    (if dow-or-dom
+      (or
+        (bitmap-check day-of-month Md)
+        (bitmap-check day-of-week wd))
+      (and
+        (bitmap-check day-of-month Md)
+        (bitmap-check day-of-week wd))))
   (and 
+    day-correct
     (bitmap-check seconds s)
     (bitmap-check minutes m)
     (bitmap-check hours h)
-    (bitmap-check month M)
-    (or
-      (bitmap-check day-of-month Md)
-      (bitmap-check day-of-week wd))))
+    (bitmap-check month M)))
 
 (defn- next-candidate
   "Get a conservative estimate for the next timestamp available."
   [cron &opt time local]
-  (def [_ cron-m cron-h cron-Md cron-M cron-wd cron-s] cron)
+  (def [_ cron-m cron-h cron-Md cron-M cron-wd cron-s dow-or-dom] cron)
   (def {:hours h
         :minutes m
         :seconds s
@@ -194,7 +202,13 @@
   # Ensure correct day (increment by 1 day at a time)
   (def next-Md (bitmap-cycle cron-Md Md))
   (def next-wd (bitmap-cycle cron-wd wd))
-  (when (or (not= next-Md Md) (not= next-wd wd))
+  (def month-day-correct (= next-Md Md))
+  (def week-day-correct (= next-wd wd))
+  (def day-correct
+    (if dow-or-dom
+      (or month-day-correct week-day-correct)
+      (and month-day-correct week-day-correct)))
+  (unless day-correct
     (break (os/mktime {:hours 0 :minutes 0 :seconds 0 :month M :year y :month-day (inc Md)} local)))
 
   # Ensure correct hour
@@ -221,7 +235,7 @@
   time)
 
 (defn next-timestamp
-  "Given a crontab, get the next instance on the cron tab after time"
+  "Given a cron schedule, get the next instance on the cron tab after time"
   [cron &opt time local]
   (default time (os/time))
   (def cron (if (bytes? cron) (parse-cron cron) cron))
