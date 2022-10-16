@@ -183,12 +183,14 @@
           mime-read-default)))
     (def render (get render-map render-mime render-plain-text))
     (def handler (get routes path))
+    (def response-headers
+      @{"content-type" render-mime
+        "server" "spork/httpf"})
 
     (defn make-response
       [code content]
       {:status code
-       :headers {"content-type" render-mime
-                 "server" "spork/httpf"}
+       :headers response-headers
        :body (render (wrapper content) @"")})
 
     (defn make-400-response
@@ -205,6 +207,7 @@
         # Expose dynamic request in dynamic bindings
         (table/setproto req (curenv))
         (fiber/setenv (fiber/current) req)
+        (setdyn :response-headers response-headers)
         (case method
           "GET" (try
                   (make-response

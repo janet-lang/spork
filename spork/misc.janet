@@ -439,3 +439,15 @@
       (or (find-index |(< (f x) (f $)) arr) -1)
       x))
   arr)
+
+(def- id-bytes 10)
+(defn make-id
+  "Create a random, printable keyword id with 10 bytes of entropy with an optional prefix"
+  [&opt prefix]
+  (default prefix "")
+  (def bytes (string/bytes (os/cryptorand id-bytes)))
+  (keyword
+    prefix
+    (string/format
+      (comptime (string/repeat "%.2X" id-bytes))
+      ;bytes)))

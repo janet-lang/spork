@@ -7,6 +7,7 @@
 (import ./ev-utils)
 (import ./schema)
 (import ./sh)
+(import ./misc)
 
 (def task-meta-name "Name of the task metadata file" "task.jdn")
 (def out-file-name "Name of the file for general logging" "out.log")
@@ -18,23 +19,13 @@
 (def default-expiration "Default expiration time (1 day)" (* 30 24 3600))
 (def default-task-directory "Default location of task records" "./tasks")
 
+(defn- make-id [] (misc/make-id "task-"))
+(defn- ts [] (os/time))
+(defn- task-dir [tasker] (assert (get tasker :task-dir)))
+
 (def statuses
   "A tuple of all possible statuses that a task can have."
   [:pending :running :done :canceled :timeout :error])
-
-(def- id-bytes 10)
-(defn- make-id
-  "Create a task id"
-  []
-  (def bytes (string/bytes (os/cryptorand id-bytes)))
-  (keyword
-    (string/format
-      (comptime (string "task-" (string/repeat "%.2X" id-bytes)))
-      ;bytes)))
-
-(defn- ts [] (os/time))
-
-(defn- task-dir [tasker] (assert (get tasker :task-dir)))
 
 (def- task-record-validator
   "Check if records loaded from disk are valid"
