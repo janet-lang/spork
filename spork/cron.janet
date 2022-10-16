@@ -137,7 +137,7 @@
         dom-ranges
         month-ranges
         dow-ranges
-        second-ranges] (assert matched))
+        second-ranges] (assert matched "failed to parse cron fields"))
   (default second-ranges @[[0 0 1]])
   # unix cron quirk - if both dow and dom are not asterix, then special behavior
   [str
