@@ -65,9 +65,16 @@
   [body]
   (parse body))
 
+(defn- read-form-data
+  [body]
+  (def m (peg/match http/query-string-grammar (string/trim body)))
+  (assert m "invalid form data")
+  (in m 0))
+
 (def- reader-map
   {"application/json" read-json
-   "application/jdn" read-jdn})
+   "application/jdn" read-jdn
+   "application/x-www-form-urlencoded" read-form-data})
 
 (defn- make-schema-rep
   "Convert a nested object to an approximation that can
@@ -104,8 +111,8 @@
     (errorf "duplicate routes for " path))
   (put docs path docstring)
   (put routes path handler)
-  (put schemas path ((schema/make-validator schema)))
-  (put schema-sources path (make-schema-rep schema))
+  (put schemas path (if schema ((schema/make-validator schema))))
+  (put schema-sources path (if schema (make-schema-rep schema)))
   (put mime-read-default path read-mime)
   (put mime-render-default path render-mime)
   (if (string/has-suffix? "/" path)
@@ -208,6 +215,7 @@
                       (def post-data (if raw-post-data (parse raw-post-data)))
                       (when-let [validate (get schemas path)]
                         (validate post-data))
+                      (setdyn :data post-data)
                       (handler req post-data)))
                   ([err f]
                    (make-400-response (string err) f)))
@@ -222,6 +230,7 @@
                        data (if (and body (next body))
                               (if reader (reader body) body)
                               body)]
+                   (setdyn :data data)
                    (try
                      (make-response 200 (do (if validate (validate data)) (handler req data)))
                      ([err f] (make-400-response (string err) f))))
