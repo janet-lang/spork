@@ -149,7 +149,7 @@
 
 (defn server
   "Create a new server."
-  []
+  [&opt parent]
   (def routes @{})
   (def schemas @{})
   (def schema-sources @{})
@@ -163,6 +163,11 @@
                :default-mime-render default-mime-render
                :schema-sources schema-sources
                :route-docs route-docs})
+
+  # Super simple inheritance for blueprinting
+  (when parent
+    (table/setproto state parent)
+    (break state))
 
   (defn- generic-handler
     [req]
