@@ -166,8 +166,9 @@
 
   # Super simple inheritance for blueprinting
   (when parent
-    (table/setproto state parent)
-    (break state))
+    (eachk k state
+      (put state k (table/setproto (get state k) (get parent k))))
+    (break (table/setproto state parent)))
 
   (defn- generic-handler
     [req]
