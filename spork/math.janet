@@ -187,8 +187,7 @@
   ```
   [a e]
   (if (and (zero? a) (zero? e))
-    0
-    (math/abs (/ (- a e) e))))
+    0 (math/abs (/ (- a e) e))))
 
 (def epsilon "Epsilon constant" 0.0001)
 
