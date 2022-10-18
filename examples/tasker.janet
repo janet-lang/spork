@@ -8,3 +8,4 @@
 (tasker/queue-task t ["echo" "hello," "world"])
 (tasker/queue-task t ["echo" "hello," "world"])
 (tasker/queue-task t ["echo" "hello," "world"])
+(tasker/queue-task t ["sleep" "5"])

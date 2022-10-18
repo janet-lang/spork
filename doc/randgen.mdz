@@ -1,0 +1,20 @@
+{:title "Random Generator"
+ :author "Calvin Rose"
+ :license "MIT"
+ :template "mdzdoc/main.html"
+ :order 11}
+---
+
+A small utility for random number generation, especially with a focus on
+discrete numbers. The most powerful idea here is the ability to have branches
+that execute in a probabilistic manner - i.e. one branch is taken half the time
+randomly, and another is taken otherwise.
+
+@codeblock[janet]```
+# Print either a, b, or c
+(import spork/randgen)
+(randgen/rand-path
+  (print "a")
+  (print "b")
+  (print "c"))
+```

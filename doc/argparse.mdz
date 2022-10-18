@@ -2,7 +2,7 @@
  :author "Calvin Rose"
  :license "MIT"
  :template "mdzdoc/main.html"
- :order 6}
+ :order 0}
 ---
 
 A moderately opinionated argument parser for

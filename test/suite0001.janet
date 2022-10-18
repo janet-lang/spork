@@ -20,14 +20,14 @@
 
 #misc/trim-prefix
 
-(assert (= (misc/string/trim-prefix "someprefix" "someprefixsomeprefixandmore") "someprefixandmore"))
-(assert (= (misc/string/trim-prefix "🗲" "🗲🗲this-is-a-unicode-test🗲") "🗲this-is-a-unicode-test🗲"))
+(assert (= (misc/trim-prefix "someprefix" "someprefixsomeprefixandmore") "someprefixandmore"))
+(assert (= (misc/trim-prefix "🗲" "🗲🗲this-is-a-unicode-test🗲") "🗲this-is-a-unicode-test🗲"))
 
 
 #misc/trim-suffix
 
-(assert (= (misc/string/trim-suffix "somesuffix" "someprefix-midpart-somesuffixsomesuffix") "someprefix-midpart-somesuffix"))
+(assert (= (misc/trim-suffix "somesuffix" "someprefix-midpart-somesuffixsomesuffix") "someprefix-midpart-somesuffix"))
 
-(assert (= (misc/string/trim-suffix "🗲" "🗲this-is-a-unicode-test🗲🗲") "🗲this-is-a-unicode-test🗲"))
+(assert (= (misc/trim-suffix "🗲" "🗲this-is-a-unicode-test🗲🗲") "🗲this-is-a-unicode-test🗲"))
 
 (end-suite)

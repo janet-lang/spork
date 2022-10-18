@@ -65,9 +65,16 @@
   [body]
   (parse body))
 
+(defn- read-form-data
+  [body]
+  (def m (peg/match http/query-string-grammar (string/trim body)))
+  (assert m "invalid form data")
+  (in m 0))
+
 (def- reader-map
   {"application/json" read-json
-   "application/jdn" read-jdn})
+   "application/jdn" read-jdn
+   "application/x-www-form-urlencoded" read-form-data})
 
 (defn- make-schema-rep
   "Convert a nested object to an approximation that can
@@ -104,8 +111,8 @@
     (errorf "duplicate routes for " path))
   (put docs path docstring)
   (put routes path handler)
-  (put schemas path ((schema/make-validator schema)))
-  (put schema-sources path (make-schema-rep schema))
+  (put schemas path (if schema ((schema/make-validator schema))))
+  (put schema-sources path (if schema (make-schema-rep schema)))
   (put mime-read-default path read-mime)
   (put mime-render-default path render-mime)
   (if (string/has-suffix? "/" path)
@@ -176,12 +183,14 @@
           mime-read-default)))
     (def render (get render-map render-mime render-plain-text))
     (def handler (get routes path))
+    (def response-headers
+      @{"content-type" render-mime
+        "server" "spork/httpf"})
 
     (defn make-response
       [code content]
       {:status code
-       :headers {"content-type" render-mime
-                 "server" "spork/httpf"}
+       :headers response-headers
        :body (render (wrapper content) @"")})
 
     (defn make-400-response
@@ -194,34 +203,41 @@
     (unless handler (break (make-response 404 "not found")))
 
     (try
-      (case method
-        "GET" (try
-                (make-response
-                  200
-                  (do
-                    (def query (get req :query {}))
-                    (def raw-post-data (get query "data"))
-                    (def post-data (if raw-post-data (parse raw-post-data)))
-                    (when-let [validate (get schemas path)]
-                      (validate post-data))
-                    (handler req post-data)))
-                ([err f]
-                 (make-400-response (string err) f)))
-        "OPTIONS" {:status 200
-                   :headers {"allow" "OPTIONS, GET, POST"
-                             "content-type" render-mime
-                             "server" "spork/httpf"}
-                   :body (render (wrapper {:doc (get route-docs path "no docs found")
-                                           :schema (get schema-sources path)}) @"")}
-        "POST" (let [validate (get schemas path)
-                     body (http/read-body req)
-                     data (if (and body (next body))
-                            (if reader (reader body) body)
-                            body)]
+      (do
+        # Expose dynamic request in dynamic bindings
+        (table/setproto req (curenv))
+        (fiber/setenv (fiber/current) req)
+        (setdyn :response-headers response-headers)
+        (case method
+          "GET" (try
+                  (make-response
+                    200
+                    (do
+                      (def query (get req :query {}))
+                      (def raw-post-data (get query "data"))
+                      (def post-data (if raw-post-data (parse raw-post-data)))
+                      (when-let [validate (get schemas path)]
+                        (validate post-data))
+                      (setdyn :data post-data)
+                      (handler req post-data)))
+                  ([err f]
+                   (make-400-response (string err) f)))
+          "OPTIONS" {:status 200
+                     :headers {"allow" "OPTIONS, GET, POST"
+                               "content-type" render-mime
+                               "server" "spork/httpf"}
+                     :body (render (wrapper {:doc (get route-docs path "no docs found")
+                                             :schema (get schema-sources path)}) @"")}
+          "POST" (let [validate (get schemas path)
+                       body (http/read-body req)
+                       data (if (and body (next body))
+                              (if reader (reader body) body)
+                              body)]
+                   (setdyn :data data)
                    (try
                      (make-response 200 (do (if validate (validate data)) (handler req data)))
                      ([err f] (make-400-response (string err) f))))
-        (make-response 405 "Method not allowed. Use GET, OPTIONS, or POST."))
+          (make-response 405 "Method not allowed. Use GET, OPTIONS, or POST.")))
     ([err f]
      (eprint "internal server error: " (string err) f)
      (debug/stacktrace (fiber/current))
@@ -263,6 +279,9 @@
       (def s (net/listen host port))
       (put server :server s)
       (put server :close (fn close [svr] (:close s) svr))
-      (net/accept-loop s (fn _on-connection [conn] (fiber/setenv (fiber/current) cur) (on-connection conn)))
+      (net/accept-loop s
+                       (fn [conn]
+                         (fiber/setenv (fiber/current) cur)
+                         (on-connection conn)))
       (print "server closed"))))
 

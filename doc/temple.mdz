@@ -2,7 +2,7 @@
  :author "Calvin Rose"
  :license "MIT"
  :template "mdzdoc/main.html"
- :order 7}
+ :order 14}
 ---
 
 HTML templates for Janet.
@@ -22,7 +22,7 @@ output.
 
 ### foo.temple
 
-@codeblock[janet]```
+@codeblock```
 {$ (def n 20) # Run at template compile time $}
 <html>
   <body>

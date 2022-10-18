@@ -136,10 +136,7 @@
       (when node-after (node-after node)))
     (visit-leaf data)))
 
-
-###### Array Helpers ######
-
-(defn array/randomize
+(defn randomize-array
   ```
   Randomizes array using the fisher-yates shuffle, takes an optional random
   number generator.
@@ -155,36 +152,19 @@
     (put arr b tmp))
   arr)
 
-(def randomize-array
-  "Deprecated not scoped version of `array/randomize`"
-  {:deprecated :normal}
-  array/randomize)
-
-##### String Helpers #####
-
-(defn string/trim-prefix
+(defn trim-prefix
   "Trim the specified prefix of a string if it has one"
   [prefix str]
   (if (string/has-prefix? prefix str)
     (slice str (length prefix) -1)
     str))
 
-(def trim-prefix
-  "Deprecated not scoped version of `string/prefix`"
-  {:deprecated :normal}
-  string/trim-prefix)
-
-(defn string/trim-suffix
+(defn trim-suffix
   "Trim the specified suffix of a string if it has one"
   [suffix str]
   (if (string/has-suffix? suffix str)
     (slice str 0 (* -1 (+ 1 (length suffix))))
     str))
-
-(def trim-suffix
-  "Deprecated not scoped version of `string/suffix`"
-  {:deprecated :normal}
-  string/trim-suffix)
 
 (defmacro log
   ```
@@ -276,7 +256,7 @@
   Factory function for creating new objects from prototypes.
   ```
   [prototype & pairs]
-  ~(table/setproto (table ,;pairs) ,prototype))
+  ~(,table/setproto (,table ,;pairs) ,prototype))
 
 (defmacro do-var
   ```
@@ -372,7 +352,7 @@
   [cnd & body]
   ~(while (not ,cnd) ,;body))
 
-(defn table/filter
+(defn table-filter
   ```
   Filter a key-value structure info a table. Semantics are the same as for
   built-in `filter`, except that `pred` takes two arguments (key and value.)
@@ -384,18 +364,8 @@
        (filter (fn [[k v]] (pred k v)))
        (from-pairs)))
 
-(defn buffer/reverse
-  "Reverse a buffer in-place."
-  [buf]
-  (def max (dec (length buf)))
-  (for i 0 (int/ (length buf) 2)
-    (def i* (- max i))
-    (def tmp (buf i))
-    (put buf i (buf i*))
-    (put buf i* tmp))
-  buf)
-
 (def- int-alphabet "0123456789abcdefghijklmnopqrstuvwxyz")
+
 (defn string->int
   ```
   Parse an integer in the given base. Defaults to decimal (base 10). Differs
@@ -441,23 +411,9 @@
     (set int (int/ int base)))
   (if neg?
     (buffer/push buf "-"))
-  (buffer/reverse buf)
-  (string buf))
+  (string/reverse buf))
 
-(defn first-index-where
-  ```
-  Return the index of the first element for which `f` returns true. Scans the
-  data structure linearly.
-  ```
-  [f xs]
-  (var index nil)
-  (eachp [i v] xs
-    (when (f v)
-      (set index i)
-      (break)))
-  index)
-
-(defn array/insert-sorted
+(defn insert-sorted
   ```
   Insert elements in `arr` such that it remains sorted by the comparator. If
   `arr` is not sorted beforehand, the results are undefined. Returns `arr`.
@@ -466,11 +422,11 @@
   (each x xs
     (array/insert
       arr
-      (or (first-index-where (partial <? x) arr) -1)
+      (or (find-index (partial <? x) arr) -1)
       x))
   arr)
 
-(defn array/insert-sorted-by
+(defn insert-sorted-by
   ```
   Insert elements in `arr` such that it remains sorted by the value returned
   when `f` is called with the element, comparing the values with <. If `arr` is
@@ -480,187 +436,18 @@
   (each x xs
     (array/insert
       arr
-      (or (first-index-where |(< (f x) (f $)) arr) -1)
+      (or (find-index |(< (f x) (f $)) arr) -1)
       x))
   arr)
 
-(def peg-grammar
-  "Custom peg grammar with crlf and to end."
-  (merge (dyn :peg-grammar)
-         ~{:crlf "\r\n"
-           :cap-to-crlf (* '(to :crlf) :crlf)
-           :toe (to -1)
-           :boundaries (+ :s (set ",.?!_-/|\\"))
-           :split (any (+ :boundaries '(some :a)))}))
-
-(defn setup-peg-grammar
-  "Merges `peg-grammar` into `:peg-grammar` `dyn`"
-  []
-  (setdyn :peg-grammar peg-grammar))
-
-(def pgp/word-list
-  "Mapping from hex string < 100 to pgp words. 
-  One for odd and one for even position."
-  {"00" ["aardvark" "adroitness"] "01" ["absurd" "adviser"]
-   "02" ["accrue" "aftermath"] "03" ["acme" "aggregate"]
-   "04" ["adrift" "alkali"] "05" ["adult" "almighty"]
-   "06" ["afflict" "amulet"] "07" ["ahead" "amusement"]
-   "08" ["aimless" "antenna"] "09" ["Algol" "applicant"]
-   "0A" ["allow" "Apollo"] "0B" ["alone" "armistice"]
-   "0C" ["ammo" "article"] "0D" ["ancient" "asteroid"]
-   "0E" ["apple" "Atlantic"] "0F" ["artist" "atmosphere"]
-   "10" ["assume" "autopsy"] "11" ["Athens" "Babylon"]
-   "12" ["atlas" "backwater"] "13" ["Aztec" "barbecue"]
-   "14" ["baboon" "belowground"] "15" ["backfield" "bifocals"]
-   "16" ["backward" "bodyguard"] "17" ["banjo" "bookseller"]
-   "18" ["beaming" "borderline"] "19" ["bedlamp" "bottomless"]
-   "1A" ["beehive" "Bradbury"] "1B" ["beeswax" "bravado"]
-   "1C" ["befriend" "Brazilian"] "1D" ["Belfast" "breakaway"]
-   "1E" ["berserk" "Burlington"] "1F" ["billiard" "businessman"]
-   "20" ["bison" "butterfat"] "21" ["blackjack" "Camelot"]
-   "22" ["blockade" "candidate"] "23" ["blowtorch" "cannonball"]
-   "24" ["bluebird" "Capricorn"] "25" ["bombast" "caravan"]
-   "26" ["bookshelf" "caretaker"] "27" ["brackish" "celebrate"]
-   "28" ["breadline" "cellulose"] "29" ["breakup" "certify"]
-   "2A" ["brickyard" "chambermaid"] "2B" ["briefcase" "Cherokee"]
-   "2C" ["Burbank" "Chicago"] "2D" ["button" "clergyman"]
-   "2E" ["buzzard" "coherence"] "2F" ["cement" "combustion"]
-   "30" ["chairlift" "commando"] "31" ["chatter" "company"]
-   "32" ["checkup" "component"] "33" ["chisel" "concurrent"]
-   "34" ["choking" "confidence"] "35" ["chopper" "conformist"]
-   "36" ["Christmas" "congregate"] "37" ["clamshell" "consensus"]
-   "38" ["classic" "consulting"] "39" ["classroom" "corporate"]
-   "3A" ["cleanup" "corrosion"] "3B" ["clockwork" "councilman"]
-   "3C" ["cobra" "crossover"] "3D" ["commence" "crucifix"]
-   "3E" ["concert" "cumbersome"] "3F" ["cowbell" "customer"]
-   "40" ["crackdown" "Dakota"] "41" ["cranky" "decadence"]
-   "42" ["crowfoot" "December"] "43" ["crucial" "decimal"]
-   "44" ["crumpled" "designing"] "45" ["crusade" "detector"]
-   "46" ["cubic" "detergent"] "47" ["dashboard" "determine"]
-   "48" ["deadbolt" "dictator"] "49" ["deckhand" "dinosaur"]
-   "4A" ["dogsled" "direction"] "4B" ["dragnet" "disable"]
-   "4C" ["drainage" "disbelief"] "4D" ["dreadful" "disruptive"]
-   "4E" ["drifter" "distortion"] "4F" ["dropper" "document"]
-   "50" ["drumbeat" "embezzle"] "51" ["drunken" "enchanting"]
-   "52" ["Dupont" "enrollment"] "53" ["dwelling" "enterprise"]
-   "54" ["eating" "equation"] "55" ["edict" "equipment"]
-   "56" ["egghead" "escapade"] "57" ["eightball" "Eskimo"]
-   "58" ["endorse" "everyday"] "59" ["endow" "examine"]
-   "5A" ["enlist" "existence"] "5B" ["erase" "exodus"]
-   "5C" ["escape" "fascinate"] "5D" ["exceed" "filament"]
-   "5E" ["eyeglass" "finicky"] "5F" ["eyetooth" "forever"]
-   "60" ["facial" "fortitude"] "61" ["fallout" "frequency"]
-   "62" ["flagpole" "gadgetry"] "63" ["flatfoot" "Galveston"]
-   "64" ["flytrap" "getaway"] "65" ["fracture" "glossary"]
-   "66" ["framework" "gossamer"] "67" ["freedom" "graduate"]
-   "68" ["frighten" "gravity"] "69" ["gazelle" "guitarist"]
-   "6A" ["Geiger" "hamburger"] "6B" ["glitter" "Hamilton"]
-   "6C" ["glucose" "handiwork"] "6D" ["goggles" "hazardous"]
-   "6E" ["goldfish" "headwaters"] "6F" ["gremlin" "hemisphere"]
-   "70" ["guidance" "hesitate"] "71" ["hamlet" "hideaway"]
-   "72" ["highchair" "holiness"] "73" ["hockey" "hurricane"]
-   "74" ["indoors" "hydraulic"] "75" ["indulge" "impartial"]
-   "76" ["inverse" "impetus"] "77" ["involve" "inception"]
-   "78" ["island" "indigo"] "79" ["jawbone" "inertia"]
-   "7A" ["keyboard" "infancy"] "7B" ["kickoff" "inferno"]
-   "7C" ["kiwi" "informant"] "7D" ["klaxon" "insincere"]
-   "7E" ["locale" "insurgent"] "7F" ["lockup" "integrate"]
-   "80" ["merit" "intention"] "81" ["minnow" "inventive"]
-   "82" ["miser" "Istanbul"] "83" ["Mohawk" "Jamaica"]
-   "84" ["mural" "Jupiter"] "85" ["music" "leprosy"]
-   "86" ["necklace" "letterhead"] "87" ["Neptune" "liberty"]
-   "88" ["newborn" "maritime"] "89" ["nightbird" "matchmaker"]
-   "8A" ["Oakland" "maverick"] "8B" ["obtuse" "Medusa"]
-   "8C" ["offload" "megaton"] "8D" ["optic" "microscope"]
-   "8E" ["orca" "microwave"] "8F" ["payday" "midsummer"]
-   "90" ["peachy" "millionaire"] "91" ["pheasant" "miracle"]
-   "92" ["physique" "misnomer"] "93" ["playhouse" "molasses"]
-   "94" ["Pluto" "molecule"] "95" ["preclude" "Montana"]
-   "96" ["prefer" "monument"] "97" ["preshrunk" "mosquito"]
-   "98" ["printer" "narrative"] "99" ["prowler" "nebula"]
-   "9A" ["pupil" "newsletter"] "9B" ["puppy" "Norwegian"]
-   "9C" ["python" "October"] "9D" ["quadrant" "Ohio"]
-   "9E" ["quiver" "onlooker"] "9F" ["quota" "opulent"]
-   "A0" ["ragtime" "Orlando"] "A1" ["ratchet" "outfielder"]
-   "A2" ["rebirth" "Pacific"] "A3" ["reform" "pandemic"]
-   "A4" ["regain" "Pandora"] "A5" ["reindeer" "paperweight"]
-   "A6" ["rematch" "paragon"] "A7" ["repay" "paragraph"]
-   "A8" ["retouch" "paramount"] "A9" ["revenge" "passenger"]
-   "AA" ["reward" "pedigree"] "AB" ["rhythm" "Pegasus"]
-   "AC" ["ribcage" "penetrate"] "AD" ["ringbolt" "perceptive"]
-   "AE" ["robust" "performance"] "AF" ["rocker" "pharmacy"]
-   "B0" ["ruffled" "phonetic"] "B1" ["sailboat" "photograph"]
-   "B2" ["sawdust" "pioneer"] "B3" ["scallion" "pocketful"]
-   "B4" ["scenic" "politeness"] "B5" ["scorecard" "positive"]
-   "B6" ["Scotland" "potato"] "B7" ["seabird" "processor"]
-   "B8" ["select" "provincial"] "B9" ["sentence" "proximate"]
-   "BA" ["shadow" "puberty"] "BB" ["shamrock" "publisher"]
-   "BC" ["showgirl" "pyramid"] "BD" ["skullcap" "quantity"]
-   "BE" ["skydive" "racketeer"] "BF" ["slingshot" "rebellion"]
-   "C0" ["slowdown" "recipe"] "C1" ["snapline" "recover"]
-   "C2" ["snapshot" "repellent"] "C3" ["snowcap" "replica"]
-   "C4" ["snowslide" "reproduce"] "C5" ["solo" "resistor"]
-   "C6" ["southward" "responsive"] "C7" ["soybean" "retraction"]
-   "C8" ["spaniel" "retrieval"] "C9" ["spearhead" "retrospect"]
-   "CA" ["spellbind" "revenue"] "CB" ["spheroid" "revival"]
-   "CC" ["spigot" "revolver"] "CD" ["spindle" "sandalwood"]
-   "CE" ["spyglass" "sardonic"] "CF" ["stagehand" "Saturday"]
-   "D0" ["stagnate" "savagery"] "D1" ["stairway" "scavenger"]
-   "D2" ["standard" "sensation"] "D3" ["stapler" "sociable"]
-   "D4" ["steamship" "souvenir"] "D5" ["sterling" "specialist"]
-   "D6" ["stockman" "speculate"] "D7" ["stopwatch" "stethoscope"]
-   "D8" ["stormy" "stupendous"] "D9" ["sugar" "supportive"]
-   "DA" ["surmount" "surrender"] "DB" ["suspense" "suspicious"]
-   "DC" ["sweatband" "sympathy"] "DD" ["swelter" "tambourine"]
-   "DE" ["tactics" "telephone"] "DF" ["talon" "therapist"]
-   "E0" ["tapeworm" "tobacco"] "E1" ["tempest" "tolerance"]
-   "E2" ["tiger" "tomorrow"] "E3" ["tissue" "torpedo"]
-   "E4" ["tonic" "tradition"] "E5" ["topmost" "travesty"]
-   "E6" ["tracker" "trombonist"] "E7" ["transit" "truncated"]
-   "E8" ["trauma" "typewriter"] "E9" ["treadmill" "ultimate"]
-   "EA" ["Trojan" "undaunted"] "EB" ["trouble" "underfoot"]
-   "EC" ["tumor" "unicorn"] "ED" ["tunnel" "unify"]
-   "EE" ["tycoon" "universe"] "EF" ["uncut" "unravel"]
-   "F0" ["unearth" "upcoming"] "F1" ["unwind" "vacancy"]
-   "F2" ["uproot" "vagabond"] "F3" ["upset" "vertigo"]
-   "F4" ["upshot" "Virginia"] "F5" ["vapor" "visitor"]
-   "F6" ["village" "vocalist"] "F7" ["virus" "voyager"]
-   "F8" ["Vulcan" "warranty"] "F9" ["waffle" "Waterloo"]
-   "FA" ["wallet" "whimsical"] "FB" ["watchword" "Wichita"]
-   "FC" ["wayside" "Wilmington"] "FD" ["willow" "Wyoming"]
-   "FE" ["woodlark" "yesteryear"] "FF" ["Zulu" "Yucatan"]})
-
-(defn pgp/hex->word
-  "Returns pgp word for hex string <100"
-  [hex position] (get-in pgp/word-list [hex (% position 2)]))
-
-(defn pgp/hexs->words
-  ```
-  Returns an array of pgp words for arbitrary long string of hexs.
-  Sanitizes out the white space from hex-string.
-  ```
-  [hex-string]
-  (def hexs
-    (peg/match ~(some (+ :s (cmt '(* :h :h) ,string/ascii-upper)
-                         -1 (error (constant "bad hex"))))
-               hex-string))
-  (seq [[i hex] :pairs hexs]
-    (if-let [ghex (pgp/hex->word hex i)]
-      ghex (error (string "wrong hex " hex)))))
-
-(defn pgp/word->hex
-  "Returns a hex number as string for the pgp word."
-  [word]
-  (do-var
-    ret nil
-    (loop [[h ws] :pairs pgp/word-list
-           :when (index-of word ws)]
-      (set ret h)
-      (break))))
-
-(defn pgp/words->hexs
-  "Returns an array of hexs from the string with pgp words."
-  [words-string]
-  (seq [w :in (peg/match :split words-string)]
-    (if-let [gw (pgp/word->hex w)]
-      gw (error (string "unknown pgp word " w)))))
+(def- id-bytes 10)
+(defn make-id
+  "Create a random, printable keyword id with 10 bytes of entropy with an optional prefix"
+  [&opt prefix]
+  (default prefix "")
+  (def bytes (string/bytes (os/cryptorand id-bytes)))
+  (keyword
+    prefix
+    (string/format
+      (comptime (string/repeat "%.2X" id-bytes))
+      ;bytes)))

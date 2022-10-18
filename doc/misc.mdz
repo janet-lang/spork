@@ -2,7 +2,7 @@
  :author "Calvin Rose"
  :license "MIT"
  :template "mdzdoc/main.html"
- :order 9}
+ :order 8}
 ---
 
 ## Dedent
@@ -126,7 +126,7 @@ pairs arguments and setting its prototype to prototype.
 Factory function for creating new objects from prototypes.
 
 @codeblock[janet]```
-(def Proto @{:greet |(string "Hello " ($ :name))})
+(def Proto @{:greet (fn [self] (string "Hello " (self :name)))})
 (def t (misc/make Proto :name "pepe"))
 (:greet t)
 # => "Hello pepe"
@@ -384,3 +384,19 @@ Returns an array of hexs from the string with pgp words.
 (misc/pgp/words->hexs "absurd-scavenger accrue_universe upshot.village")
 # => @["01" "D1" "02" "EE" "F4" "F6"]
 ```
+
+## base64/encode
+Converts a string of any format (UTF-8, binary, ..) to base64 encoding.
+@codeblock[janet]```
+(misc/base64/encode "this is a test")
+# => "dGhpcyBpcyBhIHRlc3Q="
+```
+
+
+## base64/decode
+Converts a base64 encoded string to its binary representation of any format (UTF-8, binary, ..).
+@codeblock[janet]```
+(misc/base64/decode "dGhpcyBpcyBhIHRlc3Q=")
+# => "this is a test"
+```
+

@@ -66,9 +66,22 @@
     (ev/read conn chunk-size buf))
   head)
 
+(defn- query-string-accum
+  "Accumulate into a table and combine duplicate keys into arrays
+  of values (rather than overwriting)."
+  [& args]
+  (def tab @{})
+  (loop [i :range [0 (length args) 2]
+         :let [k (get args i) v (get args (+ 1 i))]]
+    (if-let [item (in tab k)]
+      (if (array? item)
+        (array/push item v)
+        (put tab k @[item v]))
+      (put tab k v)))
+  tab)
+
 (def query-string-grammar
-  "Grammar that parses a query string (sans url path and ? character) and returns a table.
-  Only supports 1 value per key."
+  "Grammar that parses a query string (sans url path and ? character) and returns a table."
   (peg/compile
     ~{:qchar (+ (* "%" (/ (number (* :h :h) 16) ,string/from-bytes)) (* "+" (constant " ")))
       :kchar (+ :qchar (* (not (set "&=;")) '1))
@@ -76,7 +89,7 @@
       :key (accumulate (some :kchar))
       :value (accumulate (any :vchar))
       :entry (* :key (+ (* "=" :value) (constant true)) (+ (set ";&") -1))
-      :main (/ (any :entry) ,table)}))
+      :main (/ (any :entry) ,query-string-accum)}))
 
 (defn read-request
   "Read an HTTP request header from a connection. Returns a table with the following keys:
