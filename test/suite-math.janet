@@ -1,6 +1,6 @@
-(use spork/misc)
-(use spork/test)
-(import /spork/math :prefix "")
+(use ../spork/misc)
+(use ../spork/test)
+(use ../spork/math)
 
 (start-suite 0)
 

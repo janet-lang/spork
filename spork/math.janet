@@ -1,4 +1,4 @@
-(use spork/misc)
+(use ./misc)
 
 # Statistics
 
