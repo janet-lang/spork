@@ -262,7 +262,7 @@ Equivalent to `(while (not cnd) ;body)`.
 # => 4
 ```
 
-## table/filter
+## table-filter
 
 Filter a key-value structure info a table. Semantics are the same as for
 built-in filter, except that predicate takes two arguments (key and value.)
@@ -270,7 +270,7 @@ built-in filter, except that predicate takes two arguments (key and value.)
 Does not consider prototypes.
 
 @codeblock[janet]```
-(misc/table/filter |(even? $1) @{:zero 0 :one 1 :two 2 :three 3})
+(misc/table-filter |(even? $1) @{:zero 0 :one 1 :two 2 :three 3})
 # => @{:zero 0 :two 2}
 ```
 
@@ -302,33 +302,23 @@ Stringify an integer in a particular base. Defaults to decimal (base 10).
 # => "11011011"
 ```
 
-## first-index-where
-
-Return the index of the first element for which function returns true. Scans
-the data structure linearly.
-
-@codeblock[janet]```
-(misc/first-index-where (misc/always true) [1 2 3]) 
-# => 0
-```
-
-## array/insert-sorted
+## insert-sorted
 
 Insert elements in array such that it remains sorted by the comparator. If
 array is not sorted beforehand, the results are undefined. Returns array.
 
 @codeblock[janet]```
-(misc/array/insert-sorted @[1 2 3 5] < 4)
+(misc/insert-sorted @[1 2 3 5] < 4)
 # => @[1 2 3 4 5]
 ```
 
-## array/insert-sorted-by
+## insert-sorted-by
 
 Insert elements in array such that it remains sorted by the value returned
 when function is called with the element, comparing the values with <. If the
 array is not sorted beforehand, the results are undefined. Returns the array.
 
 @codeblock[janet]```
-(misc/array/insert-sorted-by @[1 2 3 5] identity 4)
+(misc/insert-sorted-by @[1 2 3 5] identity 4)
 # => @[1 2 3 4 5]
 ```
