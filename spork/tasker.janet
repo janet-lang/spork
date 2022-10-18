@@ -123,7 +123,8 @@
           (os/proc-wait proc)
           (def return-code (get proc :return-code))
           (put payload :return-code return-code)
-          (put payload :status (if (= 0 return-code) :done :error)))
+          (unless (= :canceled (get payload :status))
+            (put payload :status (if (= 0 return-code) :done :error))))
         ([err]
           (put payload :error (string err))
           (put payload :status :timeout)
