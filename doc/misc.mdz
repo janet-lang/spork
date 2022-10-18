@@ -333,20 +333,6 @@ array is not sorted beforehand, the results are undefined. Returns the array.
 # => @[1 2 3 4 5]
 ```
 
-## peg-grammar
-
-Custom peg grammar with crlf, to end and split defs.
-
-## setup-peg-grammar
-
-Merges `peg-grammar` into `:peg-grammar` dynamic.
-
-@codeblock[janet]```
-(misc/setup-peg-grammar)
-(peg/match ~(* :cap-to-crlf :crlf) "hoho\r\n\r\n")
-# => @["hoho"]
-```
-
 ## pgp/hex->word
 
 Returns pgp word for hex string <100 for a position in the number.
