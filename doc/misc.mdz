@@ -332,19 +332,3 @@ array is not sorted beforehand, the results are undefined. Returns the array.
 (misc/array/insert-sorted-by @[1 2 3 5] identity 4)
 # => @[1 2 3 4 5]
 ```
-
-## base64/encode
-Converts a string of any format (UTF-8, binary, ..) to base64 encoding.
-@codeblock[janet]```
-(misc/base64/encode "this is a test")
-# => "dGhpcyBpcyBhIHRlc3Q="
-```
-
-
-## base64/decode
-Converts a base64 encoded string to its binary representation of any format (UTF-8, binary, ..).
-@codeblock[janet]```
-(misc/base64/decode "dGhpcyBpcyBhIHRlc3Q=")
-# => "this is a test"
-```
-
