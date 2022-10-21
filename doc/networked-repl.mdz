@@ -2,7 +2,7 @@
  :author "Calvin Rose"
  :license "MIT"
  :template "mdzdoc/main.html"
- :order 9}
+ :order 10}
 ---
 
 Launch a networked REPL server on one machine and connect to it from

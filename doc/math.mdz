@@ -2,7 +2,7 @@
  :author "Josef Pospíšil"
  :license "MIT"
  :template "mdzdoc/main.html"
- :order 99}
+ :order 7}
 ---
 
 The math module deals with two main areas of mathematics: statistics 
