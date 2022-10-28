@@ -5,7 +5,8 @@
 ###
 
 
-(def- base64/table "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/")
+(def- base64/table
+  "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/")
 
 (defn- array-pad-right
   [xs size padder]
@@ -13,7 +14,7 @@
     (if (< l size)
       (do (for i l size
             (put xs i padder))
-          xs)
+        xs)
       xs)))
 
 (defn- array-pad-left
@@ -22,23 +23,23 @@
     (if (< l size)
       (do (for i 0 (- size l)
             (array/insert xs i padder))
-          xs)
+        xs)
       xs)))
 
 (defn- decimal->binary
   [x &opt bin]
   (default bin @[])
-    (if (< x 1)
-        (reverse bin)
-        (let [rem (% x 2)
-            new-x (math/floor (/ x 2))]
-            (decimal->binary new-x (array/push bin rem)))))
+  (if (< x 1)
+    (reverse bin)
+    (let [rem (% x 2)
+          new-x (math/floor (/ x 2))]
+      (decimal->binary new-x (array/push bin rem)))))
 
 (defn- binary->decimal
   [xs]
   (var num 0)
   (for i 0 (length xs)
-    (when (= 1 (get (reverse xs) i))
+    (if (= 1 (get (reverse xs) i))
       (set num (+ num (math/pow 2 i)))))
   num)
 
@@ -52,8 +53,8 @@
 (defn- sextets->octets
   [octets]
   (->> octets
-      flatten
-      (partition 8)))
+       flatten
+       (partition 8)))
 
 (defn- quadruples->bytes [xs]
   (let [sextets (map (fn [x]
@@ -69,9 +70,9 @@
 
 (defn- add-padding [s]
   (if (zero? (% (length s) 4))
-      s
-      (let [pad-count (- 4 (% (length s) 4))]
-        (string s (string/repeat "=" pad-count)))))
+    s
+    (let [pad-count (- 4 (% (length s) 4))]
+      (string s (string/repeat "=" pad-count)))))
 
 (defn encode
   "Converts a string of any format (UTF-8, binary, ..) to base64 encoding."
@@ -89,9 +90,12 @@
     ""))
 
 (defn decode
-  "Converts a base64 encoded string to its binary representation of any format (UTF-8, binary, ..)."
+  ```
+  Converts a base64 encoded string to its binary representation of any format
+  (UTF-8, binary, ..).
+  ```
   [s]
-  (if (> (length s) 0)
+  (if-not (empty? s)
     (let [without-padding (peg/replace-all "=" "" s)
           padded? (not (zero? (% (length without-padding) 4)))
           quadruples (partition 4 without-padding)

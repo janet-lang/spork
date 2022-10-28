@@ -1,0 +1,31 @@
+{:title "Base64"
+ :author "Josef Pospíšil"
+ :license "MIT"
+ :template "mdzdoc/main.html"
+ :order 99}
+---
+
+# Base64
+
+This module contains Base64 utilities.
+
+## base64/encode
+
+Converts a string of any format (UTF-8, binary, ..) to base64 encoding.
+
+@codeblock[janet]```
+(misc/base64/encode "this is a test")
+# => "dGhpcyBpcyBhIHRlc3Q="
+```
+
+
+## base64/decode
+
+Converts a base64 encoded string to its binary representation of any format 
+(UTF-8, binary, ...).
+
+@codeblock[janet]```
+(misc/base64/decode "dGhpcyBpcyBhIHRlc3Q=")
+# => "this is a test"
+```
+

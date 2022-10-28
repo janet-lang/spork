@@ -20,7 +20,8 @@
   (def leading-whitespace (string/slice x 0 first-letter))
   (def indent (last (string/split "\n" leading-whitespace)))
   (if (and indent (not= indent ""))
-    (let [y (string/replace-all (string "\n" indent) "\n" (string/replace indent "" x))]
+    (let [y (string/replace-all (string "\n" indent)
+                                "\n" (string/replace indent "" x))]
       # Remove trailing newline to mimic long string newline omission.
       (if (= (chr "\n") (last y))
         (slice y 0 -2)
@@ -442,7 +443,10 @@
 
 (def- id-bytes 10)
 (defn make-id
-  "Create a random, printable keyword id with 10 bytes of entropy with an optional prefix"
+  ```
+  Create a random, printable keyword id with 10 bytes of entropy
+  with an optional prefix.
+  ```
   [&opt prefix]
   (default prefix "")
   (def bytes (string/bytes (os/cryptorand id-bytes)))
