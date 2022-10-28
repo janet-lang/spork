@@ -2,7 +2,7 @@
  :author "Calvin Rose"
  :license "MIT"
  :template "mdzdoc/main.html"
- :order 12}
+ :order 13}
 ---
 
 A module for compiling a subset of regexes to Janet PEGs.

@@ -1,0 +1,342 @@
+{:title "Math"
+ :author "Josef Pospíšil"
+ :license "MIT"
+ :template "mdzdoc/main.html"
+ :order 7}
+---
+
+The math module deals with two main areas of mathematics: statistics 
+and linear algebra. 	
+
+## add
+
+@codeblock{(add m a)}
+
+Add `a` to matrix `m` where it can be matrix or scalar.
+Matrix `m` is mutated.
+
+## add-to-mean
+
+@codeblock{(add-to-mean m n v)}
+
+Adds new value `v` to mean `m` from `n` values.
+
+## approx-eq
+
+@codeblock{(approx-eq a e &opt t)}
+
+Approximate equality between actual number `a`
+and expected number `e`. Default tolerance `t`
+is `epsilon`.
+
+## bernoulli-distribution
+
+@codeblock{(bernoulli-distribution p)}
+
+Creates Bernoulli distribution from popability `p` in the tuple.
+
+## binominal-coeficient
+
+@codeblock{(binominal-coeficient n k)}
+
+Computes binominal coeficient from set of size `n`
+and sample size `k`.
+
+## binominal-distribution
+
+@codeblock{(binominal-distribution t p)}
+
+Creates binominal distribution from trials `t`
+and propability `p` in the tuple.
+
+## check-propability
+
+@codeblock{(check-propability p)}
+
+Asserts that probability in in the [0 1] range.
+
+## chi-squared-distribution-table
+
+Chi Squared distribution table.
+
+## cols
+
+@codeblock{(cols m)}
+
+Returns numbers of columns of matrix `m`.
+
+## cumulative-std-normal-probability
+
+@codeblock{(cumulative-std-normal-probability z)}
+
+Computes standard normal probability for `y`.
+
+## det
+
+@codeblock{(det m)}
+
+Computes determinant of matrix `m`.
+
+## dot
+
+@codeblock{(dot mx my)}
+
+Computes dot product of matrices or vectors `x` and `y`.
+
+## epsilon
+
+Epsilon constant
+
+## extent
+
+@codeblock{(extent xs)}
+
+Returns the minimum & maximum number in an `xs` as tuple.
+
+## factorial
+
+@codeblock{(factorial n)}
+
+Returns factorial of `n`.
+
+## geometric-mean
+
+@codeblock{(geometric-mean xs)}
+
+Gets the geometric mean from `xs`.
+
+## get-only-el
+
+@codeblock{(get-only-el m)}
+
+Convenience macro for geting first element
+from first row of the two dimensional array `m`.
+
+## harmonic-mean
+
+@codeblock{(harmonic-mean xs)}
+
+Gets the harmonic mean from `xs`.
+
+## ident
+
+@codeblock{(ident c)}
+
+Creates identity matrix with `c` x `c` size.
+
+## interquartile-range
+
+@codeblock{(interquartile-range xs)}
+
+Gets the interquartile range from `xs`.
+
+## linear-regression
+
+@codeblock{(linear-regression coords)}
+
+Computes the slope `:m` and y-intercept `:b`
+of the function in the struct from set of coordinates.
+
+## linear-regression-line
+
+@codeblock{(linear-regression-line {:m m :b b})}
+
+Constructs function from struct returned by linear regression.
+
+## median
+
+@codeblock{(median xs)}
+
+Gets the median value from `xs`
+
+## median-absolute-deviation
+
+@codeblock{(median-absolute-deviation xs)}
+
+Gets median absolute deviation from `xs`.
+
+## minor
+
+@codeblock{(minor m x y)}
+
+Computes minor matrix of matrix `m` and `x`, `y`.
+
+## mode
+
+@codeblock{(mode xs)}
+
+Gets the mode value from `xs`.
+
+## mop
+
+@codeblock{(mop m op a)}
+
+Mutates every cell of the matrix `m` with `op`
+and corresponding cell from matrix arg `a`.
+
+## mul
+
+@codeblock{(mul m a)}
+
+Multiply matrix `m` with `a` which can be matrix or vector.
+Matrix `m` is mutated.
+
+## perm
+
+@codeblock{(perm m)}
+
+Computes permanent of the matrix `m`.
+
+## permutation-test
+
+@codeblock{(permutation-test xs ys &opt a k)}
+
+Conducts a permutation test to determine if two data sets
+`xs` and `ys` are *significantly* different from each other.
+You can use alternative hypotesis `a`, which defaults to `:two-side`,
+with `:greater` and `:lesser` being the other two options.
+The last optional argument is `k` number of values
+in permutation distribution
+
+## permutations
+
+@codeblock{(permutations s &opt k)}
+
+Returns permutations of length `k` from members of `s`
+
+## poisson-distribution
+
+@codeblock{(poisson-distribution lambda)}
+
+Creates Poisson distribution from `lambda` in tuple.
+
+## quantile
+
+@codeblock{(quantile xs p)}
+
+Gets the quantile value from `xs` at `p` from unsorted population.
+
+## quantile-rank
+
+@codeblock{(quantile-rank xs p)}
+
+Gets the quantile rank of value `v` from unsorted `xs`.
+
+## quantile-rank-sorted
+
+@codeblock{(quantile-rank-sorted xs v)}
+
+Gets the quantile rank of value `v` from sorted `xs`.
+
+## quantile-sorted
+
+@codeblock{(quantile-sorted xs p)}
+
+Gets the quantile value from `xs` at `p` from sorted population.
+
+## quickselect
+
+@codeblock{(quickselect arr k &opt left right)}
+
+Rearrange items in `arr` so that all items in `[left, k]` range
+are the smallest.
+The `k`-th element will have the `(k - left + 1)`-th smallest value
+in `[left, right]`.
+Mutates `arr`.
+
+## relative-err
+
+@codeblock{(relative-err a e)}
+
+Gets the relative err between actual number `a`
+and expected number `e`.
+
+## root-mean-square
+
+@codeblock{(root-mean-square xs)}
+
+Gets the root mean square from `xs`.
+
+## rows
+
+@codeblock{(rows m)}
+
+Returns numbers of rows of matrix `m`.
+
+## sample-correlation
+
+@codeblock{(sample-correlation xs ys)}
+
+Gets the sample correlation between `xs` and `ys`.
+
+## sample-covariance
+
+@codeblock{(sample-covariance xs ys)}
+
+Gets the sample covariance between `xs` and `ys`.
+
+## sample-skewness
+
+@codeblock{(sample-skewness xs)}
+
+Gets the sample skeweness from the `xs`.
+
+## sample-standard-deviation
+
+@codeblock{(sample-standard-deviation xs)}
+
+Gets sample standard deviation 
+
+## sum-nth-power-deviations
+
+(sum-nth-power-deviations xs n)
+
+Get the sum of deviations to the n power.
+
+## swap
+
+(swap arr i j)
+
+Swaps members with indices `i` and `j` of arr.
+Noop when `i` equals `j`.
+
+## t-test
+
+(t-test xs expv)
+
+Computes one sample t-test comparing the mean of `xs`
+to known value `expv`.
+
+## t-test-2
+
+(t-test-2 xs ys &opt d)
+
+Computes two sample t-test of two samples `xs` and `ys`
+with difference optional `d` which defaults to 0.
+
+## trans
+
+(trans m)
+
+Returns a new transposed matrix from `m`.
+
+## variance
+
+(variance xs)
+
+Get the variance from the `xs`.
+
+## z-score
+
+(z-score x m d)
+
+Gets the standard score for number `x` from mean `m` 
+and standard deviation `d`.
+
+## zero
+
+(zero c &opt r)
+
+Creates vector of length `c`, or matrix if `r`
+is provided, and fills it with zeros.
+

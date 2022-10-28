@@ -2,7 +2,7 @@
  :author "Calvin Rose"
  :license "MIT"
  :template "mdzdoc/main.html"
- :order 10}
+ :order 11}
 ---
 Simple path manipulation module for Janet. Supports manipulation both
 windows and posix paths on any platform, and provides functions that
