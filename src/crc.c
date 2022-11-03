@@ -148,16 +148,6 @@ static void crc32_make_variant(CRC32 *gen, uint32_t init, uint32_t polynomial, b
             gen->lut[i] = crc32_byte(polynomial, ui);
         }
     }
-    /*
-    puts("---");
-    for (int row = 0; row < 32; row++) {
-        for (int col = 0; col < 8; col++) {
-            printf("%s0x%.8X", col ? ", " : " ", gen->lut[row * 8 + col]);
-        }
-        puts("");
-    }
-    puts("---");
-    */
 }
 
 static uint32_t crc32_general(CRC32 *variant, const uint8_t *bytes, size_t len) {
@@ -224,6 +214,7 @@ typedef struct {
     uint32_t xor;
 } NamedVariant;
 
+// Variant list from https://crccalc.com/
 static const NamedVariant named_variants[] = {
     // CRC8 Variants
     {"crc8", 8, 0x07, 0x00, false, 0x00},
