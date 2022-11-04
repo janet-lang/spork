@@ -41,7 +41,7 @@
   (set start-time (os/clock)))
 
 (defn end-suite
-  "Ends test suite."
+  "Ends test suite, prints summary and exits if any have failed."
   []
   (def delta (- (os/clock) start-time))
   (prinf "test suite %V finished in %.3f seconds - " suite-num delta)
