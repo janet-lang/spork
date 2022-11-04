@@ -13,13 +13,16 @@ static const uint8_t nibble_reverse_lut[16] = {
     0x0, 0x8, 0x4, 0xC, 0x2, 0xA, 0x6, 0xE,
     0x1, 0x9, 0x5, 0xD, 0x3, 0xB, 0x7, 0xF
 };
+
 static uint8_t byte_reverse(uint8_t b) {
     return nibble_reverse_lut[b >> 4] | (nibble_reverse_lut[b & 0xF] << 4);
 }
+
 static uint16_t word_reverse(uint16_t w) {
     return (uint16_t) byte_reverse((uint8_t)(w >> 8)) |
         ((uint16_t) byte_reverse((uint8_t)(w & 0xFF)) << 8);
 }
+
 static uint32_t dword_reverse(uint32_t d) {
     return (uint32_t) word_reverse((uint16_t)(d >> 16)) |
         ((uint32_t) word_reverse((uint16_t)(d & 0xFFFF)) << 16);
@@ -58,8 +61,7 @@ static void crc8_make_variant(CRC8 *gen, uint8_t init, uint8_t polynomial, bool 
     }
 }
 
-static uint8_t crc8_general(CRC8 *variant, const uint8_t *bytes, size_t len) {
-    uint8_t sum = variant->init;
+static uint8_t crc8_general(CRC8 *variant, const uint8_t *bytes, size_t len, uint8_t sum) {
     for (size_t i = 0; i < len; i++) sum = variant->lut[bytes[i] ^ sum];
     return sum ^ variant->xor;
 }
@@ -71,7 +73,7 @@ static uint8_t crc8_general(CRC8 *variant, const uint8_t *bytes, size_t len) {
 typedef struct {
     uint16_t init;
     uint16_t xor;
-    uint32_t flipped;
+    bool flipped;
     uint16_t lut[256];
 } CRC16;
 
@@ -100,8 +102,7 @@ static void crc16_make_variant(CRC16 *gen, uint16_t init, uint16_t polynomial, b
     }
 }
 
-static uint16_t crc16_general(CRC16 *variant, const uint8_t *bytes, size_t len) {
-    uint16_t sum = variant->init;
+static uint16_t crc16_general(CRC16 *variant, const uint8_t *bytes, size_t len, uint16_t sum) {
     if (variant->flipped) {
         for (size_t i = 0; i < len; i++) {
             sum = (sum >> 8) ^ variant->lut[(sum & 0xFF) ^ bytes[i]];
@@ -121,7 +122,7 @@ static uint16_t crc16_general(CRC16 *variant, const uint8_t *bytes, size_t len) 
 typedef struct {
     uint32_t init;
     uint32_t xor;
-    uint32_t flipped;
+    bool flipped;
     uint32_t lut[256];
 } CRC32;
 
@@ -150,8 +151,7 @@ static void crc32_make_variant(CRC32 *gen, uint32_t init, uint32_t polynomial, b
     }
 }
 
-static uint32_t crc32_general(CRC32 *variant, const uint8_t *bytes, size_t len) {
-    uint32_t sum = variant->init;
+static uint32_t crc32_general(CRC32 *variant, const uint8_t *bytes, size_t len, uint32_t sum) {
     if (variant->flipped) {
         for (size_t i = 0; i < len; i++) {
             sum = (sum >> 8) ^ variant->lut[(sum & 0xFF) ^ bytes[i]];
@@ -168,40 +168,73 @@ static uint32_t crc32_general(CRC32 *variant, const uint8_t *bytes, size_t len) 
 /* C Functions */
 /***************/
 
+static JanetRange crc_getslice(int32_t argc, const Janet *argv) {
+    janet_arity(argc, 1, 4);
+    JanetRange range;
+    int32_t length = janet_length(argv[0]);
+    if (argc == 1) {
+        range.start = 0;
+        range.end = length;
+    } else if (argc == 2) {
+        range.start = janet_checktype(argv[1], JANET_NIL)
+                      ? 0
+                      : janet_gethalfrange(argv, 1, length, "start");
+        range.end = length;
+    } else {
+        range.start = janet_checktype(argv[1], JANET_NIL)
+                      ? 0
+                      : janet_gethalfrange(argv, 1, length, "start");
+        range.end = janet_checktype(argv[2], JANET_NIL)
+                    ? length
+                    : janet_gethalfrange(argv, 2, length, "end");
+        if (range.end < range.start)
+            range.end = range.start;
+    }
+    return range;
+}
+
 static Janet crc8_call(void *variant, int32_t argc, Janet *argv) {
-    JanetRange range = janet_getslice(argc, argv);
+    CRC8 *crc8 = (CRC8 *)variant;
+    JanetRange range = crc_getslice(argc, argv);
     JanetByteView bytes = janet_getbytes(argv, 0);
-    return janet_wrap_integer(crc8_general(variant,
+    uint8_t init = janet_optnat(argv, argc, 3, crc8->init) & 0xFF;
+    return janet_wrap_integer(crc8_general(crc8,
                 bytes.bytes + range.start,
-                range.end - range.start));
+                range.end - range.start, init));
 }
 
 static Janet crc16_call(void *variant, int32_t argc, Janet *argv) {
-    JanetRange range = janet_getslice(argc, argv);
+    CRC16 *crc16 = (CRC16 *)variant;
+    JanetRange range = crc_getslice(argc, argv);
     JanetByteView bytes = janet_getbytes(argv, 0);
-    return janet_wrap_integer(crc16_general(variant,
+    uint16_t init = janet_optnat(argv, argc, 3, crc16->init) & 0xFFFF;
+    return janet_wrap_integer(crc16_general(crc16,
                 bytes.bytes + range.start,
-                range.end - range.start));
+                range.end - range.start, init));
 }
 
 static Janet crc32_call(void *variant, int32_t argc, Janet *argv) {
-    JanetRange range = janet_getslice(argc, argv);
+    CRC32 *crc32 = (CRC32 *)variant;
+    JanetRange range = crc_getslice(argc, argv);
     JanetByteView bytes = janet_getbytes(argv, 0);
-    return janet_wrap_number(crc32_general(variant,
+    uint32_t init = janet_optnat(argv, argc, 3, crc32->init);
+    return janet_wrap_number(crc32_general(crc32,
                 bytes.bytes + range.start,
-                range.end - range.start));
+                range.end - range.start, init));
 }
 
 static const JanetAbstractType CRC8_AT = {
-    .name = "crc/crc8-varaiant",
+    .name = "crc/crc8-variant",
     .call = crc8_call
 };
+
 static const JanetAbstractType CRC16_AT = {
-    .name = "crc/crc16-varaiant",
+    .name = "crc/crc16-variant",
     .call = crc16_call
 };
+
 static const JanetAbstractType CRC32_AT = {
-    .name = "crc/crc32-varaiant",
+    .name = "crc/crc32-variant",
     .call = crc32_call
 };
 
