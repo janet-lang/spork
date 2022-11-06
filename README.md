@@ -15,3 +15,8 @@ as seen in the example for the part.
 ```
 [sudo] jpm install spork
 ```
+
+## Dependencies
+
+Spork contains third-party dependencies in the `deps/` directory. All dependencies are MIT/X11 licensed, or public domain.
+Licenses for individual components can be found along with the source code in the `deps/` directory.
