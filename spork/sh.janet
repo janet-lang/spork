@@ -97,16 +97,20 @@
         (file/write dst bytes)
         (buffer/clear buf)))))
 
-               
 (defn copy
-  "Copy a file or directory recursively from one location to another."
+  `Copy a file or directory recursively from one location to another.
+  Expects input to be unix style paths`
   [src dest]
   (print "copying " src " to " dest "...")
-  (if (is-win)
-    (let [end (last (peg/match path-splitter src))
+  (if (= (= :windows (os/which)))
+    (let [end (last (path/posix/parts src))
           isdir (= (os/stat src :mode) :directory)]
-      (shell "C:\\Windows\\System32\\xcopy.exe"
-             (string/replace-all "/" "\\" src)
-             (string/replace-all "/" "\\" (if isdir (string dest "\\" end) dest))
-             "/y" "/s" "/e" "/i"))
-    (shell "cp" "-rf" src dest)))
+      (os/shell (string "C:\\Windows\\System32\\xcopy.exe"
+                        " "
+                        (path/win32/join ;(path/posix/parts src))
+                        (path/win32/join ;(if isdir [;(path/posix/parts dest) end] (path/posix/parts dest)))
+                        "/y "
+                        "/s "
+                        "/e "
+                        "/i ")))
+    (os/execute ["cp" "-rf" src dest] :p)))
