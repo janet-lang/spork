@@ -47,3 +47,7 @@
 (declare-headers
  :headers ["src/tarray.h"])
 
+(declare-native
+  :name "spork/zip"
+  :source @["src/zip.c" "deps/miniz/miniz.c"]
+  :headers @["deps/miniz/miniz.h"])
