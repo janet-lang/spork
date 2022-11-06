@@ -106,15 +106,25 @@ static void *ta_buffer_unmarshal(JanetMarshalContext *ctx) {
     return buf;
 }
 
+#ifdef JANET_ATEND_LENGTH
+static size_t ta_view_length(void *p, size_t size) {
+    JanetTArrayView *view = (JanetTArrayView *)p;
+    return view->size;
+}
+static size_t ta_buffer_length(void *p, size_t size) {
+    JanetTArrayBuffer *buffer = (JanetTArrayBuffer *)p;
+    return buffer->size;
+}
+#endif
+
 const JanetAbstractType janet_ta_buffer_type = {
-    "ta/buffer",
-    ta_buffer_gc,
-    NULL,
-    NULL,
-    NULL,
-    ta_buffer_marshal,
-    ta_buffer_unmarshal,
-    JANET_ATEND_UNMARSHAL
+    .name = "ta/buffer",
+    .gc = ta_buffer_gc,
+    .marshal = ta_buffer_marshal,
+    .unmarshal = ta_buffer_unmarshal,
+#ifdef JANET_ATEND_LENGTH
+    .length = ta_buffer_length,
+#endif
 };
 
 static int ta_mark(void *p, size_t s) {
@@ -289,18 +299,16 @@ static Janet ta_view_next(void *p, Janet key) {
 }
 
 const JanetAbstractType janet_ta_view_type = {
-    "ta/view",
-    NULL,
-    ta_mark,
-    ta_getter,
-    ta_setter,
-    ta_view_marshal,
-    ta_view_unmarshal,
-    NULL,
-    NULL,
-    NULL,
-    ta_view_next,
-    JANET_ATEND_NEXT
+    .name = "ta/view",
+    .gcmark = ta_mark,
+    .get = ta_getter,
+    .put = ta_setter,
+    .marshal = ta_view_marshal,
+    .unmarshal = ta_view_unmarshal,
+    .next = ta_view_next,
+#ifdef JANET_ATEND_LENGTH
+    .length = ta_view_length
+#endif
 };
 
 JanetTArrayBuffer *janet_tarray_buffer(size_t size) {
