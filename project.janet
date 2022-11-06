@@ -50,4 +50,5 @@
 (declare-native
   :name "spork/zip"
   :source @["src/zip.c" "deps/miniz/miniz.c"]
+  :defines @{"_LARGEFILE64_SOURCE" true}
   :headers @["deps/miniz/miniz.h"])

@@ -141,7 +141,8 @@ JANET_FN(cfun_reader_locate,
     mz_zip_archive *archive = janet_getabstract(argv, 0, &zip_reader_type);
     const char *path = janet_getcstring(argv, 1);
     const char *comment = janet_optcstring(argv, argc, 2, NULL);
-    mz_uint index = mz_zip_reader_locate_file(archive, path, comment, 0);
+    mz_uint flags = miniz_optflags(argv, argc, 3);
+    mz_uint index = mz_zip_reader_locate_file(archive, path, comment, flags);
     return janet_wrap_number((double) index);
 }
 
@@ -275,7 +276,7 @@ static const JanetAbstractType zip_writer_type = {
 
 JANET_FN(cfun_write_file,
         "(zip/write-file dest-path)",
-        "Create a new zip archive writer") {
+        "Create a new zip archive writer that will write into an archive file.") {
     janet_fixarity(argc, 1);
     JanetString path = janet_getstring(argv, 0);
     mz_zip_archive *archive = janet_abstract(&zip_writer_type, sizeof(mz_zip_archive));
@@ -284,30 +285,42 @@ JANET_FN(cfun_write_file,
     return janet_wrap_abstract(archive);
 }
 
-JANET_FN(cfun_writer_add_file,
-        "(zip/writer-add-file writer path filename &opt comment)",
-        "Add a file to the zip writer.") {
-    janet_arity(argc, 3, 4);
+JANET_FN(cfun_write_buffer,
+        "(zip/write-buffer)",
+        "Create a new zip archive writer that write to memory.") {
+    janet_fixarity(argc, 0);
+    mz_zip_archive *archive = janet_abstract(&zip_writer_type, sizeof(mz_zip_archive));
+    mz_zip_zero_struct(archive);
+    mz_zip_writer_init_heap(archive, 0, 32 * 1024);
+    return janet_wrap_abstract(archive);
+}
 
+JANET_FN(cfun_writer_add_file,
+        "(zip/writer-add-file writer path filename &opt comment flags)",
+        "Add a file to the zip writer.") {
+    janet_arity(argc, 3, 5);
     mz_zip_archive *archive = janet_getabstract(argv, 0, &zip_writer_type);
     const char *path = janet_getcstring(argv, 1);
     const char *filename = janet_getcstring(argv, 2);
     const char *comment = janet_optcstring(argv, argc, 3, NULL);
-    if (!mz_zip_writer_add_file(archive, path, filename, comment, (comment != NULL) ? strlen(comment) : 0, MZ_DEFAULT_COMPRESSION)) {
+    mz_uint flags = miniz_optflags(argv, argc, 4);
+    if (!mz_zip_writer_add_file(archive, path, filename, comment, (comment != NULL) ? strlen(comment) : 0, flags)) {
         janet_panic("adding file failed!");
     }
     return argv[0];
 }
 
 JANET_FN(cfun_writer_add_bytes,
-        "(zip/writer-add-bytes writer path data &opt comment)",
+        "(zip/writer-add-bytes writer path data &opt comment flags)",
         "Add a byte sequence to the zip writer.") {
-    janet_arity(argc, 3, 4);
+    janet_arity(argc, 3, 5);
     mz_zip_archive *archive = janet_getabstract(argv, 0, &zip_writer_type);
     const char *path = janet_getcstring(argv, 1);
     JanetByteView bytes = janet_getbytes(argv, 2);
     const char *comment = janet_optcstring(argv, argc, 3, NULL);
-    if (!mz_zip_writer_add_mem_ex(archive, path, bytes.bytes, bytes.len, comment, (comment != NULL) ? strlen(comment) : 0, MZ_DEFAULT_COMPRESSION, 0, 0)) {
+    mz_uint flags = miniz_optflags(argv, argc, 4);
+    // TODO - handle pre-compressed data better
+    if (!mz_zip_writer_add_mem_ex(archive, path, bytes.bytes, bytes.len, comment, (comment != NULL) ? strlen(comment) : 0, flags, 0, 0)) {
         janet_panic("adding bytes failed!");
     }
     return argv[0];
@@ -328,8 +341,26 @@ JANET_FN(cfun_writer_finalize,
         "Finalize a writer, writing any zip files to disk. Return the writer.") {
     janet_fixarity(argc, 1);
     mz_zip_archive *archive = janet_getabstract(argv, 0, &zip_writer_type);
-    mz_zip_writer_finalize_archive(archive);
-    return argv[0];
+    if (archive->m_zip_type == MZ_ZIP_TYPE_HEAP) {
+        void *buf = NULL;
+        size_t len = 0;
+        mz_zip_writer_finalize_heap_archive(archive, &buf, &len);
+        if (len > INT32_MAX) {
+            free(buf);
+            janet_panic("zip archive too large for janet buffer");
+        }
+        JanetBuffer *buffer = janet_buffer(0);
+        if (buffer->data != NULL) {
+            free(buffer->data);
+        }
+        buffer->data = buf;
+        buffer->count = (int32_t) len;
+        janet_gcpressure(len);
+        return janet_wrap_buffer(buffer);
+    } else {
+        mz_zip_writer_finalize_archive(archive);
+        return argv[0];
+    }
 }
 
 /* Extra */
@@ -357,6 +388,7 @@ JANET_MODULE_ENTRY(JanetTable *env) {
         JANET_REG("file-supported?", cfun_reader_is_supported),
         JANET_REG("file-encrypted?", cfun_reader_is_encrypted),
         JANET_REG("write-file", cfun_write_file),
+        JANET_REG("write-buffer", cfun_write_buffer),
         JANET_REG("writer-add-file", cfun_writer_add_file),
         JANET_REG("writer-add-bytes", cfun_writer_add_bytes),
         JANET_REG("writer-close", cfun_writer_close),
