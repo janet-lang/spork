@@ -96,3 +96,17 @@
       (while (def bytes (file/read src buf-size buf))
         (file/write dst bytes)
         (buffer/clear buf)))))
+
+               
+(defn copy
+  "Copy a file or directory recursively from one location to another."
+  [src dest]
+  (print "copying " src " to " dest "...")
+  (if (is-win)
+    (let [end (last (peg/match path-splitter src))
+          isdir (= (os/stat src :mode) :directory)]
+      (shell "C:\\Windows\\System32\\xcopy.exe"
+             (string/replace-all "/" "\\" src)
+             (string/replace-all "/" "\\" (if isdir (string dest "\\" end) dest))
+             "/y" "/s" "/e" "/i"))
+    (shell "cp" "-rf" src dest)))
