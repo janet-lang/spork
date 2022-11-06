@@ -5,6 +5,11 @@
 
 (import ./path)
 
+(defn devnull
+  "get the /dev/null equivalent of the current platform as an open file"
+  []
+  (os/open (if (= :windows (os/which)) "NUL" "/dev/null") :rw))
+
 (defn exec-slurp
    "Read stdout of subprocess and return it trimmed in a string."
    [& args]
