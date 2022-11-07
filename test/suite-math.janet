@@ -2,7 +2,7 @@
 (use ../spork/test)
 (use ../spork/math)
 
-(start-suite 0)
+(start-suite)
 
 (assert-docs "/spork/math")
 
