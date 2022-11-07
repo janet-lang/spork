@@ -5,6 +5,11 @@
 
 (import ./path)
 
+(defn devnull
+  "get the /dev/null equivalent of the current platform as an open file"
+  []
+  (os/open (if (= :windows (os/which)) "NUL" "/dev/null") :rw))
+
 (defn exec-slurp
    "Read stdout of subprocess and return it trimmed in a string."
    [& args]
@@ -91,3 +96,21 @@
       (while (def bytes (file/read src buf-size buf))
         (file/write dst bytes)
         (buffer/clear buf)))))
+
+(defn copy
+  `Copy a file or directory recursively from one location to another.
+  Expects input to be unix style paths`
+  [src dest]
+  (print "copying " src " to " dest "...")
+  (if (= (= :windows (os/which)))
+    (let [end (last (path/posix/parts src))
+          isdir (= (os/stat src :mode) :directory)]
+      (os/shell (string "C:\\Windows\\System32\\xcopy.exe"
+                        " "
+                        (path/win32/join ;(path/posix/parts src))
+                        (path/win32/join ;(if isdir [;(path/posix/parts dest) end] (path/posix/parts dest)))
+                        "/y "
+                        "/s "
+                        "/e "
+                        "/i ")))
+    (os/execute ["cp" "-rf" src dest] :p)))
