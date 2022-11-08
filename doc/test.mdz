@@ -57,7 +57,7 @@ Starts test suite, which counts all and passed tests.
 
 ## end-suite
 
-Ends test suite and print summary.
+Ends test suite, prints summary and exits if any have failed.
 
 
 ## All together
