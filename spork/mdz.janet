@@ -206,6 +206,10 @@
    # wrap source2 in array so it can be mutated external by a highlighter
    [:code {"data-language" lang2} @[source2]]])
 
+###
+### Markup Entrypoint
+###
+
 (def- base-env (curenv))
 
 (defn markup
@@ -234,7 +238,8 @@
   # Eval body of markup
   (def contents @[])
   (eval1 ~(do ,;(map |~(,array/push ',contents ,$) (slice matches 1))))
-  (put env *markup-dom* contents)
+  (def markup ((get front-matter :post-process identity) contents))
+  (put env *markup-dom* markup)
   env)
 
 ###

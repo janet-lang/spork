@@ -214,17 +214,18 @@ JANET_FN(cfun_reader_is_encrypted,
 JANET_FN(cfun_reader_extract,
         "(zip/extract reader idx-or-filename &opt into flags)",
         "Extract a file from the zip archive, either to memory or to a file on disk.") {
-    janet_arity(argc, 3, 4);
+    janet_arity(argc, 2, 4);
     mz_zip_archive *archive = janet_getabstract(argv, 0, &zip_reader_type);
     int is_filename = janet_checktype(argv[1], JANET_STRING);
     int32_t index = 0;
     const char *filename = NULL;
+    int32_t flags = miniz_optflags(argv, argc, 3);
     if (is_filename) {
         filename = janet_getcstring(argv, 1);
+        index = mz_zip_reader_locate_file(archive, filename, NULL, flags);
     } else {
         index = janet_getinteger(argv, 1);
     }
-    int32_t flags = miniz_optflags(argv, argc, 3);
     mz_zip_archive_file_stat statdata;
     mz_zip_reader_file_stat(archive, index, &statdata);
     if (argc >= 3 && janet_checkabstract(argv[2], &janet_file_type)) {
