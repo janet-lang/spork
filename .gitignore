@@ -7,5 +7,6 @@ _develop
 _release
 _out
 _debug
+/tmp
 
 jpm_tree

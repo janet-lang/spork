@@ -258,6 +258,7 @@ JANET_FN(cfun_reader_extract,
     } else {
         mz_zip_reader_extract_to_mem(archive, index, into->data + into->count, statdata.m_uncomp_size, flags);
     }
+    into->count += statdata.m_uncomp_size;
     return janet_wrap_buffer(into);
 }
 
@@ -297,7 +298,7 @@ JANET_FN(cfun_write_buffer,
 }
 
 JANET_FN(cfun_writer_add_file,
-        "(zip/writer-add-file writer path filename &opt comment flags)",
+        "(zip/add-file writer path filename &opt comment flags)",
         "Add a file to the zip writer.") {
     janet_arity(argc, 3, 5);
     mz_zip_archive *archive = janet_getabstract(argv, 0, &zip_writer_type);
@@ -312,7 +313,7 @@ JANET_FN(cfun_writer_add_file,
 }
 
 JANET_FN(cfun_writer_add_bytes,
-        "(zip/writer-add-bytes writer path data &opt comment flags)",
+        "(zip/add-bytes writer path data &opt comment flags)",
         "Add a byte sequence to the zip writer.") {
     janet_arity(argc, 3, 5);
     mz_zip_archive *archive = janet_getabstract(argv, 0, &zip_writer_type);
@@ -390,8 +391,8 @@ JANET_MODULE_ENTRY(JanetTable *env) {
         JANET_REG("file-encrypted?", cfun_reader_is_encrypted),
         JANET_REG("write-file", cfun_write_file),
         JANET_REG("write-buffer", cfun_write_buffer),
-        JANET_REG("writer-add-file", cfun_writer_add_file),
-        JANET_REG("writer-add-bytes", cfun_writer_add_bytes),
+        JANET_REG("add-file", cfun_writer_add_file),
+        JANET_REG("add-bytes", cfun_writer_add_bytes),
         JANET_REG("writer-close", cfun_writer_close),
         JANET_REG("writer-finalize", cfun_writer_finalize),
         JANET_REG("version", cfun_version),
