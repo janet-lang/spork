@@ -342,7 +342,7 @@ static uint32_t extract_codepoint(const uint8_t **pstr, const uint8_t *end) {
     *pstr = str;
     return codepoint;
 exit:
-    janet_panics("invalid codepoint");
+    janet_panic("invalid codepoint");
 }
 
 /* Measure the size of a single character in a monospaced terminal */
