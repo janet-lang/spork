@@ -228,7 +228,7 @@ JANET_FN(cfun_reader_extract,
     }
     mz_zip_archive_file_stat statdata;
     mz_zip_reader_file_stat(archive, index, &statdata);
-    if (argc >= 3 && janet_checkabstract(argv[2], &janet_file_type)) {
+    if (argc >= 3 && janet_checktype(argv[2], JANET_ABSTRACT)) {
         int32_t fflags;
         int32_t needed_flags = JANET_FILE_WRITE | JANET_FILE_BINARY;
         FILE *file = janet_getfile(argv, 2, &fflags);
