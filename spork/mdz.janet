@@ -89,22 +89,37 @@
    {"id" (get-id-for-content id-tbl content)}
    ;content])
 
+(defn- capture-li
+  [& items]
+  [tuple :li ;items])
+
+(defn- capture-ulist
+  [& items]
+  [tuple :ul ;items])
+
+(defn- capture-olist
+  [& items]
+  [tuple :ol ;items])
+
 (def- markup-grammar
   "Grammar for markup -> document AST parser."
   ~{# basic character classes
     :wsnl (set " \t\r\v\f\n")
     :ws (set " \t\r\v\f")
+    :nl? (* (? "\r") (? "\n"))
+    :nlcap? (* (? "\r") (? '"\n"))
+    :$ (> 0 (+ "\n" "\r\n"))
 
     # A span of markup that is not line delimited (most markup)
-    :char (+ (* "\\" 1) (if-not (set "@}") 1))
-    :leaf (/ '(some :char) ,(partial string/replace "\\" ""))
+    :leaf (% (some (+ (* "\\" '1) (if-not (set "@}") '1))))
     :root (some (+ :node :leaf))
 
     # A span or markup that is line delimited (headers, etc). @ expressions
     # can still cross line boundaries.
-    :char-line (+ (* "\\" 1) (if-not (set "@}\n\r") 1))
-    :leaf-line (/ '(* (some :char-line) (? "\r") (? "\n")) ,(partial string/replace "\\" ""))
-    :root-line (some (+ (* :node (? '"\n")) :leaf-line))
+    :char-line (+ (* "\\" '1) (if-not (set "@}\n\r") '1))
+    :leaf-line (% (some :char-line))
+    :root-line (some (+ (* :node :nlcap?) :leaf-line))
+    :root-lines (some (+ (* :node :nlcap?) (* :leaf-line :nlcap?)))
 
     # An @ expression (a node)
     :node {:paren-params (* "(" (any :wsnl) (any (* :janet-value (any :wsnl))) ")")
@@ -124,16 +139,29 @@
     # Headers (only at top level)
     :header (/ (* '(between 1 6 "#") (any :ws) (argument 0) :root-line) ,caph)
 
+    # Lists
+    :li-content (+ (* (some :ws) :root-line) :$)
+    :ulist-el (/ (* (any :ws) "-" :li-content) ,capture-li)
+    :ulist (/ (some (* :ulist-el :nl?)) ,capture-ulist)
+    :olist-el (/ (* (any :ws) :d+ "." :li-content) ,capture-li)
+    :olist-el1 (/ (* (any :ws) (+ "1." "0.") :li-content) ,capture-li)
+    :olist (/ (* :olist-el1 :nl? (any (* :olist-el :nl?))) ,capture-olist)
+
+    # Top-level markup
+    :top-level (any
+                 (+ '(some :wsnl)
+                    (* :node (any :wsnl))
+                    :header
+                    :ulist
+                    :olist
+                    (/ :root-lines ,capp)
+                    "}"))
+
     # Main rule: Front matter -> Top level nodes and markup
     :main (* 
             (+ :front (error "bad front-matter"))
             "---"
-            (any
-              (+ '(some :wsnl)
-                 (* :node (any :wsnl))
-                 :header
-                 (/ :root-line ,capp)
-                 "}"))
+            :top-level
             (+ -1 (error)))})
 
 (def- markup-peg
