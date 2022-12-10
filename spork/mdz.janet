@@ -106,19 +106,21 @@
   ~{# basic character classes
     :wsnl (set " \t\r\v\f\n")
     :ws (set " \t\r\v\f")
+    :nl (* (? "\r") "\n")
+    :nlcap (* (? "\r") '"\n")
     :nl? (* (? "\r") (? "\n"))
     :nlcap? (* (? "\r") (? '"\n"))
     :$ (> 0 (+ "\n" "\r\n"))
+    :^ (> -1 (+ -1 "\n"))
 
     # A span of markup that is not line delimited (most markup)
     :leaf (% (some (+ (* "\\" '1) (if-not (set "@}") '1))))
-    :root (some (+ :node :leaf))
 
     # A span or markup that is line delimited (headers, etc). @ expressions
     # can still cross line boundaries.
     :char-line (+ (* "\\" '1) (if-not (set "@}\n\r") '1))
     :leaf-line (% (some :char-line))
-    :root-line (some (+ (* :node :nlcap?) :leaf-line))
+    :root-line (some (+ :node :leaf-line))
     :root-lines (some (+ (* :node :nlcap?) (* :leaf-line :nlcap?)))
 
     # An @ expression (a node)
@@ -129,7 +131,7 @@
            :bracket-params (* "[" '(any (if-not "]" 1)) "]")
            :params (any (* (any :wsnl) (+ :bracket-params :curly-params :paren-params :string-param :longstring-param)))
            :name '(if-not (range "09") (some ,symchars))
-           :main (/ (* (line) (column) "@" :name :params) ,capture-node)}
+           :main (/ (* (line) (column) "@" (+ :name (constant "identity")) :params) ,capture-node)}
 
     # Front matter
     :front (/ '(any (if-not "---" 1)) ,capture-front)
@@ -141,19 +143,29 @@
 
     # Lists
     :li-content (+ (* (some :ws) :root-line) :$)
-    :ulist-el (/ (* (any :ws) "-" :li-content) ,capture-li)
+    :ulist-el (/ (* :^ (any :ws) "-" :li-content) ,capture-li)
     :ulist (/ (some (* :ulist-el :nl?)) ,capture-ulist)
-    :olist-el (/ (* (any :ws) :d+ "." :li-content) ,capture-li)
-    :olist-el1 (/ (* (any :ws) (+ "1." "0.") :li-content) ,capture-li)
+    :olist-el (/ (* :^ (any :ws) :d+ "." :li-content) ,capture-li)
+    :olist-el1 (/ (* :^ (any :ws) (+ "1." "0.") :li-content) ,capture-li)
     :olist (/ (* :olist-el1 :nl? (any (* :olist-el :nl?))) ,capture-olist)
+
+    # Node-level markup - same as top level minus trailing } and no paragraphs
+    :root (+ :ulist
+             :olist
+             :nlcap
+             '(some :ws)
+             :node
+             :header
+             (/ :root-lines ,array))
 
     # Top-level markup
     :top-level (any
-                 (+ '(some :wsnl)
+                 (+ :ulist
+                    :olist
+                    :nlcap
+                    '(some :ws)
                     (* :node (any :wsnl))
                     :header
-                    :ulist
-                    :olist
                     (/ :root-lines ,capp)
                     "}"))
 
@@ -172,7 +184,7 @@
 ### Base-env
 ###
 
-(each tag ["ul" "ol" "li" "p" "em" "strong" "u" "pre" "sub" "sup" "tr" "td" "th"]
+(each tag ["ul" "ol" "li" "p" "em" "strong" "u" "pre" "sub" "sup" "tr" "td" "th" "div"]
   (defglobal tag (fn [content] [tag {} ;content])))
 
 (defn tag

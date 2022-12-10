@@ -1,0 +1,29 @@
+{:title "Example document"}
+ ---
+
+# Header 1
+
+Bulleted lists only use a hyphen. Lists must come at the beginning of a line.
+(Ignoring whitespace).
+
+## Header 2
+
+- abc
+- 123
+- 456
+
+@```
+Escape other markup characters here using Janet's long strings. @``\\``
+```
+
+1. first list element must start with 1.
+2. once upon a time
+3. eat more food! @{
+  1. mested lists 
+  2. more text
+}
+4. @em{Loud!!!}
+
+
+@ul{@li{You can still make lists the long way}
+    @li{another element}}

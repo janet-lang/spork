@@ -8,5 +8,7 @@ _release
 _out
 _debug
 /tmp
+temp.html
+temp.mdz
 
 jpm_tree
