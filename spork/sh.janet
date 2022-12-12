@@ -21,6 +21,24 @@
      (:wait proc))
    (string/trimr buf))
 
+(defn exec-slurp-all
+   `Read stdout and stderr of subprocess and return it trimmed in a struct with :err and :out containing the output as string.
+   This will also return the exit code under the :status key.`
+   [& args]
+   (def proc (os/spawn args :p {:out :pipe :err :pipe}))
+   (def out (get proc :out))
+   (def err (get proc :err))
+   (def out-buf @"")
+   (def err-buf @"")
+   (var status 0)
+   (ev/gather
+     (:read out :all out-buf)
+     (:read err :all err-buf)
+     (set status (:wait proc)))
+   {:err (string/trimr err-buf)
+    :out (string/trimr out-buf)
+    :status status})
+
 (defn rm
   "Remove a directory and all sub directories recursively."
   [path]
