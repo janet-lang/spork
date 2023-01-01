@@ -101,7 +101,7 @@
     (when (and (not (exists? file-path))
                (not (exists? parent-path)))
       (create-dirs parent-path)))
-  (file/open file-path :w))
+  (file/open file-path mode))
 
 (defn copy-file
   "Copy a file from source to destination. Creates all directories in the path
