@@ -8,6 +8,7 @@
 (def w (zip/write-file "tmp/out.zip"))
 (zip/add-bytes w "file.txt" file-contents)
 (zip/writer-finalize w)
+(zip/writer-close w)
 
 (def r (zip/read-file "tmp/out.zip"))
 (def bytes (zip/extract r "file.txt"))
