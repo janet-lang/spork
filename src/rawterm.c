@@ -41,8 +41,8 @@ static JANET_THREAD_LOCAL bool at_exit_set = false;
 /* Per-Platform Implementation */
 
 #ifdef JANET_WINDOWS
-
 #include <windows.h>
+#include <io.h>
 
 static void rawterm_at_exit(void);
 
