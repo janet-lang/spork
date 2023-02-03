@@ -3,6 +3,7 @@
 ###
 
 (import ./htmlgen)
+(import ./misc)
 
 (defdyn *front-matter* "Dynamic binding to front matter after parsing, compilation, and evaluation, of markup completes.")
 (defdyn *markup-dom* "The htmlgen source that can be used to generate a document with htmlgen/html.")
@@ -170,7 +171,7 @@
                     "}"))
 
     # Main rule: Front matter -> Top level nodes and markup
-    :main (* 
+    :main (*
             (+ :front (error "bad front-matter"))
             "---"
             :top-level
@@ -185,7 +186,10 @@
 ###
 
 (each tag ["ul" "ol" "li" "p" "em" "strong" "u" "pre" "sub" "sup" "tr" "td" "th" "div"]
-  (defglobal tag (fn [content] [tag {} ;content])))
+  (setdyn (symbol tag)
+          @{:doc (string "Make a " tag " element")
+            :value (fn [content]
+                     [(keyword tag) {} (misc/cond-> content (indexed? content) splice)])}))
 
 (defn tag
   "Wrap some content in an html tag. If you need attributes or other properties,
@@ -198,9 +202,20 @@
   []
   [:hr])
 
-(defn bigger [content] [:span {"style" "font-size:1.61803398875em;"} content])
-(defn smaller [content] [:span {"style" "font-size:0.61803398875em;"} content])
-(defn code [content] [:code {"class" "mendoza-code"} content])
+(defn bigger
+  "Make span element with bigger font"
+  [content]
+  [:span {"style" "font-size:1.61803398875em;"} content])
+
+(defn smaller
+  "Make span element with smaller font"
+  [content]
+  [:span {"style" "font-size:0.61803398875em;"} content])
+
+(defn code
+  "Make code element with class mendoza-code"
+  [content]
+  [:code {"class" "mendoza-code"} content])
 
 (defn anchor
   "Create an in-page anchor for a local link."
@@ -219,13 +234,14 @@
   [:section {"name" name} content])
 
 (defn blockquote
-  "Define a block quote"
+  "Make a block quote element"
   [content]
   [:blockquote content])
 
 (defn image
+  "Make an image element"
   [src alt]
-  [:img {"src" src} alt])
+  [:img {:src src :alt alt}])
 
 (defn center
   "Center some content"
@@ -287,6 +303,7 @@
 ###
 
 (defn mdz-loader
+  "Loader for the mdz format"
   [path &]
   (def env (markup (slurp path) nil path))
   (put env 'markup-dom @{:value (get env *markup-dom*)})
