@@ -110,7 +110,7 @@
   (def buf-size 4096)
   (def buf (buffer/new buf-size))
   (with [src (file/open src-path :rb)]
-    (with [dst (make-new-file dst-path)]
+    (with [dst (make-new-file dst-path :wb)]
       (while (def bytes (file/read src buf-size buf))
         (file/write dst bytes)
         (buffer/clear buf)))))
