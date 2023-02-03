@@ -38,7 +38,9 @@
   [&opt name]
   (default name (dyn :current-file))
   (set suite-num name)
-  (set start-time (os/clock)))
+  (set start-time (os/clock))
+  (set num-tests-passed 0)
+  (set num-tests-run 0))
 
 (defn end-suite
   "Ends test suite, prints summary and exits if any have failed."
