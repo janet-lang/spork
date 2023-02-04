@@ -54,15 +54,17 @@
   readable way, with padding and heading information. Can optionally provide
   a function use to print a row, as well as optionally select column keys
   for each row. Lastly, a `header-mapping` dictionary can be provided that
-  changes the printed header names my mapping column keys to the desired
+  changes the printed header names by mapping column keys to the desired
   header name. If no mapping is found, then the column key will be used as
   the header name. Returns nil.
   ```
-  [data &opt columns header-mapping]
+  [data &opt columns header-mapping column-mapping]
   (var colkeys columns)
   (def column-widths @{})
   (def processed @[])
   (default header-mapping {})
+  (default column-mapping {})
+  (def pass-through (fn [x _] x))
 
   # Preprocess rows
   (each row data
@@ -70,7 +72,8 @@
       (set colkeys (sorted (keys row))))
     (def newrow @[])
     (each key colkeys
-      (def item (string (in row key)))
+      (def process (get column-mapping key pass-through))
+      (def item (string (process (in row key) row)))
       (set (column-widths key) (max (length item) (get column-widths key 0)))
       (array/push newrow item))
     (array/push processed newrow))
@@ -82,26 +85,44 @@
 
   # Generate format string
   (var bar-width 0)
-  (def fbuf @"")
+  (def fbuf @"│")
   (each key colkeys
     (def width (+ 2 (get column-widths key 6)))
     (+= bar-width width)
-    (buffer/push fbuf "%" (string width) "s"))
+    (buffer/push fbuf "%" (string (- width 2)) "s│"))
   (def format-string (string fbuf))
 
   # Print header
+  (def topbuf @"╭")
+  (def hbuf   @"│")
+  (def midbuf @"╞")
+  (def botbuf @"╰")
   (each key colkeys
     (def header (get header-mapping key key))
-    (def str
-      (string header
-              (string/repeat " " (- (column-widths key) (length header) -2))))
-    (prin str))
-  (print)
-  (print (string/repeat "═" bar-width))
+    (def len (length header))
+    (def width (get column-widths key))
+    (def bar (string/repeat "─" len))
+    (def dbar (string/repeat "═" len))
+    (buffer/push topbuf bar "┬")
+    (buffer/push botbuf bar "┴")
+    (buffer/push midbuf dbar "╪")
+    (buffer/push hbuf
+      (string/repeat " " (- width len))
+      header
+      "│"))
+  (buffer/popn topbuf 3)
+  (buffer/popn midbuf 3) 
+  (buffer/popn botbuf 3) # 3 bytes, 1 char
+  (buffer/push topbuf "╮")
+  (buffer/push midbuf "╡")
+  (buffer/push botbuf "╯")
 
-  # Finally body
+  (print topbuf)
+  (print hbuf)
+  (print midbuf)
   (each row processed
-    (printf format-string ;row)))
+    (printf format-string ;row))
+  (print botbuf))
 
 (defn- default-traversal-predicate
   [x]

@@ -30,4 +30,19 @@
 
 (assert (= (misc/trim-suffix "🗲" "🗲this-is-a-unicode-test🗲🗲") "🗲this-is-a-unicode-test🗲"))
 
+#misc/print-table
+(def output
+  (misc/capout
+    (misc/print-table [{"aaaa" 1 "b" 2} {"aaaa" 4 "b" 5}] ["aaaa" "b" "b" "b" "b"])))
+(def expected
+  ```
+╭────┬─┬─┬─┬─╮
+│aaaa│b│b│b│b│
+╞════╪═╪═╪═╪═╡
+│   1│2│2│2│2│
+│   4│5│5│5│5│
+╰────┴─┴─┴─┴─╯
+  ```)
+(assert (= (-> output string/trim) (-> expected string/trim)))
+
 (end-suite)

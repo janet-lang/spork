@@ -260,34 +260,25 @@
   state)
 
 (defn listen
-  "Start server. Will run on multiple-threads if n-workers > 1."
+  "Start server"
   [server &opt host port n-workers]
   (default host "0.0.0.0")
   (default port "8000")
-  (default n-workers 1)
-
   (def on-connection (get server :on-connection))
-
-  (if (> n-workers 1)
-    (do
-      (defn thread-main
-        [tid &]
-        (def s (net/listen host port))
-        (eprintf "thread %V server listening on %V:%V..." tid host port)
-        (net/accept-loop s on-connection)
-        (eprint "server closed on thread " tid))
-      (ev-utils/multithread-service thread-main n-workers))
-    (do
-      # Ensure env table is set in connection handler
-      (unless (curenv) (fiber/setenv (fiber/current) @{}))
-      (def cur (curenv))
-      (eprintf "listening on %V:%V..." host port)
-      (def s (net/listen host port))
-      (put server :server s)
-      (put server :close (fn close [svr] (:close s) svr))
-      (net/accept-loop s
-                       (fn [conn]
-                         (fiber/setenv (fiber/current) cur)
-                         (on-connection conn)))
-      (print "server closed"))))
+  (unless (curenv) (fiber/setenv (fiber/current) @{}))
+  (def cur (curenv))
+  (eprintf "listening on %V:%V..." host port)
+  (def s (net/listen host port))
+  (put server :server s)
+  (put server :close (fn close [svr] (:close s) svr))
+  (defer (:close s) # handle ev/cancel gracefully
+    (case n-workers
+      nil (net/accept-loop s (fn [conn] (fiber/setenv (fiber/current) cur) (on-connection conn)))
+      1 (forever (on-connection (net/accept s)))
+      (let [n (ev-utils/nursery)
+            q (ev/chan 1)]
+        (ev-utils/spawn-nursery n (forever (ev/give q (net/accept s))))
+        (repeat n-workers (ev-utils/spawn-nursery n (forever (on-connection (ev/take q)))))
+        (ev-utils/join-nursery n))))
+  (print "server closed"))
 

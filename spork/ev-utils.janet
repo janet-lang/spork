@@ -4,6 +4,11 @@
 ### Module for parallel execution utilities with Janet.
 ###
 
+(defmacro wait-cancel
+  "Wait forever until the current fiber is canceled, and then run some cleanup code."
+  [& body]
+  ((identity defer) ~(do ,;body) ~(while true (,ev/sleep 1024))))
+
 (defn nursery
   "Group a number of fibers into a single object for structured concurrency"
   []
@@ -15,7 +20,7 @@
   (def super (get nurse :supervisor))
   (def fibs (get nurse :fibers))
   (def fib (ev/go f value super))
-  (put fibs fib fib))
+  (set (fibs fib) fib))
 
 (defmacro spawn-nursery
   "Similar to ev/spawn but associate spawned fibers with a nursery"
@@ -27,23 +32,25 @@
   [nurse]
   (def fibs (get nurse :fibers))
   (def super (get nurse :supervisor))
-  (while (next fibs)
-    (def [sig fiber] (ev/take super))
-    (if (= sig :ok)
-      (put fibs fiber nil)
-      (do
-        (each f fibs (ev/cancel f "sibling canceled"))
-        (propagate (fiber/last-value fiber) fiber)))))
+  (defer (each f fibs (ev/cancel f "parent canceled"))
+    (while (next fibs)
+      (def [sig fiber] (ev/take super))
+      (if (= sig :ok)
+        (put fibs fiber nil)
+        (do
+          (each f fibs (ev/cancel f "sibling canceled") (put fibs fiber nil))
+          (propagate (fiber/last-value fiber) fiber))))))
 
 (defn- join
   "Special case of supervise for implementing some parallel functions."
   [supervisor fibers]
-  (repeat (length fibers)
-    (def [sig fiber] (ev/take supervisor))
-    (unless (= sig :ok)
-      (do
-        (each f fibers (ev/cancel f "sibling canceled"))
-        (propagate (fiber/last-value fiber) fiber)))))
+  (defer (each f fibers (ev/cancel f "parent canceled"))
+    (repeat (length fibers)
+      (def [sig fiber] (ev/take supervisor))
+      (unless (= sig :ok)
+        (do
+          (each f fibers (ev/cancel f "sibling canceled"))
+          (propagate (fiber/last-value fiber) fiber))))))
 
 (defn pcall
   "Call a function n times (in parallel) for side effects.
@@ -53,8 +60,8 @@
   (def chan (ev/chan))
   (def new-f (if (function? f) f (fn [x] (f x))))
   (join chan
-    (seq [i :range [0 n]]
-      (ev/go (fiber/new new-f :tp) i chan))))
+        (seq [i :range [0 n]]
+          (ev/go (fiber/new new-f :tp) i chan))))
 
 (defn pmap-full
   "Function form of `ev/gather`. If any of the
@@ -64,8 +71,8 @@
   (def chan (ev/chan))
   (def res (if (dictionary? data) @{} @[]))
   (join chan
-    (seq [[i x] :pairs data]
-      (ev/go (fiber/new (fn [] (put res i (f x))) :tp) nil chan)))
+        (seq [[i x] :pairs data]
+          (ev/go (fiber/new (fn [] (put res i (f x))) :tp) nil chan)))
   res)
 
 (defn pmap-limited

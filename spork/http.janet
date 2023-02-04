@@ -364,6 +364,7 @@
     (def elapsed (string/format "%.3f" (* 1000 (- end-clock start-clock))))
     (def status (or (get ret :status) 200))
     (print method " " status " " path " elapsed " elapsed "ms")
+    (flush)
     ret))
 
 (def cookie-grammar

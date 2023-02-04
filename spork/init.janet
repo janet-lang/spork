@@ -19,6 +19,7 @@
 (import ./regex :export true)
 (import ./rpc :export true)
 (import ./schema :export true)
+(import ./services :export true)
 (import ./sh :export true)
 (import ./tasker :export true)
 (import ./temple :export true)

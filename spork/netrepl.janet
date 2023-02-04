@@ -122,22 +122,25 @@
   [&opt host port env cleanup welcome-msg]
   (default host default-host)
   (default port default-port)
-  (print "Starting networked repl server on " host ", port " port "...")
+  (eprint "Starting networked repl server on " host ", port " port "...")
   (def name-set @{})
   (net/server
     host port
     (fn repl-handler [stream]
       (var name "<unknown>")
+      (var early-exit false)
+      (var last-flush 0)
+      (var cc nil)
       (def outbuf @"")
       (defn wrapio [f] (fn [& a] (with-dyns [:out outbuf :err outbuf] (f ;a))))
       (defer (do
                (:close stream)
                (put name-set name nil)
-               (print "closing client " name)
+               (set early-exit true)
+               (eprint "closing client " name)
                (when cleanup (cleanup stream)))
         (def recv (make-recv stream))
         (def send (make-send stream))
-        (def sync-chan (ev/chan 2))
         (var auto-flush false)
 
         # Get name and client settings
@@ -154,7 +157,7 @@
         (while (get name-set name)
           (set name (string name "_")))
         (put name-set name true)
-        (print "client " name " connected")
+        (eprint "client " name " connected")
         (def e (coerce-to-env env name stream))
         (def p (parser/new))
 
@@ -169,13 +172,30 @@
                     "\xFF%s"
                     msg))))
 
-        (defn flush1
-          "Write stdout and stderr back to client if there is something to write."
+        (defn interrupt
+          "Connection closed or similar, get out asap to avoid wasting time computing things"
           []
-          (when (next outbuf)
+          (set early-exit true)
+          (when cc (ev/cancel cc "interrupt") (set cc nil)))
+
+        (defn flush1
+          "Write stdout and stderr back to client if there is something to write or enough time has passed."
+          []
+          (when early-exit (break))
+          (def now (os/clock))
+          (when (or (next outbuf) (< (+ 2 last-flush) now))
             (def msg (string "\xFF" outbuf))
             (buffer/clear outbuf)
-            (send msg)))
+            (send msg)
+            (set last-flush now)))
+
+        (defn flusher
+          "Flush until canceled, or early exit."
+          [&]
+          (ev/sleep 0)
+          (while (not early-exit)
+            (flush1)
+            (ev/sleep 0.1)))
 
         (var is-first true)
         (defn getline-async
@@ -207,6 +227,7 @@
           ret)
         (defn chunk
           [buf p]
+          (when early-exit (break buf))
           (def delim (parser/state p :delimiters))
           (def lno ((parser/where p) 0))
           (getline-async (string name ":" lno ":" delim  " ") buf))
@@ -221,21 +242,15 @@
                (fn [x &]
                  (setdyn :out outbuf)
                  (setdyn :err outbuf)
+                 (def super (ev/chan 1)) # dud channel to prevent errors in logs
                  (if auto-flush
                    (do
-                     (var evaling true)
-                     (defn flusher
-                       [&]
-                       (ev/sleep 0) # initial sleep so fast in the default case
-                       (while evaling
-                         (flush1)
-                         (ev/sleep 0.1))
-                       (flush1))
-                     (ev/go flusher nil sync-chan)
-                     (def result (x))
-                     (set evaling false)
-                     (ev/take sync-chan) # sync with flusher
-                     result)
+                     (def f (ev/go flusher nil super))
+                     (set cc (fiber/root))
+                     (defer (ev/cancel f "form evaluated")
+                       (def result (x))
+                       (unless early-exit (flush1))
+                       result))
                    (x)))
              :source "repl"
              :parser p})

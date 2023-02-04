@@ -115,7 +115,8 @@
       (print reqdoc))
     (unless (empty? opdoc)
       (print " Optional:")
-      (print opdoc)))
+      (print opdoc))
+    (flush))
 
   # Handle an option
   (defn handle-option
