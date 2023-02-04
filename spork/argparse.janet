@@ -14,7 +14,7 @@
 
 (defn argparse
   ```
-  Parse `(get options :args (dyn :args))` according to options. If the arguments are incorrect,
+  Parse `(dyn :args)` according to options. If the arguments are incorrect,
   will return nil and print usage information.
 
   Each option is a table or struct that specifies a flag or option
@@ -65,7 +65,7 @@
 
   # Results table and other things
   (def res @{:order @[]})
-  (def args (get options :args (dyn :args)))
+  (def args (dyn :args))
   (def arglen (length args))
   (var scanning true)
   (var bad false)
