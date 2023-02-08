@@ -360,24 +360,24 @@
   (fn linear-regression-line [x]
     (+ b (* m x))))
 
-(defn check-propability
+(defn check-probability
   "Asserts that probability in in the [0 1] range."
   [p]
-  (assert (<= 0 p 1) "propability must be between 0 and 1"))
+  (assert (<= 0 p 1) "probability must be between 0 and 1"))
 
 (defn bernoulli-distribution
   "Creates Bernoulli distribution from popability `p` in the tuple."
   [p]
-  (check-propability p)
+  (check-probability p)
   [(- 1 p) p])
 
 (defn binominal-distribution
   ```
   Creates binominal distribution from trials `t`
-  and propability `p` in the tuple.
+  and probability `p` in the tuple.
   ```
   [t p]
-  (check-propability p)
+  (check-probability p)
   (var x 0)
   (var cp 0)
   (var bc 1)
