@@ -1,7 +1,7 @@
 (use ../spork/test)
 (import ../spork/misc)
 
-(start-suite 1)
+(start-suite)
 
 #misc/dedent
 (assert (= (misc/dedent "  a\n    b\n   c\n     d") "a\n  b\n c\n   d") "dedent")
@@ -44,5 +44,19 @@
 ╰────┴─┴─┴─┴─╯
   ```)
 (assert (= (-> output string/trim) (-> expected string/trim)))
+
+(def output2
+  (misc/capout
+    (misc/print-table [{"title" "你好世界" "value" 3} {"title" "小苹果" "value" 4}])))
+(def expected2
+  ```
+╭────────┬─────╮
+│  title │value│
+╞════════╪═════╡
+│你好世界│    3│
+│  小苹果│    4│
+╰────────┴─────╯
+  ```)
+(assert (= (-> output2 string/trim) (-> expected2 string/trim)))
 
 (end-suite)

@@ -4,6 +4,8 @@
 ### One-off functions that don't need their own module.
 ###
 
+(import spork/rawterm)
+
 (defn dedent
   ```
   Remove indentation after concatenating the arguments. Works by removing
@@ -48,6 +50,87 @@
     (array/push code (tuple 'set t (in syms i))))
   (tuple ;code))
 
+(defn format-table
+  ```
+  Same as print-table but pushes table into a buffer.
+  ```
+  [buf-into data &opt columns header-mapping column-mapping]
+  (var colkeys columns)
+  (def column-widths @{})
+  (def processed @[])
+  (default header-mapping {})
+  (default column-mapping {})
+  (def pass-through (fn [x _] x))
+
+  # preprocess rows
+  (each row data
+    (unless colkeys
+      (set colkeys (sorted (keys row))))
+    (def newrow @[])
+    (each key colkeys
+      (def process (get column-mapping key pass-through))
+      (def item (string (process (get row key) row)))
+      (set (column-widths key) (max (rawterm/monowidth item) (get column-widths key 0)))
+      (array/push newrow item))
+    (array/push processed newrow))
+
+  # apply width of header names
+  (def final-widths @[])
+  (each key colkeys
+    (def header (get header-mapping key key))
+    (def final-width (max (rawterm/monowidth header) (get column-widths key 0)))
+    (array/push final-widths final-width)
+    (set (column-widths key) final-width))
+  (def max-cell-width (extreme > final-widths))
+
+  # build horizontal bars
+  (def topbuf (or buf-into @""))
+  (buffer/push topbuf "╭")
+  (def hbuf   @"│")
+  (def midbuf @"╞")
+  (def botbuf @"╰")
+  (each key colkeys
+    (def header (get header-mapping key key))
+    (def len (rawterm/monowidth header))
+    (def width (get column-widths key))
+    (def whitespace (- width len))
+    (def before (math/ceil (* 0.5 whitespace)))
+    (def after (- whitespace before))
+    (def bar (string/repeat "─" width))
+    (def dbar (string/repeat "═" width))
+    (buffer/push topbuf bar "┬")
+    (buffer/push botbuf bar "┴")
+    (buffer/push midbuf dbar "╪")
+    (repeat before (buffer/push hbuf " "))
+    (buffer/push hbuf header)
+    (repeat after (buffer/push hbuf " "))
+    (buffer/push hbuf "│"))
+  (buffer/popn topbuf 3)
+  (buffer/popn midbuf 3) 
+  (buffer/popn botbuf 3) # 3 bytes, 1 char
+  (buffer/push topbuf "╮\n")
+  (buffer/push midbuf "╡\n")
+  (buffer/push botbuf "╯")
+  (buffer/push hbuf "\n")
+
+  # build large buffer
+  (buffer/push topbuf hbuf midbuf)
+  (each row processed
+    (buffer/push topbuf "│")
+    (forv i 0 (length row)
+      (def item (in row i))
+      (def width (in final-widths i))
+      (def len (rawterm/monowidth item))
+      (buffer/push
+        topbuf
+        (string/repeat " " (- width len))
+        item
+        "│"))
+    (buffer/push topbuf "\n"))
+  (buffer/push topbuf botbuf)
+  topbuf)
+
+
 (defn print-table
   ```
   Iterate through the rows of a data structure and print a table in a human
@@ -59,70 +142,7 @@
   the header name. Returns nil.
   ```
   [data &opt columns header-mapping column-mapping]
-  (var colkeys columns)
-  (def column-widths @{})
-  (def processed @[])
-  (default header-mapping {})
-  (default column-mapping {})
-  (def pass-through (fn [x _] x))
-
-  # Preprocess rows
-  (each row data
-    (unless colkeys
-      (set colkeys (sorted (keys row))))
-    (def newrow @[])
-    (each key colkeys
-      (def process (get column-mapping key pass-through))
-      (def item (string (process (in row key) row)))
-      (set (column-widths key) (max (length item) (get column-widths key 0)))
-      (array/push newrow item))
-    (array/push processed newrow))
-
-  # Apply width of header names
-  (each key colkeys
-    (def header (get header-mapping key key))
-    (set (column-widths key) (max (length header) (get column-widths key 0))))
-
-  # Generate format string
-  (var bar-width 0)
-  (def fbuf @"│")
-  (each key colkeys
-    (def width (+ 2 (get column-widths key 6)))
-    (+= bar-width width)
-    (buffer/push fbuf "%" (string (- width 2)) "s│"))
-  (def format-string (string fbuf))
-
-  # Print header
-  (def topbuf @"╭")
-  (def hbuf   @"│")
-  (def midbuf @"╞")
-  (def botbuf @"╰")
-  (each key colkeys
-    (def header (get header-mapping key key))
-    (def len (length header))
-    (def width (get column-widths key))
-    (def bar (string/repeat "─" len))
-    (def dbar (string/repeat "═" len))
-    (buffer/push topbuf bar "┬")
-    (buffer/push botbuf bar "┴")
-    (buffer/push midbuf dbar "╪")
-    (buffer/push hbuf
-      (string/repeat " " (- width len))
-      header
-      "│"))
-  (buffer/popn topbuf 3)
-  (buffer/popn midbuf 3) 
-  (buffer/popn botbuf 3) # 3 bytes, 1 char
-  (buffer/push topbuf "╮")
-  (buffer/push midbuf "╡")
-  (buffer/push botbuf "╯")
-
-  (print topbuf)
-  (print hbuf)
-  (print midbuf)
-  (each row processed
-    (printf format-string ;row))
-  (print botbuf))
+  (print (format-table @"" data columns header-mapping column-mapping)))
 
 (defn- default-traversal-predicate
   [x]

@@ -5,33 +5,39 @@
 (var suite-num 0)
 (var start-time 0)
 
-(defn assert
+(def- tests-passed-ref (get (dyn 'num-tests-passed) :ref))
+(def- tests-run-ref (get (dyn 'num-tests-run) :ref))
+
+(defmacro assert
   "Override's the default assert with some nice error handling."
   [x &opt e]
-  (default e "assert error")
-  (++ num-tests-run)
-  (if x (++ num-tests-passed))
-  (unless x
-    (prin "\e[31m✘\e[0m  ")
-    (print e))
-  x)
+  (default e (string/format "%j" (dyn :macro-form)))
+  (def xx (gensym))
+  ~(do
+     (++ (',tests-run-ref 0))
+     (def ,xx ,x)
+     (if ,xx (++ (',tests-passed-ref 0)))
+     (as-macro ,unless ,xx
+       (,prin "\e[31m✘\e[0m  ")
+       (,print ,e))
+     ,xx))
 
-(defn assert-not
+(defmacro assert-not
   "Invert assert."
   [x &opt e]
-  (assert (not x) e))
+  ~(as-macro ,assert (,not ,x) ,e))
 
 (defmacro assert-error
   "Test passes if forms error."
   [msg & forms]
   (def errsym (gensym))
-  ~(,assert (= ',errsym (try (do ,;forms) ([_] ',errsym))) ,msg))
+  ~(as-macro ,assert (,= ',errsym (as-macro ,try (do ,;forms) ([_] ',errsym))) ,msg))
 
 (defmacro assert-no-error
   "Test passes if forms do not error."
   [msg & forms]
   (def errsym (gensym))
-  ~(,assert (not= ',errsym (try (do ,;forms) ([_] ',errsym))) ,msg))
+  ~(as-macro ,assert (,not= ',errsym (as-macro ,try (do ,;forms) ([_] ',errsym))) ,msg))
 
 (defn start-suite
   "Starts test suite."

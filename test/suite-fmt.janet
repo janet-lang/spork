@@ -1,7 +1,7 @@
 (use ../spork/test)
 (import ../spork/fmt)
 
-(start-suite 0)
+(start-suite)
 
 # only testing format-print as other fns are dependent on it
 (do
