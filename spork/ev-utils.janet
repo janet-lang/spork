@@ -7,7 +7,7 @@
 (defmacro wait-cancel
   "Wait forever until the current fiber is canceled, and then run some cleanup code."
   [& body]
-  ((identity defer) ~(do ,;body) ~(while true (,ev/sleep 1024))))
+  ~(as-macro ,defer (do ,;body) (while true (,ev/sleep 1024))))
 
 (defn nursery
   "Group a number of fibers into a single object for structured concurrency"
@@ -49,7 +49,7 @@
       (def [sig fiber] (ev/take supervisor))
       (unless (= sig :ok)
         (do
-          (each f fibers (ev/cancel f "sibling canceled"))
+          (each f fibers (ev/cancel f "sibling canceled") (put fibers f nil))
           (propagate (fiber/last-value fiber) fiber))))))
 
 (defn pcall
