@@ -11,10 +11,6 @@
 ### subset of valid C 99.
 ###
 
-(defmacro- setfn
-  [name & body]
-  ~(set ,name (fn ,name ,;body)))
-
 (def- mangle-peg
   (peg/compile
     ~{:valid (range "az" "AZ" "__")
@@ -24,11 +20,12 @@
 (def- bops
  {'+ '+ '- '- '* '* '/ '/ '% '% '< '<
   '> '> '<= '<= '>= '>= '== '== '!= '!=
+  'not= "!="
   '>> ">>" '<< "<<" '&& "&&" '^ "^"
-  'and "&&" 'or "||" 'band "&" 'bor "|" 'bxor "^"
+  'and "&&" 'or "||" 'band "&" 'bor "|" 'bxor "^" 'set "="
   'blshift "<<" 'brshift ">>"})
 
-(def- uops {'bnot "~" 'not "!" 'neg "-" '! "!"})
+(def- uops {'bnot "~" 'not "!" 'neg "-" '! "!" '++ "++" '-- "--"})
 
 (defn mangle
   "Convert any sequence of bytes to a valid C identifier in a way that is unlikely to collide.
@@ -176,8 +173,7 @@
   (prin "]")
   (if-not alias (prin ")")))
 
-(setfn
-  emit-type
+(varfn emit-type
   [definition &opt alias]
   (match definition
     (d (bytes? d)) (do (prin d) (if alias (prin " " alias)))
@@ -292,8 +288,7 @@
     (emit-expression x true))
   (prin "}"))
 
-(setfn
-  emit-expression
+(varfn emit-expression
   [form &opt noparen]
   (match form
     (f (or (symbol? f) (keyword? f))) (prin f)
@@ -341,8 +336,7 @@
     (prin " = ")
     (emit-expression value true)))
 
-(setfn
-  emit-statement
+(varfn emit-statement
   [form]
   (match form
     ['def & args] (emit-declaration ;args)
@@ -389,6 +383,21 @@
     (emit-do [stm ;body]))
   (print))
 
+(defn- emit-for
+  [init cond step body]
+  (emit-indent)
+  (prin "for (")
+  (emit-expression init true)
+  (prin "; ")
+  (emit-expression cond true)
+  (prin "; ")
+  (emit-expression step true)
+  (prin ") ")
+  (if (empty? body)
+    (emit-block body)
+    (emit-do [body ;body]))
+  (print))
+
 (defn- emit-return
   [v]
   (emit-indent)
@@ -396,14 +405,14 @@
   (emit-expression v true)
   (print ";"))
 
-(setfn
-  emit-block
+(varfn emit-block
   [form &opt nobracket]
   (unless nobracket
     (emit-block-start))
   (match form
     ['do & body] (emit-do body)
     ['while cond stm & body] (emit-while cond stm body)
+    ['for [init cond step] & body] (emit-for init cond step body)
     ['if & body] (emit-cond body)
     ['cond & body] (emit-cond body)
     ['return val] (emit-return val)
@@ -495,7 +504,7 @@
 
 (defmacro include
   [path]
-  ~(as-macro ,directive include ,path))
+  ~(as-macro ,preprocess include ,path))
 
 (defdyn *cfun-list* "Array of C Functions defined in the current scope")
 
