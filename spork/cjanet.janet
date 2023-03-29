@@ -1,6 +1,6 @@
 ###
 ### cjanet.janet
-### 
+###
 ### A DSL that compiles to C. Improved version of jpm/cgen
 ### that is more ammenable to Janet integration, macros,
 ### and meta-programming.
@@ -383,6 +383,33 @@
     (emit-do [stm ;body]))
   (print))
 
+(defn- int-literal? [x] (and (number? x) (= x (math/floor x))))
+
+(defn- emit-switch
+  [condition cases]
+  (emit-indent)
+  (prin "switch (")
+  (emit-expression condition true)
+  (prin ") ")
+  (emit-block-start)
+  (def case-pairs (partition 2 cases))
+  (each case-pair case-pairs
+    (emit-indent)
+    (def [case-value body] case-pair)
+    (if (= 1 (length case-pair))
+      (do
+        (print "default:")
+        (emit-block case-value true)
+        (print))
+      (do
+        (prin "case ")
+        (assert (int-literal? case-value) "case label must be integer literal")
+        (print case-value ":")
+        (emit-block body true)
+        (print))))
+  (emit-block-end)
+  (print))
+
 (defn- emit-for
   [init cond step body]
   (emit-indent)
@@ -413,6 +440,7 @@
     ['do & body] (emit-do body)
     ['while cond stm & body] (emit-while cond stm body)
     ['for [init cond step] & body] (emit-for init cond step body)
+    ['switch cond & body] (emit-switch cond body)
     ['if & body] (emit-cond body)
     ['cond & body] (emit-cond body)
     ['return val] (emit-return val)

@@ -5,6 +5,19 @@
 ### Use to implement a build system.
 ###
 
+(defn- cancel-all [fibers reason] (each f fibers (ev/cancel f reason) (put fibers f nil)))
+
+(defn- wait-for-fibers
+  [chan fibers]
+  (defer (cancel-all fibers "parent canceled")
+    (repeat (length fibers)
+      (def [sig fiber] (ev/take chan))
+      (if (= sig :ok)
+        (put fibers fiber nil)
+        (do
+          (cancel-all fibers "sibling canceled")
+          (propagate (fiber/last-value fiber) fiber))))))
+
 (defn- executor
   "How to execute a rule at runtime - extract the recipe thunk(s) and call them."
   [rule]
