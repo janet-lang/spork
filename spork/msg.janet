@@ -14,11 +14,6 @@
 # denoting length followed by a payload of length bytes.
 # An interrupted or incomplete message should be converted to nil.
 
-(defmacro- nilerr
-  "Coerce errors to nil."
-  [& body]
-  (apply try ~(do ,;body) [~([_] nil)]))
-
 (defn make-recv
   "Get a function that, when invoked, gets the next message from a readable stream.
   Provide an optional unpack function that will parse the received buffer."
@@ -27,11 +22,11 @@
   (default unpack string)
   (fn receiver []
     (buffer/clear buf)
-    (if-not (nilerr (:chunk stream 4 buf)) (break))
+    (if-not (:chunk stream 4 buf) (break))
     (def [b0 b1 b2 b3] buf)
     (def len (+ b0 (* b1 0x100) (* b2 0x10000) (* b3 0x1000000)))
     (buffer/clear buf)
-    (if-not (nilerr (:chunk stream len buf)) (break))
+    (if-not (:chunk stream len buf) (break))
     (unpack (string buf))))
 
 (defn make-send

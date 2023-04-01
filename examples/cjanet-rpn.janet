@@ -9,10 +9,10 @@
      (-- s)
      (set (aref stack (- s 1)) (,(symbol op) (aref stack s) (aref stack (- s 1))))))
 
-(c/function
-  rpn_calculator
-  "Simple calculator function"
-  [(command (const (* char)))] -> double
+(c/cfunction rpn
+             :static
+  "Simple RPN calculator"
+  [command:cstring] -> double
   (def (stack (array double 1024)))
   (def s:int 0)
   (def (c (* char)) command)
@@ -28,10 +28,5 @@
       (== x ,(chr `/`)) ,(make-binop :/))
     (if (== oldc c) (++ c)))
   (return (aref stack (- s 1))))
-        
-(c/cfunction rpn
-  "Simple RPN calculator"
-  [command:cstring]
-  (return (janet_wrap_number (rpn_calculator command))))
 
 (c/module-entry "my-module")

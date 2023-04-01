@@ -383,7 +383,7 @@
     (emit-do [stm ;body]))
   (print))
 
-(defn- int-literal? [x] (and (number? x) (= x (math/floor x))))
+(defn- case-literal? [x] (or (symbol? x) (and (number? x) (= x (math/floor x)))))
 
 (defn- emit-switch
   [condition cases]
@@ -403,7 +403,7 @@
         (print))
       (do
         (prin "case ")
-        (assert (int-literal? case-value) "case label must be integer literal")
+        (assert (case-literal? case-value) "case label must be integer literal or enum")
         (print case-value ":")
         (emit-block body true)
         (print))))
@@ -484,7 +484,7 @@
 (defn- do-function
   [name & form]
   (def i (index-of '-> form))
-  (assert i "invalid function prototype - expected -> found")
+  (assert i "invalid function prototype - expected -> before return type")
   (def ret-type (in form (+ i 1)))
   (def arglist (in form (- i 1)))
   (def classes @[])
@@ -527,7 +527,7 @@
 (defmacro block [& args] ~(,emit-do ,(qq-wrap args)))
 
 ###
-### Janet <-> glue utilities
+### Janet <-> C glue utilities
 ###
 
 (defmacro include
@@ -548,11 +548,78 @@
     :keyword ~(janet_ckeywordv ,x)
     (errorf "cannot emit literal %v" x)))
 
+(defn- return-wrap
+  "Generate code to convert return types to a janet value"
+  [T code]
+  (case (keyword T)
+    :value code
+    :any code
+    :Janet code
+    :number ~(janet_wrap_number ,code)
+    :double ~(janet_wrap_number ,code)
+    :float ~(janet_wrap_number ,code)
+    :int ~(janet_wrap_number ,code)
+    :nat ~(janet_wrap_number ,code)
+    :int32 ~(janet_wrap_number ,code)
+    :int64 ~(janet_wrap_s64 ,code)
+    :uint64 ~(janet_wrap_u64 ,code)
+    :size ~(janet_wrap_u64 ,code)
+    :fiber ~(janet_wrap_fiber ,code)
+    :array ~(janet_wrap_array ,code)
+    :tuple ~(janet_wrap_tuple ,code)
+    :table ~(janet_wrap_tuple ,code)
+    :struct ~(janet_wrap_struct ,code)
+    :string ~(janet_wrap_string ,code)
+    :cstring ~(janet_cstringv ,code)
+    :symbol ~(janet_wrap_symbol ,code)
+    :keyword ~(janet_wrap_keyword ,code)
+    :buffer ~(janet_wrap_buffer ,code)
+    :cfunction ~(janet_wrap_cfunction ,code)
+    :function ~(janet_wrap_function ,code)
+    :bool ~(janet_wrap_boolean ,code)
+    :pointer ~(janet_wrap_pointer ,code)
+    :asbtract ~(janet_wrap_abstract ,code)
+    (errorf "cannot convert type %v to a Janet return value")))
+
+
+(def- type-alias-to-ctype
+  {:value 'Janet
+   :any 'Janet
+   :Janet 'Janet
+   :number 'double
+   :double 'double
+   :float 'float
+   :int 'int
+   :nat 'int32_t
+   :int32 'int32_t
+   :int64 'int64_t
+   :uint64 'uint64_t
+   :size 'size_t
+   :fiber '(* JanetFiber)
+   :array '(* JanetArray)
+   :tuple 'JanetTuple
+   :table '(* JanetTable)
+   :struct 'JanetStruct
+   :string 'JanetString
+   :cstring '(const (* char))
+   :symbol 'JanetSymbol
+   :keyword 'JanetKeyword
+   :buffer '(* JanetBuffer)
+   :cfunction 'JanetCFunction
+   :function '(* JanetFunction)
+   :bool 'int
+   :pointer '(* void)
+   :bytes 'JanetByteView
+   :indexed 'JanetView
+   :dictionary 'JanetDictView})
+
 (defn- janet-get*
   "Get cjanet fragment to extract a given type T into an argument v. The
   parameter is expcted to be in the Janet * argv at index n, no bounds checking needed."
-  [binding argv n]
+  [binding argv n param-names cparams]
   (def [v T] (type-split binding))
+  (array/push param-names v)
+  (array/push cparams [v (get type-alias-to-ctype (keyword T) '(* void))])
   (case (keyword T)
     :value ~(def (,v Janet) (aref ,argv ,n))
     :any ~(def (,v Janet) (aref ,argv ,n))
@@ -576,7 +643,7 @@
     :symbol ~(def (,v JanetSymbol) (janet_getsymbol ,argv ,n))
     :keyword ~(def (,v JanetKeyword) (janet_getkeyword ,argv ,n))
     :buffer ~(def (,v (* JanetBuffer)) (janet_getbuffer ,argv ,n))
-    :cfunction ~(def (,v (* JanetCFunction)) (janet_getcfunction ,argv ,n))
+    :cfunction ~(def (,v JanetCFunction) (janet_getcfunction ,argv ,n))
     :function ~(def (,v (* JanetFunction)) (janet_getfunction ,argv ,n))
     :bool ~(def (,v int) (janet_getboolean ,argv ,n))
     :pointer ~(def (,v (* void)) (janet_getpointer ,argv ,n))
@@ -591,8 +658,10 @@
   "Get cjanet fragment to extract optional parameters. Similar to non-optional parameters
   but with some differences - for example, container types must provide a default size. Not
   all psuedo-types are supported as optional."
-  [binding argv argc n]
+  [binding argv argc n param-names cparams]
   (def [v T dflt] (type-split-dflt binding))
+  (array/push param-names v)
+  (array/push cparams [v (get type-alias-to-ctype (keyword T) '(* void))])
   (case (keyword T)
     :value ~(def (,v Janet) (? (> argc n) (aref ,argv ,n) ,(wrap-v dflt)))
     :any ~(def (,v Janet) (? (> argc n) (aref ,argv ,n) ,(wrap-v dflt)))
@@ -610,7 +679,7 @@
     :table ~(def (,v (* JanetTable)) (janet_opttable ,argv ,argc ,n ,dflt))
     :cstring ~(def (,v (const (* char))) (janet_optcstring ,argv ,argc ,n ,dflt))
     :buffer ~(def (,v (* JanetBuffer)) (janet_optbuffer ,argv ,argc ,n ,dflt))
-    :cfunction ~(def (,v (* JanetCFunction)) (janet_optcfunction ,argv ,argc ,n ,dflt))
+    :cfunction ~(def (,v JanetCFunction) (janet_optcfunction ,argv ,argc ,n ,dflt))
     :bool ~(def (,v int) (janet_optboolean ,argv ,argc ,n ,dflt))
     :pointer ~(def (,v (* void)) (janet_optpointer ,argv ,argc ,n ,dflt))
     (do
@@ -625,20 +694,26 @@
   ```
   [name & more]
   (def docstring @"")
-  (def len (length more))
-  (def kws @[])
-  (var params nil)
+  (def classes @[])
   (def signature (buffer "(" name))
-  (def body @[])
+  (def cparams @[])
+  (def param-names @[])
   (def cfun-list (if-let [x (dyn *cfun-list*)] x (setdyn *cfun-list* @[])))
-  (each el more
-    (if params
-      (array/push body el)
-      (case (type el)
-        :string (buffer/push docstring el)
-        :keyword (array/push kws el)
-        :tuple (set params el)
-        (errorf "unexpected value %v parsing function prototype" el))))
+
+  # parse more
+  (def i (index-of '-> more))
+  (assert i "invalid function prototype - expected -> before return type")
+  (def ret-type (in more (+ i 1)))
+  (def params (in more (- i 1)))
+  (each meta (slice more 0 (- i 1))
+    (case (type meta)
+      :keyword (array/push classes meta)
+      :symbol (array/push classes meta)
+      :string (buffer/push docstring meta)
+      (errorf "cannot handle metadata %v - expected keyword, symbol, or string." meta)))
+  (def body (tuple/slice more (+ 2 i)))
+
+  # Parse params
   (var pcount 0)
   (def argument-parsing @[])
   (var found-optional false)
@@ -650,17 +725,21 @@
         (array/push
           argument-parsing
           (if found-optional
-            (janet-opt* p 'argv 'argc i )
-            (janet-get* p 'argv i)))))
+            (janet-opt* p 'argv 'argc i param-names cparams)
+            (janet-get* p 'argv i param-names cparams)))))
     (buffer/format signature " %j" p))
   (def opt-index (index-of '&opt params))
   (def amp-index (index-of '& params))
   (def named-index (index-of '&named params))
   (def keys-index (index-of '&keys params))
-  # will ignore the nils since nil is "greater" than all numbers.
+  # will ignore the nils since nil is "greater" than all numbers by Janet's total ordering over values
   (def min-arity (or (min opt-index amp-index named-index keys-index) pcount))
   (def max-arity (if (or amp-index named-index keys-index) -1 pcount))
   (buffer/push signature ")")
+  # Generate function for use in C
+  (emit-function docstring classes name cparams (get type-alias-to-ctype (keyword ret-type))
+                 (eval (qq-wrap body)))
+  # Generate wrapper for use in Janet
   (def cfun_name (mangle (string "_generated_cfunction_" name)))
   (prin
     "\nJANET_FN(" cfun_name ", "
@@ -671,7 +750,7 @@
       ~(janet_fixarity argc ,min-arity)
       ~(janet_arity argc ,min-arity ,max-arity))
     ,;argument-parsing
-    ,;body)
+    (return ,(return-wrap ret-type [name ;param-names])))
   (array/push cfun-list ~(JANET_REG ,(string name) ,(symbol cfun_name)))
   cfun_name)
 
