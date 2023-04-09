@@ -47,11 +47,11 @@ and sample size `k`.
 @codeblock{(binominal-distribution t p)}
 
 Creates binominal distribution from trials `t`
-and propability `p` in the tuple.
+and probability `p` in the tuple.
 
-## check-propability
+## check-probability
 
-@codeblock{(check-propability p)}
+@codeblock{(check-probability p)}
 
 Asserts that probability in in the [0 1] range.
 
