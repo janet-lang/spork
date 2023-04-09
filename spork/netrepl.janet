@@ -104,7 +104,7 @@
     (print "exiting debug[" level "]")
     (flush)
     (nextenv :resume-value))
-  (fn [f x]
+  (fn on-signal [f x]
     (case (fiber/status f)
       :dead (do (put e '_ @{:value x}) (pp x))
       (if (e :debug)
@@ -230,14 +230,14 @@
              :on-compile-error (wrapio bad-compile)
              :on-parse-error (wrapio bad-parse)
              :evaluator
-             (fn [x &]
+             (fn evaluate-wrapped [x &]
                (setdyn :out outbuf)
                (setdyn :err outbuf)
                (if auto-flush
                  (do
                    (set keep-flushing true)
                    (def f (go-nursery nurse flusher))
-                   (edefer (ev/cancel f "form evaluated")
+                   (edefer (set keep-flushing false)
                      (def result (x))
                      (set keep-flushing false)
                      (flush1)

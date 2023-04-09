@@ -54,8 +54,9 @@
         # Spawn message consumer - the only fiber reading from socket
         (spawn-nursery
           n
-          (while (def msg (recv))
-            (ev/give in-queue msg))
+          (protect
+            (while (def msg (recv))
+              (ev/give in-queue msg)))
           (ev/chan-close out-queue)
           (ev/chan-close in-queue))
 
