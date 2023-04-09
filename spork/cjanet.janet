@@ -567,7 +567,7 @@
     :fiber ~(janet_wrap_fiber ,code)
     :array ~(janet_wrap_array ,code)
     :tuple ~(janet_wrap_tuple ,code)
-    :table ~(janet_wrap_tuple ,code)
+    :table ~(janet_wrap_table ,code)
     :struct ~(janet_wrap_struct ,code)
     :string ~(janet_wrap_string ,code)
     :cstring ~(janet_cstringv ,code)
