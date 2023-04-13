@@ -332,9 +332,11 @@
   [binding &opt value]
   (def [v vtype] (type-split binding))
   (emit-type vtype v)
-  (when (not= nil value)
-    (prin " = ")
-    (emit-expression value true)))
+  (if (not= nil value)
+    (do
+      (prin " = ")
+      (emit-expression value true))
+    (print ";")))
 
 (varfn emit-statement
   [form]
