@@ -581,7 +581,7 @@
     :bool ~(janet_wrap_boolean ,code)
     :pointer ~(janet_wrap_pointer ,code)
     :asbtract ~(janet_wrap_abstract ,code)
-    (errorf "cannot convert type %v to a Janet return value")))
+    (errorf "cannot convert type %v to a Janet return value" T)))
 
 
 (def- type-alias-to-ctype
