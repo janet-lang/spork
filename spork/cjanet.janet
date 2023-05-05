@@ -695,6 +695,7 @@
   or janet_fixarity).
   ```
   [name & more]
+  (def mangledname (symbol (mangle name)))
   (def docstring @"")
   (def classes @[])
   (def signature (buffer "(" name))
@@ -739,10 +740,10 @@
   (def max-arity (if (or amp-index named-index keys-index) -1 pcount))
   (buffer/push signature ")")
   # Generate function for use in C
-  (emit-function docstring classes name cparams (get type-alias-to-ctype (keyword ret-type))
+  (emit-function docstring classes mangledname cparams (get type-alias-to-ctype (keyword ret-type))
                  (eval (qq-wrap body)))
   # Generate wrapper for use in Janet
-  (def cfun_name (mangle (string "_generated_cfunction_" name)))
+  (def cfun_name (mangle (string "_generated_cfunction_" mangledname)))
   (prin
     "\nJANET_FN(" cfun_name ", "
     (string/format "%j" (string signature)) ", "
@@ -752,7 +753,7 @@
       ~(janet_fixarity argc ,min-arity)
       ~(janet_arity argc ,min-arity ,max-arity))
     ,;argument-parsing
-    (return ,(return-wrap ret-type [name ;param-names])))
+    (return ,(return-wrap ret-type [mangledname ;param-names])))
   (array/push cfun-list ~(JANET_REG ,(string name) ,(symbol cfun_name)))
   cfun_name)
 
