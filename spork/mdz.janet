@@ -3,7 +3,6 @@
 ###
 
 (import ./htmlgen)
-(import ./misc)
 
 (defdyn *front-matter* "Dynamic binding to front matter after parsing, compilation, and evaluation, of markup completes.")
 (defdyn *markup-dom* "The htmlgen source that can be used to generate a document with htmlgen/html.")
@@ -189,7 +188,7 @@
   (setdyn (symbol tag)
           @{:doc (string "Make a " tag " element")
             :value (fn [content]
-                     [(keyword tag) {} (misc/cond-> content (indexed? content) splice)])}))
+                     [(keyword tag) {} content])}))
 
 (defn tag
   "Wrap some content in an html tag. If you need attributes or other properties,
