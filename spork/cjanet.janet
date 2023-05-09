@@ -504,7 +504,8 @@
   (def v (last form))
   (when (next storage-classes)
     (emit-storage-classes storage-classes))
-  (emit-declaration binding v))
+  (emit-declaration binding v)
+  (print ";"))
 
 (defn- do-typedef
   [n d]
