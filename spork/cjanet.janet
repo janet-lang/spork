@@ -727,8 +727,8 @@
         (array/push
           argument-parsing
           (if found-optional
-            (janet-opt* p 'argv 'argc i param-names cparams)
-            (janet-get* p 'argv i param-names cparams)))))
+            (janet-opt* p 'argv 'argc (length argument-parsing) param-names cparams)
+            (janet-get* p 'argv (length argument-parsing) param-names cparams)))))
     (buffer/format signature " %j" p))
   (def opt-index (index-of '&opt params))
   (def amp-index (index-of '& params))
