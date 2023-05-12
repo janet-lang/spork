@@ -465,7 +465,8 @@
   (print)
   (emit-comment docstring)
   (emit-storage-classes classes)
-  (prin rtype " " name "(")
+  (emit-type rtype)
+  (prin " " name "(")
   (var is-first true)
   (each arg arglist
     (unless is-first (prin ", "))
