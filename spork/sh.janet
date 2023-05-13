@@ -120,7 +120,7 @@
   Expects input to be unix style paths`
   [src dest]
   (print "copying " src " to " dest "...")
-  (if (= (= :windows (os/which)))
+  (if (= :windows (os/which))
     (let [end (last (path/posix/parts src))
           isdir (= (os/stat src :mode) :directory)]
       (os/shell (string "C:\\Windows\\System32\\xcopy.exe"
