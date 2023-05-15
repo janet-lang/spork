@@ -446,7 +446,7 @@
   ~{:main (* :protocol :fqdn :port :path)
     :protocol "http://" # currently no https support
     :fqdn '(some (range "az" "AZ" "09" ".." "--"))
-    :port (+ (* ":" ':d+) (constant 80))
+    :port (+ (* ":" ':d+) (constant "80"))
     :path-chr (range "az" "AZ" "09" "!!" "$9" ":;" "==" "?@" "~~" "__")
     :path (+ '(some :path-chr) (constant "/"))})
 
@@ -472,7 +472,7 @@
   (assert x (string "invalid url: " url))
   (def [host port path] x)
   (def buf @"")
-  (buffer/format buf "%s %s HTTP/1.1\r\nHost: %s:%v\r\n" method path host port)
+  (buffer/format buf "%s %s HTTP/1.1\r\nHost: %s:%s\r\n" method path host port)
   (when headers
     (eachp [k v] headers
       (buffer/format buf "%s: %s\r\n" k v)))
