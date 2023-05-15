@@ -332,11 +332,9 @@
   [binding &opt value]
   (def [v vtype] (type-split binding))
   (emit-type vtype v)
-  (if (not= nil value)
-    (do
-      (prin " = ")
-      (emit-expression value true))
-    (print ";")))
+  (when (not= nil value)
+    (prin " = ")
+    (emit-expression value true)))
 
 (varfn emit-statement
   [form]
@@ -465,7 +463,8 @@
   (print)
   (emit-comment docstring)
   (emit-storage-classes classes)
-  (prin rtype " " name "(")
+  (emit-type rtype)
+  (prin " " name "(")
   (var is-first true)
   (each arg arglist
     (unless is-first (prin ", "))
@@ -506,7 +505,8 @@
   (def v (last form))
   (when (next storage-classes)
     (emit-storage-classes storage-classes))
-  (emit-declaration binding v))
+  (emit-declaration binding v)
+  (print ";"))
 
 (defn- do-typedef
   [n d]
@@ -581,7 +581,7 @@
     :bool ~(janet_wrap_boolean ,code)
     :pointer ~(janet_wrap_pointer ,code)
     :asbtract ~(janet_wrap_abstract ,code)
-    (errorf "cannot convert type %v to a Janet return value")))
+    (errorf "cannot convert type %v to a Janet return value" T)))
 
 
 (def- type-alias-to-ctype
@@ -695,6 +695,7 @@
   or janet_fixarity).
   ```
   [name & more]
+  (def mangledname (symbol (mangle name)))
   (def docstring @"")
   (def classes @[])
   (def signature (buffer "(" name))
@@ -727,8 +728,8 @@
         (array/push
           argument-parsing
           (if found-optional
-            (janet-opt* p 'argv 'argc i param-names cparams)
-            (janet-get* p 'argv i param-names cparams)))))
+            (janet-opt* p 'argv 'argc (length argument-parsing) param-names cparams)
+            (janet-get* p 'argv (length argument-parsing) param-names cparams)))))
     (buffer/format signature " %j" p))
   (def opt-index (index-of '&opt params))
   (def amp-index (index-of '& params))
@@ -739,10 +740,10 @@
   (def max-arity (if (or amp-index named-index keys-index) -1 pcount))
   (buffer/push signature ")")
   # Generate function for use in C
-  (emit-function docstring classes name cparams (get type-alias-to-ctype (keyword ret-type))
+  (emit-function docstring classes mangledname cparams (get type-alias-to-ctype (keyword ret-type))
                  (eval (qq-wrap body)))
   # Generate wrapper for use in Janet
-  (def cfun_name (mangle (string "_generated_cfunction_" name)))
+  (def cfun_name (mangle (string "_generated_cfunction_" mangledname)))
   (prin
     "\nJANET_FN(" cfun_name ", "
     (string/format "%j" (string signature)) ", "
@@ -752,7 +753,7 @@
       ~(janet_fixarity argc ,min-arity)
       ~(janet_arity argc ,min-arity ,max-arity))
     ,;argument-parsing
-    (return ,(return-wrap ret-type [name ;param-names])))
+    (return ,(return-wrap ret-type [mangledname ;param-names])))
   (array/push cfun-list ~(JANET_REG ,(string name) ,(symbol cfun_name)))
   cfun_name)
 
