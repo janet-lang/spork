@@ -10,8 +10,18 @@
   []
   (os/open (if (= :windows (os/which)) "NUL" "/dev/null") :rw))
 
+(defn exec
+  "Execute command specified by args returning it's exit code"
+  [& args]
+  (os/execute args :p))
+
+(defn exec-fail
+  "Execute command specified by args, fails when command exits with non-zero exit code"
+  [& args]
+  (os/execute args :px))
+
 (defn exec-slurp
-   "Read stdout of subprocess and return it trimmed in a string."
+   "Read stdout of command specified by args and return it trimmed in a string."
    [& args]
    (def proc (os/spawn args :px {:out :pipe}))
    (def out (get proc :out))
@@ -120,7 +130,7 @@
   Expects input to be unix style paths`
   [src dest]
   (print "copying " src " to " dest "...")
-  (if (= (= :windows (os/which)))
+  (if (= :windows (os/which))
     (let [end (last (path/posix/parts src))
           isdir (= (os/stat src :mode) :directory)]
       (os/shell (string "C:\\Windows\\System32\\xcopy.exe"
