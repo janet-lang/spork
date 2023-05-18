@@ -433,7 +433,7 @@ static const char *encode_one(Encoder *e, Janet x, int depth) {
                         if ((c[3] >> 6) != 2) goto invalidutf8;
                         codepoint = ((c[0] & 0x07) << 18) |
                             ((c[1] & 0x3F) << 12) |
-                            ((c[3] & 0x3F) << 6) |
+                            ((c[2] & 0x3F) << 6) |
                             (c[3] & 0x3F);
                         c += 4;
                     } else {
