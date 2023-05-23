@@ -160,7 +160,7 @@
   [s]
   (peg/match shlex-grammar s))
 
-(defn- quote1
+(defn- shell-quote
   [arg]
   (def buf (buffer/new (* (length arg) 2)))
   (buffer/push-string buf "'")
@@ -171,7 +171,7 @@
   (buffer/push-string buf "'")
   (string buf))
 
-(defn quote
+(defn escape
   "Output a string with all arguments correctly quoted"
   [& args]
-  (string/join (map quote1 args) " "))
+  (string/join (map shell-quote args) " "))
