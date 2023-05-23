@@ -158,7 +158,7 @@
   "Split a string into 'sh like' tokens, returns
    nil if unable to parse the string."
   [s]
-  (peg/match peg s))
+  (peg/match shlex-grammar s))
 
 (defn- quote1
   [arg]
