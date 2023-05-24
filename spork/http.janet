@@ -63,7 +63,8 @@
              :error))
       (break))
     (set last-index (max 0 (- (length buf) 4)))
-    (ev/read conn chunk-size buf))
+    (unless (ev/read conn chunk-size buf)
+      (error "end of stream")))
   head)
 
 (defn- query-string-accum
@@ -238,7 +239,8 @@
     (break pos))
   (prompt :exit
     (forever
-      (ev/read conn 1 buf)
+      (unless (ev/read conn 1 buf)
+        (error "end of stream"))
       (when-let [pos (peg/find needle buf start-index)]
         (return :exit pos)))))
 
@@ -288,7 +290,8 @@
         # from the socket directly.
         (do
           (ev/chunk conn chunk-length body)
-          (ev/read conn 2 buf) # trailing CRLF (not included in chunk length proper)
+          (unless (ev/read conn 2 buf) # trailing CRLF (not included in chunk length proper)
+            (error "end of stream"))
           # Clear buffer out. We ain't gonna need it no more.
           (buffer/clear buf)
           (set i 0))
