@@ -64,7 +64,8 @@
       (break))
     (set last-index (max 0 (- (length buf) 4)))
     (unless (ev/read conn chunk-size buf)
-      (error "end of stream")))
+      (set head :error)
+      (break)))
   head)
 
 (defn- query-string-accum
@@ -111,6 +112,7 @@
   stored in `:buffer.`"
   [conn buf &opt no-query]
   (def head (read-header conn buf request-peg :method :path))
+  (if (= :error head) (break head))
 
   # Parse query string separately
   (unless no-query
