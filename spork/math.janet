@@ -969,16 +969,16 @@
   (do-var
     res @[]
     (array/push res (array/slice s))
-    (var i 0)
+    (var i 1)
     (while (< i k)
       (if (< (c i) i)
         (do
-          (if (even? k)
+          (if (even? i)
             (swap s 0 i)
             (swap s (c i) i))
           (array/push res (array/slice s))
           (update c i inc)
-          (set i 0))
+          (set i 1))
         (do
           (put c i 0)
           (++ i))))))
