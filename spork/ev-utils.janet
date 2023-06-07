@@ -27,29 +27,39 @@
   [nurse & body]
   ~(,go-nursery ,nurse (fn _spawn [&] ,;body)))
 
+(defn- drain-fibers
+  "Canceling a group of fibers and wait for them all to complete."
+  [super fibers reason]
+  (each f fibers (ev/cancel f reason))
+  (def n (length fibers))
+  (table/clear fibers)
+  (repeat n (ev/take super)))
+
 (defn join-nursery
   "Suspend the current fiber until the nursery is emptied."
   [nurse]
   (def fibs (get nurse :fibers))
   (def super (get nurse :supervisor))
-  (defer (each f fibs (ev/cancel f "parent canceled"))
+  (defer (drain-fibers super fibs "parent canceled")
     (while (next fibs)
       (def [sig fiber] (ev/take super))
       (if (= sig :ok)
         (put fibs fiber nil)
         (do
-          (each f fibs (ev/cancel f "sibling canceled") (put fibs fiber nil))
+          (drain-fibers super fibs "sibling canceled")
           (propagate (fiber/last-value fiber) fiber))))))
 
 (defn- join
   "Special case of supervise for implementing some parallel functions."
   [supervisor fibers]
-  (defer (each f fibers (ev/cancel f "parent canceled"))
-    (repeat (length fibers)
+  (var err-fiber nil)
+  (defer (drain-fibers supervisor fibers "parent canceled")
+    (while (next fibers)
       (def [sig fiber] (ev/take supervisor))
-      (unless (= sig :ok)
+      (if (= sig :ok)
+        (put fibers fiber nil)
         (do
-          (each f fibers (ev/cancel f "sibling canceled") (put fibers f nil))
+          (drain-fibers supervisor fibers "sibling canceled")
           (propagate (fiber/last-value fiber) fiber))))))
 
 (defn pcall
@@ -60,8 +70,9 @@
   (def chan (ev/chan))
   (def new-f (if (function? f) f (fn [x] (f x))))
   (join chan
-        (seq [i :range [0 n]]
-          (ev/go (fiber/new new-f :tp) i chan))))
+        (tabseq [i :range [0 n]
+                 :let [fib (ev/go (fiber/new new-f :tp) i chan)]]
+                fib fib)))
 
 (defn pmap-full
   "Function form of `ev/gather`. If any of the
