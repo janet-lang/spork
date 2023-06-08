@@ -281,12 +281,14 @@
 (defn- emit-array-ctor
   [args]
   (var is-first true)
-  (prin "{")
+  (emit-block-start)
   (each x args
-    (if-not is-first (prin ", "))
+    (if-not is-first (print ", "))
     (set is-first false)
+    (emit-indent)
     (emit-expression x true))
-  (prin "}"))
+  (print)
+  (emit-block-end))
 
 (varfn emit-expression
   [form &opt noparen]
@@ -744,10 +746,9 @@
                  (eval (qq-wrap body)))
   # Generate wrapper for use in Janet
   (def cfun_name (mangle (string "_generated_cfunction_" mangledname)))
-  (prin
-    "\nJANET_FN(" cfun_name ", "
-    (string/format "%j" (string signature)) ", "
-    (string/format "%j" (string docstring)) ") ")
+  (print "\nJANET_FN(" cfun_name ",")
+  (print "        " (string/format "%j" (string signature)) ", ")
+  (print "        " (string/format "%j" (string docstring)) ")")
   (block
     ,(if (= min-arity max-arity)
       ~(janet_fixarity argc ,min-arity)
