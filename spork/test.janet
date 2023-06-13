@@ -72,6 +72,34 @@
        (print ,tag " " (- ,end ,start) " seconds")
        ,result)))
 
+(defmacro timeit-loop
+  ``Similar to `loop`, but outputs performance statistics after completion.
+  Additionally defines a `:timeout` verb to iterate continuously for a given
+  number of seconds. If the first form of `body` is a bytes, it will be taken
+  as a custom tag.``
+  [head & body]
+  (var tag "Elapsed time:")
+  (def head2 @[;head])
+  (def body2 @[;body])
+  (with-syms [c start elapsed per-body]
+    (when (def i (index-of :timeout head2))
+      (array/insert head2 i [])
+      (set (head2 (+ i 1)) :iterate)
+      (set (head2 (+ i 2)) ~(< (- (os/clock) ,start) ,(in head2 (+ i 2)))))
+    (when (bytes? (get body2 0))
+      (set tag (in body2 0))
+      (array/remove body2 0))
+    ~(do
+       (var ,c 0)
+       (def ,start (os/clock))
+       (loop ,head2 (++ ,c) ,;body2)
+       (def ,elapsed (- (os/clock) ,start))
+       (def ,per-body (/ ,elapsed ,c))
+       (cond
+         (< ,per-body 1e-3) (printf "%s %.3fs, %.4gµs/body" ,tag ,elapsed (* ,per-body 1_000_000))
+         (< ,per-body 1) (printf "%s %.3fs, %.4gms/body" ,tag ,elapsed (* ,per-body 1_000))
+         (printf "%s %.3fs, %.4gs/body" ,tag ,elapsed ,per-body)))))
+
 (defmacro- capture-*
   [out & body]
   (with-syms [buf res]
