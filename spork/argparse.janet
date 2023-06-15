@@ -45,6 +45,7 @@
   Once parsed, values are accessible in the returned table by the name
   of the option. For example `(result "verbose")` will check if the verbose
   flag is enabled.
+  You may also use a custom args array when specified via the special option `:args`
   ```
   [description &keys options]
 
@@ -65,7 +66,7 @@
 
   # Results table and other things
   (def res @{:order @[]})
-  (def args (dyn :args))
+  (def args (if-let [args (options :args)] (do (put options :args nil) args) (dyn :args)))
   (def arglen (length args))
   (var scanning true)
   (var bad false)
