@@ -119,6 +119,14 @@
       (print opdoc))
     (flush))
 
+  (defn handle-map [name handler]
+    (when-let [value (get res name)
+               map-func (handler :map)
+               is-func (function? map-func)]
+      (if (indexed? value)
+        (put res name (map map-func value))
+        (put res name (map-func value)))))
+
   # Handle an option
   (defn handle-option
     [name handler]
@@ -150,11 +158,7 @@
         (= action :help) (usage)
         (function? action) (action)))
 
-    (when-let [map-func (handler :map)
-               is-func (function? map-func)]
-      (if (indexed? (get res name))
-        (put res name (map map-func (get res name)))
-        (put res name (map-func (get res name)))))
+    (handle-map name handler)
 
     # Early exit for things like help
     (when (handler :short-circuit)
@@ -201,6 +205,7 @@
     (when (nil? (res name))
       (when (handler :required)
         (usage "option " name " is required"))
-      (put res name (handler :default))))
+      (put res name (handler :default)))
+      (handle-map name handler))
 
   (if-not bad res))
