@@ -146,9 +146,15 @@
 
     # Allow actions to be dispatched while scanning
     (when-let [action (handler :action)]
-              (cond
-                (= action :help) (usage)
-                (function? action) (action)))
+      (cond
+        (= action :help) (usage)
+        (function? action) (action)))
+
+    (when-let [map-func (handler :map)
+               is-func (function? map-func)]
+      (if (indexed? (get res name))
+        (put res name (map map-func (get res name)))
+        (put res name (map-func (get res name)))))
 
     # Early exit for things like help
     (when (handler :short-circuit)
