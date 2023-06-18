@@ -45,6 +45,7 @@
   Once parsed, values are accessible in the returned table by the name
   of the option. For example `(result "verbose")` will check if the verbose
   flag is enabled.
+  You may also use a custom args array when specified via the special option `:args`
   ```
   [description &keys options]
 
@@ -65,7 +66,7 @@
 
   # Results table and other things
   (def res @{:order @[]})
-  (def args (dyn :args))
+  (def args (if-let [args (options :args)] (do (put options :args nil) args) (dyn :args)))
   (def arglen (length args))
   (var scanning true)
   (var bad false)
@@ -118,6 +119,14 @@
       (print opdoc))
     (flush))
 
+  (defn handle-map [name handler]
+    (when-let [value (get res name)
+               map-func (handler :map)
+               is-func (function? map-func)]
+      (if (indexed? value)
+        (put res name (map map-func value))
+        (put res name (map-func value)))))
+
   # Handle an option
   (defn handle-option
     [name handler]
@@ -145,9 +154,11 @@
 
     # Allow actions to be dispatched while scanning
     (when-let [action (handler :action)]
-              (cond
-                (= action :help) (usage)
-                (function? action) (action)))
+      (cond
+        (= action :help) (usage)
+        (function? action) (action)))
+
+    (handle-map name handler)
 
     # Early exit for things like help
     (when (handler :short-circuit)
@@ -194,6 +205,7 @@
     (when (nil? (res name))
       (when (handler :required)
         (usage "option " name " is required"))
-      (put res name (handler :default))))
+      (put res name (handler :default)))
+      (handle-map name handler))
 
   (if-not bad res))
