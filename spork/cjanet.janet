@@ -18,12 +18,12 @@
       :main (% (* :one (any (+ ':d :one))))}))
 
 (def- bops
- {'+ '+ '- '- '* '* '/ '/ '% '% '< '<
-  '> '> '<= '<= '>= '>= '== '== '!= '!=
-  'not= "!="
-  '>> ">>" '<< "<<" '&& "&&" '^ "^"
-  'and "&&" 'or "||" 'band "&" 'bor "|" 'bxor "^" 'set "="
-  'blshift "<<" 'brshift ">>"})
+  {'+ '+ '- '- '* '* '/ '/ '% '% '< '<
+   '> '> '<= '<= '>= '>= '== '== '!= '!=
+   'not= "!="
+   '>> ">>" '<< "<<" '&& "&&" '^ "^"
+   'and "&&" 'or "||" 'band "&" 'bor "|" 'bxor "^" 'set "="
+   'blshift "<<" 'brshift ">>"})
 
 (def- uops {'bnot "~" 'not "!" 'neg "-" '! "!" '++ "++" '-- "--"})
 
@@ -537,6 +537,7 @@
   ~(as-macro ,preprocess include ,path))
 
 (defdyn *cfun-list* "Array of C Functions defined in the current scope")
+(defdyn *cdef-list* "Array of C Constants defined in the current scope")
 
 (defn- wrap-v
   "Generate code to wrap any Janet (constant) literal"
@@ -750,18 +751,34 @@
     (string/format "%j" (string docstring)) ") ")
   (block
     ,(if (= min-arity max-arity)
-      ~(janet_fixarity argc ,min-arity)
-      ~(janet_arity argc ,min-arity ,max-arity))
+       ~(janet_fixarity argc ,min-arity)
+       ~(janet_arity argc ,min-arity ,max-arity))
     ,;argument-parsing
     (return ,(return-wrap ret-type [mangledname ;param-names])))
   (array/push cfun-list ~(JANET_REG ,(string name) ,(symbol cfun_name)))
   cfun_name)
 
+(defmacro cdef
+  ```
+    Define constant which will be registered in the module.
+    It takes care of the docstring.
+    ```
+  [name & more]
+  (def [docstr body]
+    (if-let [ds (and (string? (more 0)) (more 0))
+             bo (more 1)]
+      [ds bo] [name (more 1)]))
+  (def cdef-list (if-let [x (dyn *cdef-list*)] x (setdyn *cdef-list* @[])))
+  (array/push cdef-list ~(janet_def env ,(string name) ,body ,docstr))
+  nil)
+
 (defmacro module-entry
   "Call this at the end of a cjanet module to add a module entry function."
   [name]
   (def all-cfuns (dyn *cfun-list* @[]))
+  (def all-cdefs (dyn *cdef-list* @[]))
   (prin "\nJANET_MODULE_ENTRY(JanetTable *env) ")
   (block
+    ,;all-cdefs
     (def (cfuns (array JanetRegExt)) (array ,;all-cfuns JANET_REG_END))
     (janet_cfuns_ext env ,name cfuns)))
