@@ -462,7 +462,7 @@
 
 (defn request
   "Make an HTTP request to a server.
-  Returns a table contain response information.
+  Returns a table containing response information.
   * `:head-size` - number of bytes in the http header
   * `:headers` - table mapping header names to header values. Header names are lowercase.
   * `:connection` - the connection stream for the header.
