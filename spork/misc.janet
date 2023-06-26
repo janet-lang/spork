@@ -6,6 +6,8 @@
 
 (import spork/rawterm)
 
+(def- newline (if (= :windows (os/which)) "\r\n" "\n"))
+
 (defn dedent
   ```
   Remove indentation after concatenating the arguments. Works by removing
@@ -108,10 +110,10 @@
   (buffer/popn topbuf 3)
   (buffer/popn midbuf 3) 
   (buffer/popn botbuf 3) # 3 bytes, 1 char
-  (buffer/push topbuf "╮\n")
-  (buffer/push midbuf "╡\n")
-  (buffer/push botbuf "╯")
-  (buffer/push hbuf "\n")
+  (buffer/push topbuf (string "╮" newline))
+  (buffer/push midbuf (string "╡" newline))
+  (buffer/push botbuf (string "╯" newline))
+  (buffer/push hbuf newline)
 
   # build large buffer
   (buffer/push topbuf hbuf midbuf)
@@ -126,7 +128,7 @@
         (string/repeat " " (- width len))
         item
         "│"))
-    (buffer/push topbuf "\n"))
+    (buffer/push topbuf newline))
   (buffer/push topbuf botbuf)
   topbuf)
 
