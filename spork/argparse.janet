@@ -35,6 +35,7 @@
   * `:required` - Whether or not an option is required.
   * `:short-circuit` - Whether or not to stop parsing and fail if this option is hit.
   * `:action` - A function that will be invoked when the option is parsed.
+  * `:map` - A function that is applied to the value of the option to transform it
 
   There is also a special option name `:default` that will be invoked on arguments
   that do not start with a -- or -. Use this option to collect unnamed
@@ -123,9 +124,7 @@
     (when-let [value (get res name)
                map-func (handler :map)
                is-func (function? map-func)]
-      (if (indexed? value)
-        (put res name (map map-func value))
-        (put res name (map-func value)))))
+      (put res name (map-func value))))
 
   # Handle an option
   (defn handle-option
@@ -157,8 +156,6 @@
       (cond
         (= action :help) (usage)
         (function? action) (action)))
-
-    (handle-map name handler)
 
     # Early exit for things like help
     (when (handler :short-circuit)
