@@ -6,7 +6,7 @@
 
 (import spork/rawterm)
 
-(def- newline (if (= :windows (os/which)) "\r\n" "\n"))
+(def- eol (if (= :windows (os/which)) "\r\n" "\n"))
 
 (defn dedent
   ```
@@ -110,10 +110,10 @@
   (buffer/popn topbuf 3)
   (buffer/popn midbuf 3) 
   (buffer/popn botbuf 3) # 3 bytes, 1 char
-  (buffer/push topbuf (string "╮" newline))
-  (buffer/push midbuf (string "╡" newline))
-  (buffer/push botbuf (string "╯" newline))
-  (buffer/push hbuf newline)
+  (buffer/push topbuf (string "╮" eol))
+  (buffer/push midbuf (string "╡" eol))
+  (buffer/push botbuf (string "╯" eol))
+  (buffer/push hbuf eol)
 
   # build large buffer
   (buffer/push topbuf hbuf midbuf)
@@ -128,7 +128,7 @@
         (string/repeat " " (- width len))
         item
         "│"))
-    (buffer/push topbuf newline))
+    (buffer/push topbuf eol))
   (buffer/push topbuf botbuf)
   topbuf)
 
