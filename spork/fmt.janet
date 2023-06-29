@@ -17,7 +17,7 @@
       :symchars (+ (range "09" "AZ" "az" "\x80\xFF") (set "!$%&*+-./:<?=>@^_"))
       :token (some :symchars)
       :hex (range "09" "af" "AF")
-      :escape (* "\\" (+ (set "ntrzfev0\"\\")
+      :escape (* "\\" (+ (set "ntrzfev0ab'?\"\\")
                          (* "x" :hex :hex)
                          (* "u" :hex :hex :hex :hex)
                          (* "U" :hex :hex :hex :hex :hex :hex)
