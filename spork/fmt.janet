@@ -143,7 +143,7 @@
     [xs]
     (emit "(")
     (def len (length xs))
-    (when (pos? len) 
+    (when (pos? len)
       (fmt-1-recur (xs 0))
       (indent 1)
       (for i 1 len (fmt-1-recur (xs i)))

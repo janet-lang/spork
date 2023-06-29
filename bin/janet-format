@@ -9,38 +9,38 @@
   [&]
 
   (def ap
-   (argparse/argparse
-    "Format Janet source code in files and write output to those files."
+    (argparse/argparse
+      "Format Janet source code in files and write output to those files."
 
-    :default
-    {:kind :accumulate
-     :help "Files to format"}
+      :default
+      {:kind :accumulate
+       :help "Files to format"}
 
-    "files"
-    {:short "f"
-     :help "Format a list of source files."
-     :kind :flag}
+      "files"
+      {:short "f"
+       :help "Format a list of source files."
+       :kind :flag}
 
-    "output"
-    {:short "o"
-     :kind :option
-     :help "Where to direct output to. By default, output goes to stdout."}
+      "output"
+      {:short "o"
+       :kind :option
+       :help "Where to direct output to. By default, output goes to stdout."}
 
-    "input"
-    {:short "i"
-     :kind :option
-     :help "Read from an input file"}
+      "input"
+      {:short "i"
+       :kind :option
+       :help "Read from an input file"}
 
-    "config"
-    {:short "c"
-     :kind :option
-     :help "Which configuration file to read"
-     :default default-config}
+      "config"
+      {:short "c"
+       :kind :option
+       :help "Which configuration file to read"
+       :default default-config}
 
-    "no-config"
-    {:short "n"
-     :kind :flag
-     :help "Avoid loading any configuration"}))
+      "no-config"
+      {:short "n"
+       :kind :flag
+       :help "Avoid loading any configuration"}))
 
   # Break on help text
   (unless ap (break))
