@@ -33,7 +33,8 @@
   * `:help` - Help text for the option, explaining what it is.
   * `:default` - Default value for the option.
   * `:required` - Whether or not an option is required.
-  * `:short-circuit` - Whether or not to stop parsing and fail if this option is hit.
+  * `:short-circuit` - Whether or not to stop parsing if this option is hit.
+     Result will also contain the rest of the arguments under the :rest key.
   * `:action` - A function that will be invoked when the option is parsed.
   * `:map` - A function that is applied to the value of the option to transform it
 
@@ -46,7 +47,7 @@
   Once parsed, values are accessible in the returned table by the name
   of the option. For example `(result "verbose")` will check if the verbose
   flag is enabled.
-  You may also use a custom args array when specified via the special option `:args`
+  You may also use a custom args array when specified via the special option `:args`.
   ```
   [description &keys options]
 
@@ -69,7 +70,7 @@
   (def res @{:order @[]})
   (def args (if-let [args (options :args)] (do (put options :args nil) args) (dyn :args)))
   (def arglen (length args))
-  (var scanning true)
+  (var parsing true)
   (var bad false)
   (var i 1)
   (var process-options? true)
@@ -80,7 +81,7 @@
     # Only show usage once.
     (if bad (break))
     (set bad true)
-    (set scanning false)
+    (set parsing false)
     (unless (empty? msg)
       (print "usage error: " ;msg))
     (def flags @"")
@@ -159,11 +160,11 @@
 
     # Early exit for things like help
     (when (handler :short-circuit)
-      (set scanning false)))
+      (set parsing false)))
 
   # Iterate command line arguments and parse them
   # into the run table.
-  (while (and scanning (< i arglen))
+  (while (and parsing (< i arglen))
     (def arg (get args i))
     (cond
       # `--` turns off option processing so that
@@ -196,6 +197,9 @@
       (if-let [handler (options :default)]
         (handle-option :default handler)
         (usage "could not handle option " arg))))
+
+  (when (and (not parsing) (not bad))
+    (put res :rest (slice args (dec i) -1)))
 
   # Handle defaults, required options
   (loop [[name handler] :pairs options]
