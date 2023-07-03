@@ -47,6 +47,14 @@
   "map-keys in nested struct")
 
 (assert
+  (deep= (misc/map-keys-flat string {1 [1 2 3] 3 [1 2]}) @{"1" [1 2 3] "3" [1 2]})
+  "map-keys-flat in dictionary")
+(assert
+  (deep= (misc/map-keys-flat string {1 2 3 {:a :b :c {:d 3}}})
+         @{"1" 2 "3" {:a :b :c {:d 3}}})
+  "map-keys-flat in nested struct")
+
+(assert
   (deep= (misc/map-vals string {1 2 3 4}) @{1 "2" 3 "4"})
   "map-vals of the dictionary 1")
 (assert
