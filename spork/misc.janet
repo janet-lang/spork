@@ -240,10 +240,8 @@
   keys without recursing.
   ```
   [f data]
-  (def res @{})
-  (loop [[k v] :pairs data]
-    (put res (f k) v))
-  res)
+  (tabseq [[k v] :pairs data]
+    (f k) v))
 
 (defn map-vals
   "Returns new table with function `f` applied to `data`'s values."
