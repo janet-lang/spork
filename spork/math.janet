@@ -5,7 +5,12 @@
 (defn extent
   "Returns the minimum & maximum number in an `xs` as tuple."
   [xs]
-  [(min ;xs) (max ;xs)])
+  (var [minv] xs)
+  (var [maxv] xs)
+  (each x xs
+    (when (< x minv) (set minv x))
+    (when (> x maxv) (set maxv x)))
+  [minv maxv])
 
 (defn sum-compensated
   "Returns sum of the members of `xs` with Kahan-Babushka algorithm."
