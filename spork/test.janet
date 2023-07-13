@@ -18,7 +18,9 @@
      (def ,xx ,x)
      (if ,xx (++ (',tests-passed-ref 0)))
      (as-macro ,unless ,xx
-       (,prin "\e[31m✘\e[0m  ")
+       (if (os/isatty)
+        (,prin "\e[31m✘\e[0m  ")
+        (,prin "[FAIL] "))
        (,print ,e))
      ,xx))
 
