@@ -88,6 +88,11 @@
 (for i 0 (tarray/length array)
   (put array i (math/random)))
 
+(math/seedrandom 123456)
+(def array2 (tarray/new :float64 100))
+(for i 0 (tarray/length array2)
+  (put array2 i (math/random)))
+
 (assert (approx-eq 0.208122 (median-absolute-deviation array) 0.00001) "median-absolute-deviation")
 (assert (approx-eq 0.274348 (sample-standard-deviation array) 0.000001) "sample-standard-deviation")
 (assert (approx-eq 0.272973 (standard-deviation array) 0.000001) "standard-deviation")
@@ -102,5 +107,19 @@
 (assert (approx-eq 0.520372 (median array) 0.000001) "median")
 (assert (approx-eq 0.645951 (mode array) 0.000001) "mode")
 (assert (approx-eq 0.409312 (interquartile-range array) 0.000001) "interquartile-range")
+(assert (approx-eq 0.348654 (geometric-mean array) 0.00001) "geometric-mean")
+(assert (approx-eq 0.122595 (harmonic-mean array) 0.00001) "harmonic-mean")
+
+(assert (approx-eq 0.556132 (quantile-sorted array 0.5) 0.000001) "quantile-sorted")
+(assert (approx-eq 0.520372 (quantile array 0.5) 0.000001) "quantile")
+(assert (approx-eq 0.63 (quantile-rank-sorted array 0.5) 0.000001) "quantile-rank-sorted")
+(assert (approx-eq 0.49 (quantile-rank array 0.5) 0.000001) "quantile-rank")
+(assert (approx-eq 7.45142 (sum-nth-power-deviations array 2) 0.000001) "sum-nth-power-deviations")
+(assert-no-error (sample-covariance array array2) "sample-covariance")
+(assert-no-error (sample-correlation array array2) "sample-correlation")
+(assert-no-error (t-test array 3) "t-test array")
+(assert-no-error (t-test-2 array array2) "t-test-2")
+(assert-no-error (permutation-test array array2) "permutation-test array")
 
 (end-suite)
+
