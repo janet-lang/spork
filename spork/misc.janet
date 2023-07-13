@@ -223,16 +223,17 @@
      (,xprintf ,to ,;args)))
 
 (defn map-keys
-  ```
+   ```
   Returns new table with function `f` applied to `data`'s
   keys recursively.
   ```
   [f data]
-  (-> (seq [[k v] :pairs data]
-        [(f k) (if (dictionary? v) (map-keys f v) v)])
-      flatten
-      splice
-      table))
+  (def res @{})
+  (loop [[k v] :pairs data]
+    (put res (f k)
+         (if (dictionary? v)
+           (map-keys f v) v)))
+  res)
 
 (defn map-keys-flat
    ```
