@@ -1,4 +1,5 @@
 (use ../spork/test)
+(use ../spork/math)
 (import spork/tarray)
 
 (start-suite 15)
@@ -80,4 +81,45 @@
 (assert (= (type (buffer-float64-view 0)) :number) "issue #142 nanbox hijack 2")
 (assert (= (type (unmarshal @"\xC8\xbc\x9axV4\x92\xfe\xff")) :number) "issue #142 nanbox hijack 3")
 
+
+#construct random ta
+(math/seedrandom 12345)
+(def array (tarray/new :float64 100))
+(for i 0 (tarray/length array)
+  (put array i (math/random)))
+
+(math/seedrandom 123456)
+(def array2 (tarray/new :float64 100))
+(for i 0 (tarray/length array2)
+  (put array2 i (math/random)))
+
+(assert (approx-eq 0.208122 (median-absolute-deviation array) 0.00001) "median-absolute-deviation")
+(assert (approx-eq 0.274348 (sample-standard-deviation array) 0.000001) "sample-standard-deviation")
+(assert (approx-eq 0.272973 (standard-deviation array) 0.000001) "standard-deviation")
+(assert (let [[i a] (extent array)]
+           (and (approx-eq i 0.00746957 0.000001) (approx-eq a 0.973551 0.000001)))  "extent")
+(assert (approx-eq 48.7728 (sum-compensated array) 0.000001) "sum-compensated")
+(assert (approx-eq 0.558921 (root-mean-square array) 0.000001) "root-mean-square")
+(assert (approx-eq -0.124152 (sample-skewness  array) 0.00001) "sample-skewness ")
+(assert (approx-eq 0.0745142 (variance array) 0.000001) "variance")
+(assert (approx-eq 0.0752669 (sample-variance array) 0.000001) "sample-variance")
+(assert-no-error (shuffle-in-place array) "shuffle-in-place")
+(assert (approx-eq 0.520372 (median array) 0.000001) "median")
+(assert (approx-eq 0.645951 (mode array) 0.000001) "mode")
+(assert (approx-eq 0.409312 (interquartile-range array) 0.000001) "interquartile-range")
+(assert (approx-eq 0.348654 (geometric-mean array) 0.00001) "geometric-mean")
+(assert (approx-eq 0.122595 (harmonic-mean array) 0.00001) "harmonic-mean")
+
+(assert (approx-eq 0.556132 (quantile-sorted array 0.5) 0.000001) "quantile-sorted")
+(assert (approx-eq 0.520372 (quantile array 0.5) 0.000001) "quantile")
+(assert (approx-eq 0.63 (quantile-rank-sorted array 0.5) 0.000001) "quantile-rank-sorted")
+(assert (approx-eq 0.49 (quantile-rank array 0.5) 0.000001) "quantile-rank")
+(assert (approx-eq 7.45142 (sum-nth-power-deviations array 2) 0.000001) "sum-nth-power-deviations")
+(assert-no-error (sample-covariance array array2) "sample-covariance")
+(assert-no-error (sample-correlation array array2) "sample-correlation")
+(assert-no-error (t-test array 3) "t-test array")
+(assert-no-error (t-test-2 array array2) "t-test-2")
+(assert-no-error (permutation-test array array2) "permutation-test array")
+
 (end-suite)
+

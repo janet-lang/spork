@@ -5,7 +5,12 @@
 (defn extent
   "Returns the minimum & maximum number in an `xs` as tuple."
   [xs]
-  [(min ;xs) (max ;xs)])
+  (var [minv] xs)
+  (var [maxv] xs)
+  (each x xs
+    (when (< x minv) (set minv x))
+    (when (> x maxv) (set maxv x)))
+  [minv maxv])
 
 (defn sum-compensated
   "Returns sum of the members of `xs` with Kahan-Babushka algorithm."
@@ -112,7 +117,7 @@
 (defn quantile
   "Gets the quantile value from `xs` at `p` from unsorted population."
   [xs p]
-  (def copy (array/slice xs))
+  (def copy (if (= :ta/view (type xs)) (:slice xs) (array/slice xs)))
   (def cpl (length copy))
   (def idx (quantile-index cpl p))
   (quantile-select copy idx 0 (dec cpl))
@@ -161,7 +166,9 @@
 (defn quantile-rank
   "Gets the quantile rank of value `v` from unsorted `xs`."
   [xs p]
-  (quantile-rank-sorted (sorted xs) p))
+  (if (= :ta/view (type xs))
+    (quantile-rank-sorted (sort (:slice xs)) p)
+    (quantile-rank-sorted (sorted xs) p)))
 
 (defn add-to-mean
   "Adds new value `v` to mean `m` from `n` values."
@@ -494,34 +501,36 @@
   in permutation distribution
   ```
   [xs ys &opt a k]
-  (default k 1e4)
-  (default a :two-side)
-  (def mx (mean xs))
-  (def my (mean ys))
-  (def ts (- mx my))
-  (def tsd @[])
-  (def ad (array/concat @[] xs ys))
-  (def mi (math/floor (/ (length ad) 2)))
-  (for i 0 k
-    (shuffle-in-place ad)
-    (def pl (array/slice ad 0 mi))
-    (def pr (array/slice ad mi))
-    (set (tsd i) (- (mean pl) (mean pr))))
-  (var nes 0)
-  (case a
-    :two-side
+  (let [xs (if (= :ta/view (type xs)) (:slice xs) xs)
+        ys (if (= :ta/view (type ys)) (:slice ys) ys)]
+    (default k 1e4)
+    (default a :two-side)
+    (def mx (mean xs))
+    (def my (mean ys))
+    (def ts (- mx my))
+    (def tsd @[])
+    (def ad (array/concat @[] xs ys))
+    (def mi (math/floor (/ (length ad) 2)))
     (for i 0 k
-      (if (>= (math/abs (tsd i)) (math/abs ts))
-        (++ nes)))
-    :greater
-    (for i 0 k
-      (if (>= (tsd i) ts)
-        (++ nes)))
-    :lesser
-    (for i 0 k
-      (if (<= (tsd i) ts)
-        (++ nes))))
-  (/ nes k))
+      (shuffle-in-place ad)
+      (def pl (array/slice ad 0 mi))
+      (def pr (array/slice ad mi))
+      (set (tsd i) (- (mean pl) (mean pr))))
+    (var nes 0)
+    (case a
+      :two-side
+      (for i 0 k
+        (if (>= (math/abs (tsd i)) (math/abs ts))
+          (++ nes)))
+      :greater
+      (for i 0 k
+        (if (>= (tsd i) ts)
+          (++ nes)))
+      :lesser
+      (for i 0 k
+        (if (<= (tsd i) ts)
+          (++ nes))))
+    (/ nes k)))
 
 (def chi-squared-distribution-table
   "Chi Squared distribution table."

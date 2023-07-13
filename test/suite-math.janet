@@ -9,6 +9,9 @@
 (assert (= (extent (range 10)) [0 9])
         "extent")
 
+(assert (= (extent (range 10)) (extent (reverse (range 10))))
+        "extent rev")
+
 (assert (= (sum-compensated []) 0)
         "sum sum-compensated ")
 
