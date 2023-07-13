@@ -38,7 +38,8 @@
       :queue-name :keyword
       :delete-after (pred int?)
       :timeout (or :nil (pred int?))
-      :error (or nil :string)
+      :error (or :nil :string)
+      :synced-at (or :nil (pred int?))
       :input (any)
       :note :string
       :dir :string
@@ -56,6 +57,7 @@
   (task-record-validator payload)
   (def mf (get payload :meta-file))
   (log "syncing task " (get payload :task-id) " to disk")
+  (put payload :synced-at (ts))
   (string/format "%j" payload) # prevent non-printable structues from being serialized
   (spit mf (string/format "%p" payload))
   payload)
