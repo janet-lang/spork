@@ -1,4 +1,5 @@
 (use ../spork/test)
+(use ../spork/math)
 (import spork/tarray)
 
 (start-suite 15)
@@ -79,5 +80,27 @@
 (assert (buffer-float64-view 0) "issue #142 nanbox hijack 1")
 (assert (= (type (buffer-float64-view 0)) :number) "issue #142 nanbox hijack 2")
 (assert (= (type (unmarshal @"\xC8\xbc\x9axV4\x92\xfe\xff")) :number) "issue #142 nanbox hijack 3")
+
+
+#construct random ta
+(math/seedrandom 12345)
+(def array (tarray/new :float64 100))
+(for i 0 (tarray/length array)
+  (put array i (math/random)))
+
+(assert (approx-eq 0.208122 (median-absolute-deviation array) 0.00001) "median-absolute-deviation")
+(assert (approx-eq 0.274348 (sample-standard-deviation array) 0.000001) "sample-standard-deviation")
+(assert (approx-eq 0.272973 (standard-deviation array) 0.000001) "standard-deviation")
+(assert (let [[i a] (extent array)]
+           (and (approx-eq i 0.00746957 0.000001) (approx-eq a 0.973551 0.000001)))  "extent")
+(assert (approx-eq 48.7728 (sum-compensated array) 0.000001) "sum-compensated")
+(assert (approx-eq 0.558921 (root-mean-square array) 0.000001) "root-mean-square")
+(assert (approx-eq -0.124152 (sample-skewness  array) 0.00001) "sample-skewness ")
+(assert (approx-eq 0.0745142 (variance array) 0.000001) "variance")
+(assert (approx-eq 0.0752669 (sample-variance array) 0.000001) "sample-variance")
+(assert-no-error (shuffle-in-place array) "shuffle-in-place")
+(assert (approx-eq 0.520372 (median array) 0.000001) "median")
+(assert (approx-eq 0.645951 (mode array) 0.000001) "mode")
+(assert (approx-eq 0.409312 (interquartile-range array) 0.000001) "interquartile-range")
 
 (end-suite)

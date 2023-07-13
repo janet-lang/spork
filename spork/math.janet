@@ -117,7 +117,7 @@
 (defn quantile
   "Gets the quantile value from `xs` at `p` from unsorted population."
   [xs p]
-  (def copy (array/slice xs))
+  (def copy (if (= :ta/view (type xs)) (:slice xs) (array/slice xs)))
   (def cpl (length copy))
   (def idx (quantile-index cpl p))
   (quantile-select copy idx 0 (dec cpl))
