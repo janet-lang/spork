@@ -234,6 +234,15 @@
       splice
       table))
 
+(defn map-keys-flat
+   ```
+  Returns new table with function `f` applied to `data`'s
+  keys without recursing.
+  ```
+  [f data]
+  (tabseq [[k v] :pairs data]
+    (f k) v))
+
 (defn map-vals
   "Returns new table with function `f` applied to `data`'s values."
   [f data]
