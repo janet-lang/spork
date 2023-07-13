@@ -82,4 +82,32 @@
   (assert (= ["echo" "-n" "ok"] (tuple ;cmd-args))
           "unnamed arguments after `--` were not parsed correctly."))
 
+(def argparse-params-with-shortcircuit
+  ["A simple CLI tool. An example to show the capabilities of argparse."
+     "debug" {:kind :flag
+              :short "d"
+              :help "Set debug mode."}
+     "verbose" {:kind :multi
+                :short "v"
+                :help "Print debug information to stdout."}
+     "key" {:kind :option
+            :short "k"
+            :help "An API key for getting stuff from a server."
+            :required true}
+     "expr" {:kind :accumulate
+             :short "e"
+             :help "Search for all patterns given."}
+     "thing" {:kind :option
+              :help "Some option?"
+              :default "123"}
+     :default {:kind :accumulate
+               :short-circuit true}])
+
+(with-dyns [:args @["testcase.janet" "-k" "100" "test" "--fake"]]
+  (def res (suppress-stdout (argparse/argparse ;argparse-params-with-shortcircuit)))
+  (assert (deep= res
+                @{"key" "100" "thing" "123" :default @["test"] :order @["key" :default] :rest ["test" "--fake"]})
+          "argparse param :default {:short-circuit true} should not fail but return with res and :rest of arguments"))
+
+
 (end-suite)
