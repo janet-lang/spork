@@ -509,7 +509,7 @@
 (defn emit-declare
   "Emit a declaration of a variable or constant."
   [binding & form]
-  (def storage-classes (slice form 0 -2))
+  (def storage-classes (slice form 0 (dec (length form))))
   (def v (last form))
   (when (next storage-classes)
     (emit-storage-classes storage-classes))

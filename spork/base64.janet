@@ -96,10 +96,10 @@
   ```
   [s]
   (if-not (empty? s)
-    (let [without-padding (peg/replace-all "=" "" s)
+    (let [without-padding (string/replace-all "=" "" s)
           padded? (not (zero? (% (length without-padding) 4)))
           quadruples (partition 4 without-padding)
           bytes (map quadruples->bytes quadruples)
           base64 (apply string bytes)]
-      (if padded? (slice base64 0 -2) base64))
+      (if padded? (slice base64 0 (dec (length base64))) base64))
     ""))

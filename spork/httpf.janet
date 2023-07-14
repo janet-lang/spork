@@ -116,7 +116,7 @@
   (put mime-read-default path read-mime)
   (put mime-render-default path render-mime)
   (if (string/has-suffix? "/" path)
-    (add-route server (string/slice path 0 -2) docstring schema handler read-mime render-mime)
+    (add-route server (string/slice path 0 (dec (length path))) docstring schema handler read-mime render-mime)
     server))
 
 (defn add-bindings-as-routes

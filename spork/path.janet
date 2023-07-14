@@ -18,7 +18,7 @@
   (if-let [m (peg/match ext-peg path (length path))]
     (let [i (m 0)]
       (if (= (path i) 46)
-        (string/slice path (m 0) -1)))))
+        (string/slice path (m 0))))))
 
 (defn- redef
   "Redef a value, keeping all metadata."
@@ -63,7 +63,7 @@
                   path
                   (length path))]
        (let [[p] m]
-         (string/slice path p -1))
+         (string/slice path p))
        path)))
 
 (defmacro- decl-parts
@@ -130,7 +130,7 @@
      (def target-parts (,(symbol pre "/parts") (,(symbol pre "/abspath") target)))
      (def same-parts (length (take-until identity (map not= source-parts target-parts))))
      (def up-walk (array/new-filled (- (length source-parts) same-parts) ".."))
-     (def down-walk (tuple/slice target-parts same-parts -1))
+     (def down-walk (tuple/slice target-parts same-parts))
      (,(symbol pre "/join") ;up-walk ;down-walk)))
 
 #

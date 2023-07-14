@@ -28,7 +28,7 @@
                                 "\n" (string/replace indent "" x))]
       # Remove trailing newline to mimic long string newline omission.
       (if (= (chr "\n") (last y))
-        (slice y 0 -2)
+        (slice y 0 (dec (length y)))
         y))
     x))
 
@@ -200,14 +200,14 @@
   "Trim the specified prefix of a string if it has one"
   [prefix str]
   (if (string/has-prefix? prefix str)
-    (slice str (length prefix) -1)
+    (slice str (length prefix))
     str))
 
 (defn trim-suffix
   "Trim the specified suffix of a string if it has one"
   [suffix str]
   (if (string/has-suffix? suffix str)
-    (slice str 0 (* -1 (+ 1 (length suffix))))
+    (slice str 0 (- (length str) (length suffix)))
     str))
 
 (defmacro log
@@ -278,7 +278,7 @@
                'if cnd
                (tuple 'set res
                       (tuple (first ope) res
-                             ;(tuple/slice ope 1 -1)))))
+                             ;(tuple/slice ope 1)))))
            (partition 2 clauses))
        ,res)))
 
