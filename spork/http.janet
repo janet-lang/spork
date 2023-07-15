@@ -429,7 +429,7 @@
     (def response (handler req))
 
     # Now send back response
-    (send-response conn response (buffer/clear buf))))
+    (send-response conn response @"")))
 
 (defn server
   "Makes a simple http server. By default it binds to 0.0.0.0:8000,
