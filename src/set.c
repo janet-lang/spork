@@ -120,7 +120,11 @@ static void *set_unmarshal(JanetMarshalContext *ctx) {
 
 static void set_put(void *data, Janet key, Janet value){
   JanetTable *set = (JanetTable *)data;
-  janet_table_put(set, key, janet_wrap_true());
+  if(janet_truthy(value)){
+    janet_table_put(set, key, janet_wrap_true());
+  }else{
+    janet_table_remove(set, key);
+  }
 }
 
 static int32_t set_hash(void *p, size_t len){
