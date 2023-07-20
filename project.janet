@@ -40,6 +40,10 @@
   :source @["src/utf8.c"])
 
 (declare-native
+  :name "spork/set"
+  :source @["src/set.c"])
+
+(declare-native
  :name "spork/tarray"
  :headers @["src/tarray.h"]
  :source @["src/tarray.c"])
