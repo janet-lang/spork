@@ -1,4 +1,5 @@
 (use ./misc)
+(import ./cmath :prefix "" :export true)
 
 # Statistics
 
@@ -309,7 +310,7 @@
 
 (defn z-score
   ```
-  Gets the standard score for number `x` from mean `m` 
+  Gets the standard score for number `x` from mean `m`
   and standard deviation `d`.
   ```
   [x m d]
