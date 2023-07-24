@@ -65,7 +65,7 @@ int64_t _mulmod_impl(int64_t a, int64_t b, int64_t m) {
     if (m == 0) return a * b;
 
     int64_t x = (((signed __int128)a) * b) % m;
-    return (((a ^ m) < 0) && (x != 0)) ? x + m : x;
+    return (((a ^ b ^ m) < 0) && (x != 0)) ? x + m : x;
 }
 
 #elif defined(_WIN64) && defined(_MSC_VER)
@@ -73,11 +73,11 @@ int64_t _mulmod_impl(int64_t a, int64_t b, int64_t m) {
 #include <intrin.h>
 int64_t _mulmod_impl(int64_t a, int64_t b, int64_t m) {
     if (m == 0) return a * b;
-    
+
     int64_t r;
     int64_t s = _mul128(a, b, &r);
     (void)_div128(r, s, m, &r);
-    return r;
+    return (((a ^ b ^ m) < 0) && (r != 0)) ? r + m : r;
 }
 
 #else
