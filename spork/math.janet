@@ -1212,10 +1212,10 @@
   [2 325 9375 28178 450775 9780504 1795265022])
 
 (def- prime-prod
-  # (* ;(take 13 small-primes))
-  304250263527210)
+  # (* ;(tuple/slice small-primes 1 14))
+  6541380665835015)
 
-(defn miller-rabin-prp?
+(defn- miller-rabin-prp?
   ``Performs a Miller-Rabin probable prime test on `n` against all given bases.
   If no bases are given, sufficient bases are used to ensure that the check
   is deterministic for all `n` less than 2^63.``
@@ -1228,7 +1228,7 @@
   (var s 0)
   (while (zero? (mod d 2))
     (++ s)
-    (set d (/ d 2)))
+    (/= d 2))
   (label result
     (each p ps
       (var x (powmod p d n))
@@ -1241,33 +1241,32 @@
     true))
 
 (defn prime?
-  ``A primality test, deterministic for all `n` less than 2^63.``
+  "A primality test, deterministic for all `n` less than 2^63."
   [n]
   (cond
     (compare<= n 211) (do
                         (def m (binary-search n small-primes compare<))
                         (compare= n (in small-primes m)))
+    (zero? (mod n 2)) false
     (= 0 (jacobi n prime-prod)) false
     (miller-rabin-prp? n)))
 
 (defn next-prime
   "Returns the next prime number strictly larger than `n`."
   [n]
-  (label result
-    (def x (+ n 1))
-    (if (compare<= x 2) (return result 2))
-    (when (compare<= x 211)
-      (def m (binary-search x small-primes compare<))
-      (return result (in small-primes m)))
-    (def j (mod x 210))
-    (def m (binary-search j soe-indices compare<))
-    (var i (+ x (- (in soe-indices m) j)))
-    (def offs [;(slice soe-offsets m) ;(slice soe-offsets 0 m)])
-    (forever
-      (each o offs
-        (if (and (not= 0 (jacobi i prime-prod)) (miller-rabin-prp? i))
-          (return result i))
-        (+= i o)))))
+  (var x (+ n 1))
+  (if (compare<= x 211)
+    (in small-primes (binary-search x small-primes compare<))
+    (label result
+      (def i (mod x 210))
+      (def m (binary-search i soe-indices compare<))
+      (+= x (- (in soe-indices m) i))
+      (def offs [;(tuple/slice soe-offsets m) ;(tuple/slice soe-offsets 0 m)])
+      (forever
+        (each o offs
+          (if (and (not= 0 (jacobi x prime-prod)) (miller-rabin-prp? x))
+            (return result x))
+          (+= x o))))))
 
 (defn primes
   "A boundless prime number generator."
