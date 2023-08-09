@@ -91,10 +91,13 @@ static void ta_view_marshal(void *p, JanetMarshalContext *ctx) {
     janet_marshal_int(ctx, view->type);
     janet_marshal_size(ctx, offset);
     janet_marshal_janet(ctx, janet_wrap_buffer(view->buffer));
+    janet_marshal_size(ctx, view->buffer->capacity);
+    janet_marshal_bytes(ctx, view->buffer->data, view->buffer->capacity);
 }
 
 static void *ta_view_unmarshal(JanetMarshalContext *ctx) {
     size_t offset;
+    size_t capacity;
     int32_t atype;
     Janet buffer;
     JanetTArrayView *view = janet_unmarshal_abstract(ctx, sizeof(JanetTArrayView));
@@ -106,12 +109,14 @@ static void *ta_view_unmarshal(JanetMarshalContext *ctx) {
     view->type = atype;
     offset = janet_unmarshal_size(ctx);
     buffer = janet_unmarshal_janet(ctx);
+    capacity = janet_unmarshal_size(ctx);
     if (!janet_checktype(buffer, JANET_BUFFER)) {
         janet_panicf("expected buffer");
     }
     view->buffer = janet_unwrap_buffer(buffer);
     size_t buf_need_size = offset + (ta_type_sizes[view->type]) * ((view->size - 1) * view->stride + 1);
     janet_buffer_ensure(view->buffer, buf_need_size, 2);
+    janet_unmarshal_bytes(ctx, view->buffer->data, capacity);
     view->as.u8 = view->buffer->data + offset;
     return view;
 }
