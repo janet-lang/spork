@@ -564,7 +564,7 @@
       true)))
       
 (def- prime-prod
-  # product of primes from 3 to 43
+  "product of primes from 3 to 43"
   6541380665835015)
 
 (def pg (take 10000 (primes)))

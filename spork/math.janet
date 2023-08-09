@@ -1212,7 +1212,7 @@
   [2 325 9375 28178 450775 9780504 1795265022])
 
 (def- prime-prod
-  # (* ;(tuple/slice small-primes 1 14))
+  "product of primes from 3 to 43"
   6541380665835015)
 
 (defn- miller-rabin-prp?
@@ -1264,8 +1264,8 @@
       (def offs [;(tuple/slice soe-offsets m) ;(tuple/slice soe-offsets 0 m)])
       (forever
         (each o offs
-          (if (and (not= 0 (jacobi x prime-prod)) (miller-rabin-prp? x))
-            (return result x))
+          (if (not= 0 (jacobi x prime-prod))
+            (if (miller-rabin-prp? x) (return result x)))
           (+= x o))))))
 
 (defn primes

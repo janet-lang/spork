@@ -40,7 +40,7 @@ int64_t _jacobi_impl(int64_t a, int64_t m) {
         a = _mod_impl(m, a);
         m = tmpa;
     }
-    return m == 1 ? (res & 2) - 1 : 0;
+    return (m == 1) ? (res & 2) - 1 : 0;
 }
 
 int64_t _invmod_impl(int64_t a, int64_t m) {
@@ -56,7 +56,7 @@ int64_t _invmod_impl(int64_t a, int64_t m) {
         a = _mod_impl(n, a);
         n = tmpa;
     }
-    return _mod_impl(x, m);
+    return (n == 1) ? _mod_impl(x, m) : 0;
 }
 
 #if defined(__SIZEOF_INT128__)
@@ -103,24 +103,18 @@ int64_t _mulmod_impl(int64_t a, int64_t b, int64_t m) {
 
 #endif
 
-int64_t _modpow_impl(int64_t a, int64_t b, int64_t m) {
-    int64_t res = 1;
-    if (b < 0) {
-        a = _invmod_impl(a, m);
-        b = -b;
-    }
-    while (b > 0) {
-        if ((b & 1) == 1)
-            res = _mulmod_impl(res, a, m);
-        a = _mulmod_impl(a, a, m);
-        b >>= 1;
-    }
-    return res;
+Janet wrap_nan() {
+#ifdef NAN
+    return janet_wrap_number(NAN);
+#else
+    return janet_wrap_number(0.0 / 0.0);
+#endif
 }
 
 Janet wrap_result(int64_t a, Janet m) {
     if (!janet_checktype(m, JANET_ABSTRACT))
         return janet_wrap_number(a);
+
     const JanetAbstractType *at = janet_abstract_type(janet_unwrap_abstract(m));
     int64_t *box = janet_abstract(at, sizeof(int64_t));
     *box = a;
@@ -140,12 +134,17 @@ JANET_FN(cfun_cmath_jacobi,
 JANET_FN(cfun_cmath_invmod,
         "(math/invmod a m)",
         "Modular multiplicative inverse of `a` mod `m`. "
-        "Both arguments must be integer. The return value has the same type as `m`.") {
+        "Both arguments must be integer. The return value has the same type as `m`. "
+        "If no inverse exists, returns `math/nan` instead.") {
     janet_fixarity(argc, 2);
     int64_t a = janet_getinteger64(argv, 0);
     int64_t m = janet_getinteger64(argv, 1);
 
-    return wrap_result(_invmod_impl(a, m), argv[1]);
+    int64_t res = _invmod_impl(a, m);
+    if (res == 0)
+        return wrap_nan();
+
+    return wrap_result(res, argv[1]);
 }
 
 JANET_FN(cfun_cmath_mulmod,
@@ -169,7 +168,21 @@ JANET_FN(cfun_cmath_powmod,
     int64_t b = janet_getinteger64(argv, 1);
     int64_t m = janet_getinteger64(argv, 2);
 
-    return wrap_result(_modpow_impl(a, b, m), argv[2]);
+    int64_t res = 1;
+    if (b < 0) {
+        a = _invmod_impl(a, m);
+        if (a == 0)
+            return wrap_nan();
+        b = -b;
+    }
+    while (b > 0) {
+        if ((b & 1) == 1)
+            res = _mulmod_impl(res, a, m);
+        a = _mulmod_impl(a, a, m);
+        b >>= 1;
+    }
+
+    return wrap_result(res, argv[2]);
 }
 
 JANET_MODULE_ENTRY(JanetTable *env) {
