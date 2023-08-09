@@ -30,7 +30,6 @@ extern "C" {
 #endif
 
 extern JANET_API const JanetAbstractType janet_ta_view_type;
-extern JANET_API const JanetAbstractType janet_ta_buffer_type;
 
 typedef enum {
     JANET_TARRAY_TYPE_U8,
@@ -46,12 +45,6 @@ typedef enum {
 } JanetTArrayType;
 
 typedef struct {
-    uint8_t *data;
-    size_t size;
-    int32_t flags;
-} JanetTArrayBuffer;
-
-typedef struct {
     union {
         void *pointer;
         uint8_t *u8;
@@ -65,16 +58,16 @@ typedef struct {
         float *f32;
         double *f64;
     } as;
-    JanetTArrayBuffer *buffer;
+    JanetBuffer *buffer;
     size_t size;
+    int32_t flags;
     size_t stride;
     JanetTArrayType type;
 } JanetTArrayView;
 
-JANET_API JanetTArrayBuffer *janet_tarray_buffer(size_t size);
-JANET_API JanetTArrayView *janet_tarray_view(JanetTArrayType type, size_t size, size_t stride, size_t offset, JanetTArrayBuffer *buffer);
+JANET_API JanetTArrayView *janet_tarray_view(JanetTArrayType type, size_t size, size_t stride, size_t offset, JanetBuffer *buffer);
 JANET_API int janet_is_tarray_view(Janet x, JanetTArrayType type);
-JANET_API JanetTArrayBuffer *janet_gettarray_buffer(const Janet *argv, int32_t n);
+JANET_API JanetBuffer *janet_gettarray_buffer(const Janet *argv, int32_t n);
 JANET_API JanetTArrayView *janet_gettarray_view(const Janet *argv, int32_t n, JanetTArrayType type);
 JanetTArrayView *janet_gettarray_any(const Janet *argv, int32_t n);
 

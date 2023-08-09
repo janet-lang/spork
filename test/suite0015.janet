@@ -1,6 +1,6 @@
 (use ../spork/test)
 (use ../spork/math)
-(import spork/tarray)
+(import ../build/spork/tarray)
 
 (start-suite 15)
 
@@ -20,7 +20,7 @@
 (assert-no-error
  "create some typed arrays from a buffer"
  (do
-   (def buf (tarray/buffer (+ 64 (* (+ 1 (* (- 10 1) 2)) 8))))
+   (def buf (buffer/new (+ 64 (* (+ 1 (* (- 10 1) 2)) 8))))
    (def b (tarray/new :float64 10 2 64 buf))))
 
 (def a (tarray/new :float64 10))
@@ -70,7 +70,7 @@
 
 # Janet Issue #142
 
-(def buffer (tarray/buffer 8))
+(def buffer (buffer/new 8))
 (def buffer-float64-view (tarray/new :float64 1 1 0 buffer))
 (def buffer-uint32-view (tarray/new :uint32 2 1 0 buffer))
 
