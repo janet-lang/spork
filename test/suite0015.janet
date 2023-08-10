@@ -121,5 +121,53 @@
 (assert-no-error (t-test-2 array array2) "t-test-2")
 (assert-no-error (permutation-test array array2) "permutation-test array")
 
+
+##some bug regarding iteration
+(defn get-random-tarray [size seed]
+  (math/seedrandom seed)
+  (def array (tarray/new :float64 size))
+  (for i 0 (tarray/length array)
+    (put array i (math/random)))
+  array)
+
+(def randomtarrays @{
+  :a (get-random-tarray 20000 123)
+  :b (get-random-tarray 20000 123)
+  :c (get-random-tarray 20000 123)
+  :d (get-random-tarray 20000 123)
+  })
+
+# sometimes the crash is at another index but on my machine it's at around value #2777
+# sometimes the crash happens right after that value, sometimes the script keeps executing across some sort of garbagedata
+(let [count (tarray/length (randomtarrays :a))
+      refbuf (get randomtarrays :a)]
+  (pp randomtarrays)
+  (each buf randomtarrays
+    (pp (tarray/properties buf))
+    (pp (get buf 0))
+    (pp (get buf 1))
+    (pp (get buf 2))
+    (pp (get buf (- count 3)))
+    (pp (get buf (- count 2)))
+    (pp (get buf (- count 1))))
+  #(print "Press any key to continue")
+  #(getline)
+  (for i 0 count
+# it looks like the buffer is collected right after printing 2767/20000:
+    (prin " now: " i "/" count ". ")
+    (pp (length randomtarrays))
+    (eachp [k buf] randomtarrays
+# i.e. value is empty while refvalue contains a double, and k (line below this) is suddenly a floating point value instead of a b c or d.
+      (prin "out " k " ")
+      (let [_ (prin "let ") # right after this, at index 2777 -> crash
+            value (get buf i)
+            _ (prin "val " value)
+            refvalue (get refbuf i)
+            _ (prin " ref " refvalue)]
+        (unless (= value refvalue)
+          (prin " " value " == " refvalue ". "))
+        )
+      (prin "next.."))))
+
 (end-suite)
 
