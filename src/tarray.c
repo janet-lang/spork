@@ -75,6 +75,29 @@ static size_t ta_buffer_length(void *p, size_t size) {
 }
 #endif
 
+
+// get an unmanaged JanetBuffer
+JanetBuffer *ta_buffer_init(size_t buf_size) {
+    void* mem = janet_smalloc(buf_size);
+    if (NULL == mem) {
+        JANET_OUT_OF_MEMORY;
+    }
+    return janet_pointer_buffer_unsafe(mem, buf_size, 0);
+}
+
+/* Ensure that the buffer has enough internal capacity */
+void ta_buffer_sensure(JanetBuffer *buffer, int32_t new_size, int32_t growth) {
+    void *new_data;
+    uint8_t *old = buffer->data;
+    if (new_size <= buffer->capacity) return;
+    printf("new size %d old capa %d\n", new_size, buffer->capacity);
+    int64_t big_capacity = ((int64_t) new_size) * growth;
+    new_size = big_capacity > INT32_MAX ? INT32_MAX : (int32_t) big_capacity;
+    new_data = janet_srealloc(old, (size_t) new_size);
+    buffer->data = (uint8_t *) new_data;
+    buffer->capacity = new_size;
+}
+
 static int ta_mark(void *p, size_t s) {
     (void) s;
     JanetTArrayView *view = (JanetTArrayView *)p;
@@ -115,7 +138,7 @@ static void *ta_view_unmarshal(JanetMarshalContext *ctx) {
     }
     view->buffer = janet_unwrap_buffer(buffer);
     size_t buf_need_size = offset + (ta_type_sizes[view->type]) * ((view->size - 1) * view->stride + 1);
-    janet_buffer_ensure(view->buffer, buf_need_size, 2);
+    ta_buffer_sensure(view->buffer, buf_need_size, 2);
     janet_unmarshal_bytes(ctx, view->buffer->data, capacity);
     view->as.u8 = view->buffer->data + offset;
     return view;
@@ -275,11 +298,10 @@ JanetTArrayView *janet_tarray_view(
     size_t buf_size = offset + ta_type_sizes[type] * ((size - 1) * stride + 1);
 
     if (NULL == buffer) {
-        buffer = janet_buffer(buf_size);
-        janet_buffer_init(buffer, buf_size);
+        buffer = ta_buffer_init(buf_size);
     }
 
-    janet_buffer_ensure(buffer, buf_size, 2);
+    ta_buffer_sensure(buffer, buf_size, 2);
 
     if (buffer->capacity < buf_size) {
         janet_panicf("bad buffer size, %i bytes allocated < %i required",
@@ -329,8 +351,7 @@ static Janet cfun_typed_array_new(int32_t argc, Janet *argv) {
         int32_t blen;
         const uint8_t *bytes;
         if (janet_bytes_view(argv[4], &bytes, &blen)) {
-            buffer = janet_buffer(blen);
-            janet_buffer_init(buffer, blen);
+            buffer = ta_buffer_init(blen);
             memcpy(buffer->data, bytes, blen);
         } else {
             if (!janet_checktype(argv[4], JANET_ABSTRACT)) {
