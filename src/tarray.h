@@ -59,9 +59,9 @@ typedef struct {
         double *f64;
     } as;
     JanetBuffer *buffer;
-    size_t size;
+    int32_t size;
     int32_t flags;
-    size_t stride;
+    int32_t stride;
     JanetTArrayType type;
 } JanetTArrayView;
 

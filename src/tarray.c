@@ -83,7 +83,7 @@ JanetBuffer *ta_buffer_init(size_t buf_size) {
         JANET_OUT_OF_MEMORY;
     }
     memset(mem, 0, buf_size);
-    return janet_pointer_buffer_unsafe(mem, buf_size, 0);
+    return janet_pointer_buffer_unsafe(mem, buf_size, buf_size);
 }
 
 /* Ensure that the buffer has enough internal capacity */
@@ -97,6 +97,7 @@ void ta_buffer_sensure(JanetBuffer *buffer, int32_t new_size, int32_t growth) {
     memset(new_data+buffer->capacity, 0, new_size-buffer->capacity);
     buffer->data = (uint8_t *) new_data;
     buffer->capacity = new_size;
+    buffer->count = new_size;
 }
 
 static int ta_mark(void *p, size_t s) {
@@ -120,8 +121,8 @@ static void ta_view_marshal(void *p, JanetMarshalContext *ctx) {
 }
 
 static void *ta_view_unmarshal(JanetMarshalContext *ctx) {
-    size_t offset;
     int32_t capacity;
+    size_t offset;
     int32_t flags;
     int32_t atype;
     JanetTArrayView *view = janet_unmarshal_abstract(ctx, sizeof(JanetTArrayView));
@@ -134,10 +135,11 @@ static void *ta_view_unmarshal(JanetMarshalContext *ctx) {
     view->type = atype;
     offset = janet_unmarshal_size(ctx);
     capacity = janet_unmarshal_int(ctx);
-    view->buffer = ta_buffer_init(capacity);    
+    view->buffer = ta_buffer_init(capacity);
     size_t buf_need_size = offset + (ta_type_sizes[view->type]) * ((view->size - 1) * view->stride + 1);
     ta_buffer_sensure(view->buffer, buf_need_size, 2);
     janet_unmarshal_bytes(ctx, view->buffer->data, capacity);
+    view->buffer->count = capacity;
     view->as.u8 = view->buffer->data + offset;
     return view;
 }
@@ -336,13 +338,13 @@ JanetTArrayView *janet_gettarray_view(const Janet *argv, int32_t n, JanetTArrayT
 static Janet cfun_typed_array_new(int32_t argc, Janet *argv) {
     janet_arity(argc, 2, 5);
     size_t offset = 0;
-    size_t stride = 1;
+    int32_t stride = 1;
     JanetBuffer *buffer = NULL;
     const uint8_t *keyw = janet_getkeyword(argv, 0);
     JanetTArrayType type = get_ta_type_by_name(keyw);
-    size_t size = janet_getsize(argv, 1);
+    int32_t size = janet_getinteger(argv, 1);
     if (argc > 2)
-        stride = janet_getsize(argv, 2);
+        stride = janet_getinteger(argv, 2);
     if (argc > 3)
         offset = janet_getsize(argv, 3);
     if (argc > 4) {
