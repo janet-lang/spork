@@ -42,33 +42,7 @@
 (assert (= ((tarray/slice b 1) 2) (b 3) (a 6) 6) "tarray slice")
 (assert (= (:length a) (length a)) "length method and function")
 
-(def marshall (marshal @[:a :b :c :d]))
-(def lilly (marshal [:a :b :c :d]))
-(def ted (marshal @{:a 1 :b 2 :c 3 :d 4}))
-(def barney (marshal {:a 1 :b 2 :c 3 :d 4}))
-
-
-(pp marshall)
-(pp (unmarshal marshall))
-(pp ted)
-(pp (unmarshal ted))
-(pp lilly)
-(pp (unmarshal lilly))
-(pp barney)
-(pp (unmarshal barney))
-
-(pp (tarray/properties a))
-(pp :robin)
-(def robin (marshal a))
-(pp robin)
-(def tracy (unmarshal robin))
-(pp (tarray/properties tracy))
-(pp (marshal tracy))
-
-
-#(assert (= ((unmarshal (marshal b)) 3) (b 3)) "marshal")
-
-#(assert (= ((unmarshal (marshal b)) 3) (b 3)) "marshal")
+(assert (= ((unmarshal (marshal b)) 3) (b 3)) "marshal")
 
 # Janet issue 408
 (assert-error :invalid-type (tarray/new :int32 10 1 0 (int/u64 7)) "tarray/new should only allow tarray or buffer for last argument")
@@ -162,19 +136,25 @@
     (put array i (math/random)))
   array)
 
-(def randomtarrays @{
-  :a (get-random-tarray 20000 123)
-  :b (get-random-tarray 20000 123)
-  :c (get-random-tarray 20000 123)
-  :d (get-random-tarray 20000 123)
+(def marshd (marshal (get-random-tarray 20000 123)))
+
+(def randomtarrays @{  
+  :a (unmarshal marshd)
+  :b (unmarshal marshd)
+  :c (unmarshal marshd)
+  :d (unmarshal marshd)
   })
 
 
-  (print "Press any key to continue")
-  (getline)
-  (for i 0 100000
-    (prin " " i " "))
+  # sometimes the crash is at another index but on my machine it's at around value #2777
+# sometimes the crash happens right after that value, sometimes the script keeps executing across some sort of garbagedata
+(let [count (tarray/length (randomtarrays :a))
+      refbuf (get randomtarrays :a)]
+  (for i 0 count
+    (eachp [k buf] randomtarrays
+      (let [value (get buf i)
+            refvalue (get refbuf i)]
+        (assert (= value refvalue) (string "At idx " i " value: " value " refvalue: " refvalue))))))
 
-(print "end suite")
 (end-suite)
 
