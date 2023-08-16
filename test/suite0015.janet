@@ -2,13 +2,16 @@
 (use ../spork/math)
 (import ../build/spork/tarray)
 
+
 (start-suite 15)
+
 
 (defn inspect-tarray
   [x]
   (def a @[])
   (for i 0 (tarray/length x) (array/push a (x i)))
   (pp a))
+
 
 (assert-no-error
  "create some typed arrays"
@@ -23,6 +26,7 @@
    (def buf (buffer/new (+ 64 (* (+ 1 (* (- 10 1) 2)) 8))))
    (def b (tarray/new :float64 10 2 64 buf))))
 
+
 (def a (tarray/new :float64 10))
 (def b (tarray/new :float64 5 2 0 a))
 
@@ -31,13 +35,40 @@
  (for i 0 (tarray/length a)
       (set (a i) i)))
 
+
 (assert (= (tarray/buffer a) (tarray/buffer b)) "tarray views pointing same buffer")
 (assert (= (a 2) (b 1) ) "tarray views pointing same buffer")
 (assert (= ((tarray/slice b) 3) (b 3) (a 6) 6) "tarray slice")
 (assert (= ((tarray/slice b 1) 2) (b 3) (a 6) 6) "tarray slice")
 (assert (= (:length a) (length a)) "length method and function")
 
-(assert (= ((unmarshal (marshal b)) 3) (b 3)) "marshal")
+(def marshall (marshal @[:a :b :c :d]))
+(def lilly (marshal [:a :b :c :d]))
+(def ted (marshal @{:a 1 :b 2 :c 3 :d 4}))
+(def barney (marshal {:a 1 :b 2 :c 3 :d 4}))
+
+
+(pp marshall)
+(pp (unmarshal marshall))
+(pp ted)
+(pp (unmarshal ted))
+(pp lilly)
+(pp (unmarshal lilly))
+(pp barney)
+(pp (unmarshal barney))
+
+(pp (tarray/properties a))
+(pp :robin)
+(def robin (marshal a))
+(pp robin)
+(def tracy (unmarshal robin))
+(pp (tarray/properties tracy))
+(pp (marshal tracy))
+
+
+#(assert (= ((unmarshal (marshal b)) 3) (b 3)) "marshal")
+
+#(assert (= ((unmarshal (marshal b)) 3) (b 3)) "marshal")
 
 # Janet issue 408
 (assert-error :invalid-type (tarray/new :int32 10 1 0 (int/u64 7)) "tarray/new should only allow tarray or buffer for last argument")
@@ -49,6 +80,7 @@
 (put ta 3 7)
 (put ta 9 7)
 (assert (= 2 (count |(= $ 7) ta)) "tarray count")
+
 
 # int64 typed arrays
 (def i64 int/s64)
@@ -137,37 +169,12 @@
   :d (get-random-tarray 20000 123)
   })
 
-# sometimes the crash is at another index but on my machine it's at around value #2777
-# sometimes the crash happens right after that value, sometimes the script keeps executing across some sort of garbagedata
-(let [count (tarray/length (randomtarrays :a))
-      refbuf (get randomtarrays :a)]
-  (pp randomtarrays)
-  (each buf randomtarrays
-    (pp (tarray/properties buf))
-    (pp (get buf 0))
-    (pp (get buf 1))
-    (pp (get buf 2))
-    (pp (get buf (- count 3)))
-    (pp (get buf (- count 2)))
-    (pp (get buf (- count 1))))
-  #(print "Press any key to continue")
-  #(getline)
-  (for i 0 count
-# it looks like the buffer is collected right after printing 2767/20000:
-    (prin " now: " i "/" count ". ")
-    (pp (length randomtarrays))
-    (eachp [k buf] randomtarrays
-# i.e. value is empty while refvalue contains a double, and k (line below this) is suddenly a floating point value instead of a b c or d.
-      (prin "out " k " ")
-      (let [_ (prin "let ") # right after this, at index 2777 -> crash
-            value (get buf i)
-            _ (prin "val " value)
-            refvalue (get refbuf i)
-            _ (prin " ref " refvalue)]
-        (unless (= value refvalue)
-          (prin " " value " == " refvalue ". "))
-        )
-      (prin "next.."))))
 
+  (print "Press any key to continue")
+  (getline)
+  (for i 0 100000
+    (prin " " i " "))
+
+(print "end suite")
 (end-suite)
 

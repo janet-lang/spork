@@ -82,18 +82,19 @@ JanetBuffer *ta_buffer_init(size_t buf_size) {
     if (NULL == mem) {
         JANET_OUT_OF_MEMORY;
     }
+    memset(mem, 0, buf_size);
     return janet_pointer_buffer_unsafe(mem, buf_size, 0);
 }
 
 /* Ensure that the buffer has enough internal capacity */
 void ta_buffer_sensure(JanetBuffer *buffer, int32_t new_size, int32_t growth) {
-    void *new_data;
+    uint8_t *new_data;
     uint8_t *old = buffer->data;
     if (new_size <= buffer->capacity) return;
-    printf("new size %d old capa %d\n", new_size, buffer->capacity);
     int64_t big_capacity = ((int64_t) new_size) * growth;
     new_size = big_capacity > INT32_MAX ? INT32_MAX : (int32_t) big_capacity;
-    new_data = janet_srealloc(old, (size_t) new_size);
+    new_data = (uint8_t *)janet_srealloc(old, (size_t) new_size);
+    memset(new_data+buffer->capacity, 0, new_size-buffer->capacity);
     buffer->data = (uint8_t *) new_data;
     buffer->capacity = new_size;
 }
@@ -137,6 +138,7 @@ static void *ta_view_unmarshal(JanetMarshalContext *ctx) {
         janet_panicf("expected buffer");
     }
     view->buffer = janet_unwrap_buffer(buffer);
+    view->buffer->capacity = capacity;
     size_t buf_need_size = offset + (ta_type_sizes[view->type]) * ((view->size - 1) * view->stride + 1);
     ta_buffer_sensure(view->buffer, buf_need_size, 2);
     janet_unmarshal_bytes(ctx, view->buffer->data, capacity);
