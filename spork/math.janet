@@ -1,4 +1,5 @@
 (use ./misc)
+(import spork/cmath :prefix "" :export true)
 
 # Statistics
 
@@ -309,7 +310,7 @@
 
 (defn z-score
   ```
-  Gets the standard score for number `x` from mean `m` 
+  Gets the standard score for number `x` from mean `m`
   and standard deviation `d`.
   ```
   [x m d]
@@ -1168,3 +1169,129 @@
             (for i 0 r
               (+= res (* (get-in m [0 i])
                          (perm (minor m 0 i))))))))
+
+# Number Theory
+
+(def- small-primes
+  "primes less than 212"
+  [2 3 5 7 11 13 17 19 23 29 31 37
+   41 43 47 53 59 61 67 71 73 79 83 89
+   97 101 103 107 109 113 127 131 137 139 149 151
+   157 163 167 173 179 181 191 193 197 199 211])
+
+(def- soe-indices
+  "pre-calced sieve of eratosthenes for 2 3 5 7"
+  [1 11 13 17 19 23 29 31 37 41 43 47
+   53 59 61 67 71 73 79 83 89 97 101 103
+   107 109 113 121 127 131 137 139 143 149 151 157
+   163 167 169 173 179 181 187 191 193 197 199 209])
+
+(def- soe-offsets
+  "distances between sieve values"
+  [10 2 4 2 4 6 2 6 4 2 4 6
+   6 2 6 4 2 6 4 6 8 4 2 4
+   2 4 8 6 4 6 2 4 6 2 6 6
+   4 2 4 6 2 6 4 2 4 2 10 2])
+
+(def- soe-table
+  "tabulated offsets mod 105"
+  [0 10 2 0 4 0 0 0 8 0 0 2 0 4 0
+   0 6 2 0 4 0 0 4 6 0 0 6 0 0 2
+   0 6 2 0 4 0 0 4 6 0 0 2 0 4 2
+   0 6 6 0 0 0 0 6 6 0 0 0 0 4 2
+   0 6 2 0 4 0 0 4 6 0 0 2 0 6 2
+   0 6 0 0 4 0 0 4 6 0 0 2 0 4 8
+   0 0 2 0 10 0 0 4 0 0 0 2 0 4 2])
+
+(def- mr-bases-32
+  "bases for miller-rabin determinism to 2^32"
+  [2 7 61])
+
+(def- mr-bases-64
+  "bases for miller-rabin determinism to 2^64"
+  [2 325 9375 28178 450775 9780504 1795265022])
+
+(def- prime-prod
+  "product of primes from 3 to 43"
+  6541380665835015)
+
+(defn- miller-rabin-prp?
+  ``Performs a Miller-Rabin probable prime test on `n` against all given bases.
+  If no bases are given, sufficient bases are used to ensure that the check
+  is deterministic for all `n` less than 2^63.``
+  [n & bases]
+  (def ps
+    (if (empty? bases)
+      (if (int? n) mr-bases-32 mr-bases-64)
+      bases))
+  (var d (- n 1))
+  (var s 0)
+  (while (zero? (mod d 2))
+    (++ s)
+    (/= d 2))
+  (label result
+    (each p ps
+      (var x (powmod p d n))
+      (when (compare< 1 x (- n 1))
+        (for r 1 s
+          (set x (mulmod x x n))
+          (if-not (compare< 1 x (- n 1)) (break)))
+        (if-not (compare= x (- n 1))
+          (return result false))))
+    true))
+
+(defn prime?
+  "A primality test, deterministic for all `n` less than 2^63."
+  [n]
+  (cond
+    (compare<= n 211) (do
+                        (def m (binary-search n small-primes compare<))
+                        (compare= n (in small-primes m)))
+    (zero? (mod n 2)) false
+    (= 0 (jacobi n prime-prod)) false
+    (miller-rabin-prp? n)))
+
+(defn next-prime
+  "Returns the next prime number strictly larger than `n`."
+  [n]
+  (var x (+ n 1))
+  (if (compare<= x 211)
+    (in small-primes (binary-search x small-primes compare<))
+    (label result
+      (def i (mod x 210))
+      (def m (binary-search i soe-indices compare<))
+      (+= x (- (in soe-indices m) i))
+      (def offs [;(tuple/slice soe-offsets m) ;(tuple/slice soe-offsets 0 m)])
+      (forever
+        (each o offs
+          (if (not= 0 (jacobi x prime-prod))
+            (if (miller-rabin-prp? x) (return result x)))
+          (+= x o))))))
+
+(defn primes
+  "A boundless prime number generator."
+  []
+  (coro
+    (each n small-primes (yield n))
+    (def sieve @{221 13 253 11})
+    (def pg (drop 6 (primes)))
+    (var p (resume pg))
+    (var q (* p p))
+    (var n 211)
+    (forever
+      (each offset soe-offsets
+        (+= n offset)
+        (def stp (get sieve n))
+        (cond
+          stp (do
+                (put sieve n nil)
+                (var nxt (/ n stp))
+                (+= nxt (in soe-table (mod nxt 105)))
+                (while (get sieve (* nxt stp))
+                  (+= nxt (in soe-table (mod nxt 105))))
+                (put sieve (* nxt stp) stp))
+          (< n q) (yield n)
+          (do
+            (put sieve (+ q (* p (in soe-table (mod p 105)))) p)
+            (set p (resume pg))
+            (set q (* p p))))))))
