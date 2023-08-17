@@ -18,7 +18,7 @@
 (defn to-array
   "Consume `s` into a new array."
   [s]
-  (values s))
+  (seq [v :in s] v))
 
 (defn run
   "Evaluate `s` for side effects."
