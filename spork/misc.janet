@@ -523,6 +523,29 @@
     (array/insert arr (binary-search-by x arr f) x))
   arr)
 
+(defn merge-sorted
+  ``Merges two sorted arrays so that the result remains sorted, using an optional comparator.
+  If no comparator is given, `<` is used.``
+  [a b &opt <?]
+  (default <? <)
+  (def len (+ (length a) (length b)))
+  (def res (array/new-filled len))
+  (var [i j] [0 0])
+  (forv k 0 len
+    (def [u v] [(get a i) (get b j)])
+    (cond
+      (= nil u) (do (put res k v) (++ j))
+      (= nil v) (do (put res k u) (++ i))
+      (<? u v) (do (put res k u) (++ i))
+      (do (put res k v) (++ j))))
+  res)
+
+(defn merge-sorted-by
+  ``Merges two sorted arrays so that result remains sorted when `f` is called on each element,
+  comparing the values with `<`.``
+  [a b f]
+  (merge-sorted a b |(< (f $0) (f $1))))
+
 (def- id-bytes 10)
 (defn make-id
   ```
