@@ -1225,18 +1225,19 @@
       (if (int? n) mr-bases-32 mr-bases-64)
       bases))
   (var d (- n 1))
+  (def one (- n d))
   (var s 0)
-  (while (zero? (mod d 2))
+  (while (< (mod d 2) one)
     (++ s)
     (/= d 2))
   (label result
     (each p ps
       (var x (powmod p d n))
-      (when (compare< 1 x (- n 1))
+      (when (< one x (- n 1))
         (for r 1 s
           (set x (mulmod x x n))
-          (if-not (compare< 1 x (- n 1)) (break)))
-        (if-not (compare= x (- n 1))
+          (if-not (< one x (- n 1)) (break)))
+        (if (not= x (- n 1))
           (return result false))))
     true))
 
@@ -1295,3 +1296,61 @@
             (put sieve (+ q (* p (in soe-table (mod p 105)))) p)
             (set p (resume pg))
             (set q (* p p))))))))
+
+(defn- pollard-rho
+  "pollard's rho algorithm, with brent's cycle detection"
+  [n &opt c]
+  (default c 1)
+  (def m 16)
+  (def zero (- n n))
+  (var [x q r] [2 1 m])
+  (var xs nil)
+  (var y nil)
+  (while (not= 0 (jacobi q n))
+    (set y x)
+    (repeat r
+      (set x (+ (mulmod x x n) c)))
+    (loop [k :range [0 r m]
+           :while (not= 0 (jacobi q n))
+           :before (set xs x)
+           :repeat m]
+      (set x (+ (mulmod x x n) c))
+      (set q (mulmod q (- x y) n)))
+    (*= r 2))
+  (if (= q zero)
+    (while true
+      (set xs (+ (mulmod xs xs n) c))
+      (set q (mod (- xs y) n))
+      (if (= 0 (jacobi q n)) (break))))
+  (if (= q zero)
+    (pollard-rho n (+ c 1))
+    (do
+      (set x n)
+      (while (> q zero)
+        (set* [x q] [q (mod x q)]))
+      x)))
+
+(defn- factor-pollard
+  [n]
+  (if (miller-rabin-prp? n)
+    [n]
+    (do
+      (def p (pollard-rho n))
+      (merge-sorted
+        (factor-pollard p)
+        (factor-pollard (/ n p))))))
+
+(defn factor
+  "Returns an array containing the prime factors of `n`."
+  [n]
+  (def res @[])
+  (def one (+ (- n n) 1))
+  (when (> n one)
+    (var x n)
+    (each p small-primes
+      (while (< (mod x p) one)
+        (array/push res (* p one))
+        (/= x p)))
+    (if (> x one)
+      (array/concat res (factor-pollard x))))
+  res)

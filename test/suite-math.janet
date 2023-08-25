@@ -597,4 +597,15 @@
     (all |(= 1 (mulmod (powmod $ $ p) (powmod $ (- $) p) p)) (range 1 1000))
     (string "powmod " p)))
 
+(defn check-factor [n]
+  (def res (factor n))
+  (and 
+    (all prime? res)
+    (all = res (sorted res))
+    (= n (* ;res))))
+
+(assert (all check-factor (range 1 10000)) "factor small integers")
+(assert (all check-factor test-primes) "factor primes")
+(assert (all check-factor pseudoprimes) "factor pseudoprimes")
+
 (end-suite)
