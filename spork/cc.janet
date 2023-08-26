@@ -11,11 +11,11 @@
 ### (use spork/cc)
 ###
 ### (search-static-libraries "m" "rt" "dl")
+### (search-dynamic-libraries "janet")
 ### (pkg-config "sdl2" "vulkan")
-### (with-dyns [*defines* {"JANET_MODULE_ENTRY" "spork_crc_module_entry"}
-###             *visit* (fn [cmd &] (print (string/join cmd " ")))]
-###   (compile-c "src/crc.c" "crc.o")
-###   (link-shared-c ["crc.o"] "crc.so"))
+### (with-dyns [*defines* {"GAME_BUILD" "devel-0.0"}
+###             *visit* visit-execute-if-stale]
+###   (compile-and-link-executable "game" "main.c" "sound.c" "graphics.c"))
 ###
 
 (import ./path)
@@ -65,9 +65,12 @@
   ((dyn *visit* default-exec) cmd inputs outputs message) cmd)
 (defn- build-dir [] (dyn *build-dir* "."))
 
-###
-### Source-to-source compiler for .janet files
-###
+(defn- getsetdyn
+  [sym]
+  (def x (dyn sym))
+  (if (= nil x)
+    (setdyn sym @[])
+    x))
 
 ###
 ### Basic GCC-like Compiler Wrapper
@@ -324,6 +327,10 @@
 ### *visit* functions
 ###
 
+(defn visit-do-nothing
+  "A visiting function that has no side effects and therefor does nothing."
+  [&])
+
 (defn visit-generate-makefile
   "A function that can be provided as `(dyn *visit*)` that will generate Makefile targets."
   [cmd inputs outputs message]
@@ -341,12 +348,21 @@
   (def im (max ;(map itime inputs)))
   (def om (min ;(map otime outputs)))
   (if (>= om im) (break))
-  (unless (dyn :quiet)
-    (if (dyn :verbose)
+  (if (dyn :verbose)
+    (do
       (print (string/join cmd " "))
-      (print message)))
+      (os/execute cmd :px))
+    (do
+      (print message)
+      (def devnull (sh/devnull))
+      (os/execute cmd :px {:out devnull :err devnull}))))
+
+(defn visit-execute-quiet
+  "A function that can be provided as `(dyn *visit*)` that will execute commands quietly."
+  [cmd inputs outputs message]
   (def devnull (sh/devnull))
   (os/execute cmd :px {:out devnull :err devnull}))
+
 
 ###
 ### Library discovery and self check
@@ -366,8 +382,7 @@
     (spit src test-source-code)
     (def result
       (try
-        (with-dyns [*visit* visit-execute-if-stale
-                    :quiet true
+        (with-dyns [*visit* visit-execute-quiet
                     *build-dir* temp
                     *static-libs* slibs
                     *dynamic-libs* dlibs]
@@ -379,14 +394,13 @@
 
 (defn- search-libs-impl
   [static dynb libs]
-  (def ls (dyn dynb @[]))
+  (def ls (getsetdyn dynb))
   (def notfound @[])
   (each lib libs
     (def llib (if (string/has-prefix? "-l" lib) lib (string "-l" lib)))
     (if (check-library-exists llib static)
       (array/push ls llib)
       (array/push notfound lib)))
-  (unless (dyn dynb) (setdyn dynb ls))
   notfound)
 
 (defn search-static-libraries
@@ -412,19 +426,22 @@
 ### Package Config wrapper to find libraries and set flags
 ###
 
+(defdyn *pkg-config-flags* "Extra flags to pass to pkg-config")
+
 (defn pkg-config
   "Setup defines, cflags, and library flags from pkg-config."
   [& pkg-config-libraries]
   (def pkg-config-path (or (lib-path) (dyn *syspath* ".")))
   (def wp (string "--with-path=" pkg-config-path))
   (def pkp (string "--with-path=" (path/join pkg-config-path "pkgconfig")))
-  (def cflags (pkg-config-impl "pkg-config" "--cflags" wp pkp ;pkg-config-libraries))
-  (def lflags (pkg-config-impl "pkg-config" "--libs-only-L" "--libs-only-other" wp pkp ;pkg-config-libraries))
+  (def extra (dyn *pkg-config-flags* []))
+  (def cflags (pkg-config-impl "pkg-config" "--cflags" wp pkp ;extra ;pkg-config-libraries))
+  (def lflags (pkg-config-impl "pkg-config" "--libs-only-L" "--libs-only-other" wp pkp ;extra ;pkg-config-libraries))
   (def libs (pkg-config-impl "pkg-config" "--libs-only-l" wp pkp ;pkg-config-libraries))
   (def leftovers (search-static-libraries ;libs))
   (def leftovers (search-dynamic-libraries ;leftovers))
   (unless (empty? leftovers)
     (errorf "could not find libraries %j" leftovers))
-  (setdyn *cflags* (array/concat (dyn *cflags* @[]) cflags))
-  (setdyn *lflags* (array/concat (dyn *lflags* @[]) lflags))
+  (array/concat (getsetdyn *cflags*) cflags)
+  (array/concat (getsetdyn *lflags*) lflags)
   nil)
