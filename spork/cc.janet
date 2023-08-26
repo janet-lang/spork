@@ -14,6 +14,10 @@
 ###             *visit* (fn [cmd &] (-> cmd tracev (os/execute :px)))]
 ###   (compile-c "src/crc.c" "crc.o")
 ###   (link-shared-c ["crc.o"] "crc.so"))
+###
+### TODO:
+### - Self-check routine
+### - Add support for sanitizers
 
 (defdyn *ar* "Archiver, defaults to `ar`.")
 (defdyn *build-dir* "If generating intermediate files, store them in this directory")
@@ -36,6 +40,8 @@
   (if-not (in {:develop true :debug true :release true} bt)
     (errorf "invalid build type %v, expected :release, :develop, or :debug" bt))
   bt)
+
+# GCC toolchain helpers
 (defn- ar [] (dyn *ar* "ar"))
 (defn- cc [] (dyn *cc* "cc"))
 (defn- c++ [] (dyn *c++* "c++"))
@@ -54,12 +60,12 @@
   (sort res) # for deterministic builds
   res)
 (defn- extra-paths []
-  (def sp (dyn *syspath*))
+  (def sp (dyn *syspath* "."))
   [(string "-I" sp) (string "-L" sp)])
 (defn- static-libs [] (dyn *static-libs* []))
 (defn- dynamic-libs [] (dyn *dynamic-libs* []))
 (defn- libs [] [;(lflags) "-Wl,-Bstatic" ;(static-libs) "-Wl,-Bdynamic" ;(dynamic-libs)])
-(defn- default-exec [cmd &] cmd)
+(defn- default-exec [&])
 (defn- exec
   "Call the (dyn *visit*) function on commands"
   [cmd inputs outputs message]
@@ -121,12 +127,12 @@
 
 (defn- out-path
   "Take a source file path and convert it to an output path."
-  [path from-ext to-ext]
-  (->> path
+  [path to-ext]
+  (def flatpath
+    (->> path
        (string/replace-all "\\" "___")
-       (string/replace-all "/" "___")
-       (string/replace-all from-ext to-ext)
-       (string (build-dir) "/")))
+       (string/replace-all "/" "___")))
+   (string (build-dir) "/" flatpath to-ext))
 
 (defn- compile-many
   "Compile a number of source files, and return the
@@ -136,22 +142,20 @@
   (def objects @[])
   (var has-cpp false)
   (each source sources
+    (def o (out-path source ".o"))
     (cond
-      (string/find ".cpp" source)
+      (string/has-suffix? ".cpp" source)
       (do
         (set has-cpp true)
-        (def o (out-path source ".cpp" ".o"))
         (array/push cmds-into (compile-c++ source o))
         (array/push objects o))
-      (string/find ".cc" source)
+      (string/has-suffix? ".cc" source)
       (do
         (set has-cpp true)
-        (def o (out-path source ".cc" ".o"))
         (array/push cmds-into (compile-c++ source o))
         (array/push objects o))
       # else
       (do
-        (def o (out-path source ".c" ".o"))
         (array/push cmds-into (compile-c source o))
         (array/push objects o))))
   [has-cpp objects])
@@ -184,6 +188,106 @@
   (def res @[])
   (def [_ objects] (compile-many sources res))
   (array/push res (make-archive objects to)))
+
+###
+### MSVC Compiler Wrapper (msvc 2017 and later)
+###
+
+(defn- msvc-opt
+  []
+  (case (build-type)
+    :debug "/Od"
+    "/O2"))
+(defn- msvc-defines []
+  (def res @[])
+  (array/push res (string "/DJANET_BUILD_TYPE=" (build-type)))
+  (eachp [k v] (dyn *defines* [])
+    (array/push res (string "/D" k "=" v)))
+  (sort res) # for deterministic builds
+  res)
+(defn- crt [] "/MD") # TODO: support for static linking
+
+(defn msvc-compile-c
+  "Compile a C program with MSVC. Return the command arguments."
+  [from to]
+  (exec ["cl" "/c" "/std:c11" "/utf-8" "/nologo" ;(cflags) (crt) (msvc-opt) ;(msvc-defines)
+         "/I" (dyn *syspath* ".") from (string "/Fo" to)]
+        [from] [to] (string "compiling " from "...")))
+
+(defn msvc-compile-c++
+  "Compile a C program with MSVC. Return the command arguments."
+  [from to]
+  (exec ["cl" "/c" "/std:c++14" "/utf-8" "/nologo" "/EHsc" ;(c++flags) (crt) (msvc-opt) ;(msvc-defines)
+         "/I" (dyn *syspath* ".") from (string "/Fo" to)]
+        [from] [to] (string "compiling " from "...")))
+
+(defn msvc-link-shared
+  "Link a C/C++ program with MSVC to make a shared library. Return the command arguments."
+  [objects to]
+  (exec ["link" "/nologo" "/DLL" (string "/OUT:" to) ;objects "/LIBPATH:" (dyn *syspath* ".") ;(lflags)]
+        objects [to] (string "linking " to "...")))
+
+(defn msvc-link-executable
+  "Link a C/C++ program with MSVC to make an executable. Return the command arguments."
+  [objects to]
+  (exec ["link" "/nologo" (string "/OUT:" to) ;objects "/LIBPATH:" (dyn *syspath* ".") ;(lflags)]
+        objects [to] (string "linking " to "...")))
+
+(defn msvc-make-archive
+  "Make an archive file with MSVC. Return the command arguments."
+  [objects to]
+  (exec ["lib" "/nologo" (string "/OUT:" to) ;objects]
+        objects [to] (string "archiving " to "...")))
+
+# Compound commands
+
+(defn- msvc-compile-many
+  "Compile a number of source files, and return the
+  generated objects files, as well as a boolean if any cpp
+  source files were found."
+  [sources cmds-into]
+  (def objects @[])
+  (each source sources
+    (def o (out-path source ".o"))
+    (cond
+      (string/has-suffix? ".cpp" source)
+      (do
+        (array/push cmds-into (msvc-compile-c++ source o))
+        (array/push objects o))
+      (string/has-suffix? ".cc" source)
+      (do
+        (array/push cmds-into (msvc-compile-c++ source o))
+        (array/push objects o))
+      # else
+      (do
+        (array/push cmds-into (msvc-compile-c source o))
+        (array/push objects o))))
+  objects)
+
+(defn msvc-compile-and-link-shared
+  "Compile and link a shared C/C++ program. Return an array of commands."
+  [to & sources]
+  (def res @[])
+  (def objects (msvc-compile-many sources res))
+  (array/push
+    res
+    (msvc-link-shared objects to)))
+
+(defn msvc-compile-and-link-executable
+  "Compile and link an executable C/C++ program. Return an array of commands."
+  [to & sources]
+  (def res @[])
+  (def objects (msvc-compile-many sources res))
+  (array/push
+    res
+    (msvc-link-executable objects to)))
+
+(defn msvc-compile-and-make-archive
+  "Compile and create a static archive. Return an array of commands."
+  [to & sources]
+  (def res @[])
+  (def objects (msvc-compile-many sources res))
+  (array/push res (msvc-make-archive objects to)))
 
 ###
 ### *visit* premade functions
