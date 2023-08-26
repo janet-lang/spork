@@ -9,15 +9,17 @@
 ### Configuration is done via dynamic variables, so normal usage would look like:
 ###
 ### (use spork/cc)
+###
+### (search-static-libraries "m" "rt" "dl")
+### (pkg-config "sdl2" "vulkan")
 ### (with-dyns [*defines* {"JANET_MODULE_ENTRY" "spork_crc_module_entry"}
-###             *cflags* ["-g"]
-###             *visit* (fn [cmd &] (-> cmd tracev (os/execute :px)))]
+###             *visit* (fn [cmd &] (print (string/join cmd " ")))]
 ###   (compile-c "src/crc.c" "crc.o")
 ###   (link-shared-c ["crc.o"] "crc.so"))
 ###
-### TODO:
-### - Self-check routine
-### - Add support for sanitizers
+
+(import ./path)
+(import ./sh)
 
 (defdyn *ar* "Archiver, defaults to `ar`.")
 (defdyn *build-dir* "If generating intermediate files, store them in this directory")
@@ -32,14 +34,44 @@
 (defdyn *static-libs* "List of static libraries to use when compiling")
 (defdyn *target-os* "Operating system to assume is being used for target compiler toolchain")
 (defdyn *visit* "Optional callback to process each CLI command and its inputs and outputs")
+(defdyn *use-rpath* "Optional setting to enable using `(dyn *syspath*)` as the runtime path to load for DLLs. Defaults to true")
 
-# Utilties to reference dynamic variables with defaults
-(defn- target-os [] (dyn *target-os* (os/which)))
+###
+### Universal helpers for all toolchains
+###
+
+(defn- cflags [] (dyn *cflags* []))
+(defn- c++flags [] (dyn *c++flags* []))
+(defn- lflags [] (dyn *lflags* []))
+(defn- target-os []
+  (dyn *target-os* (os/which)))
 (defn- build-type []
   (def bt (dyn *build-type* :develop))
   (if-not (in {:develop true :debug true :release true} bt)
     (errorf "invalid build type %v, expected :release, :develop, or :debug" bt))
   bt)
+(defn- lib-path []
+  "Guess a library path based on the current system path"
+  (def sp (dyn *syspath* "."))
+  (def parts (filter next (path/parts sp)))
+  (if (= "janet" (last parts))
+    (path/abspath (string sp "/.."))))
+(defn- static-libs [] (dyn *static-libs* []))
+(defn- dynamic-libs [] (dyn *dynamic-libs* []))
+(defn- default-exec [&])
+(defn- exec
+  "Call the (dyn *visit*) function on commands"
+  [cmd inputs outputs message]
+  ((dyn *visit* default-exec) cmd inputs outputs message) cmd)
+(defn- build-dir [] (dyn *build-dir* "."))
+
+###
+### Source-to-source compiler for .janet files
+###
+
+###
+### Basic GCC-like Compiler Wrapper
+###
 
 # GCC toolchain helpers
 (defn- ar [] (dyn *ar* "ar"))
@@ -49,9 +81,6 @@
                 :debug "-O0"
                 "-O2"))
 (defn- g [] (case (build-type) :release [] ["-g"]))
-(defn- cflags [] (dyn *cflags* []))
-(defn- c++flags [] (dyn *c++flags* []))
-(defn- lflags [] (dyn *lflags* []))
 (defn- defines []
   (def res @[])
   (array/push res (string "-DJANET_BUILD_TYPE=" (build-type)))
@@ -61,26 +90,25 @@
   res)
 (defn- extra-paths []
   (def sp (dyn *syspath* "."))
-  [(string "-I" sp) (string "-L" sp)])
-(defn- static-libs [] (dyn *static-libs* []))
-(defn- dynamic-libs [] (dyn *dynamic-libs* []))
-(defn- libs [] [;(lflags) "-Wl,-Bstatic" ;(static-libs) "-Wl,-Bdynamic" ;(dynamic-libs)])
-(defn- default-exec [&])
-(defn- exec
-  "Call the (dyn *visit*) function on commands"
-  [cmd inputs outputs message]
-  ((dyn *visit* default-exec) cmd inputs outputs message) cmd)
+  (def lp (lib-path))
+  [(string "-I" sp) (string "-L" sp) ;(if lp [(string "-L" lp)] [])])
+(defn- rpath
+  []
+  (if (dyn *use-rpath* true)
+    [(string "-Wl,-rpath=" (lib-path))
+     (string "-Wl,-rpath=" (dyn *syspath* "."))]
+    []))
+(defn- libs []
+  [;(lflags)
+   "-Wl,-Bstatic" ;(static-libs)
+   "-Wl,-Bdynamic" ;(dynamic-libs)
+   ;(rpath)])
 (defn- rdynamic
   "Some systems like -rdynamic, some like -Wl,-export_dynamic"
   []
   (if (= (target-os) :macos) "-Wl,-export_dynamic" "-rdynamic"))
 (defn- ccstd [] "-std=c99")
 (defn- c++std [] "-std=c++11")
-(defn- build-dir [] (dyn *build-dir* "."))
-
-###
-### Basic Compiler Wrapper
-###
 
 (defn compile-c
   "Compile a C program to an object file. Return the command arguments."
@@ -131,9 +159,9 @@
   (default sep "/")
   (def flatpath
     (->> path
-       (string/replace-all "\\" "___")
-       (string/replace-all "/" "___")))
-   (string (build-dir) sep flatpath to-ext))
+         (string/replace-all "\\" "___")
+         (string/replace-all "/" "___")))
+  (string (build-dir) sep flatpath to-ext))
 
 (defn- compile-many
   "Compile a number of source files, and return the
@@ -193,6 +221,8 @@
 ###
 ### MSVC Compiler Wrapper (msvc 2017 and later)
 ###
+
+### TODO: libraries
 
 (defn- msvc-opt
   []
@@ -291,11 +321,11 @@
   (array/push res (msvc-make-archive objects to)))
 
 ###
-### *visit* premade functions
+### *visit* functions
 ###
 
 (defn visit-generate-makefile
-  "A visiting function that can be used to generate Makefile targets"
+  "A function that can be provided as `(dyn *visit*)` that will generate Makefile targets."
   [cmd inputs outputs message]
   (assert (one? (length outputs)) "only single outputs are supported for Makefile generation")
   (print (first outputs) ": " (string/join inputs " "))
@@ -303,15 +333,98 @@
   (print "\t@'" (string/join cmd "' '") "'\n"))
 
 (defn visit-execute-if-stale
-  "A function that can be provided as (dyn *visit*) that will execute a command
+  "A function that can be provided as `(dyn *visit*)` that will execute a command
   if inputs are newer than outputs, providing a simple, single-threaded, incremental build tool."
   [cmd inputs outputs message]
-  (defn otime [file] (or (os/stat file :modified) 0))
+  (defn otime [file] (or (os/stat file :modified) math/-inf))
   (defn itime [file] (or (os/stat file :modified) (errorf "%v: input file %v does not exist!" message file)))
   (def im (max ;(map itime inputs)))
   (def om (min ;(map otime outputs)))
   (if (>= om im) (break))
-  (if (dyn :verbose)
-    (print (string/join cmd " "))
-    (print message))
-  (os/execute cmd :px))
+  (unless (dyn :quiet)
+    (if (dyn :verbose)
+      (print (string/join cmd " "))
+      (print message)))
+  (def devnull (sh/devnull))
+  (os/execute cmd :px {:out devnull :err devnull}))
+
+###
+### Library discovery and self check
+###
+
+(defn check-library-exists
+  "Check if a library exists on the current POSIX system."
+  [libname &opt static test-source-code]
+  (def slibs (if static [libname] []))
+  (def dlibs (if static [] [libname]))
+  (default test-source-code "int main() { return 0; }")
+  (def temp (string "_temp" (gensym)))
+  (def src (string temp "/" (gensym) ".c"))
+  (def executable (string temp "/" (gensym)))
+  (defer (sh/rm temp)
+    (os/mkdir temp)
+    (spit src test-source-code)
+    (def result
+      (try
+        (with-dyns [*visit* visit-execute-if-stale
+                    :quiet true
+                    *build-dir* temp
+                    *static-libs* slibs
+                    *dynamic-libs* dlibs]
+          (compile-and-link-executable executable src)
+          (def devnull (sh/devnull))
+          (os/execute [executable] :x {:out devnull :err devnull}))
+        ([e] -1)))
+    (= 0 result)))
+
+(defn- search-libs-impl
+  [static dynb libs]
+  (def ls (dyn dynb @[]))
+  (def notfound @[])
+  (each lib libs
+    (def llib (if (string/has-prefix? "-l" lib) lib (string "-l" lib)))
+    (if (check-library-exists llib static)
+      (array/push ls llib)
+      (array/push notfound lib)))
+  (unless (dyn dynb) (setdyn dynb ls))
+  notfound)
+
+(defn search-static-libraries
+  "Search for static libraries on the current POSIX system and configure `(dyn *static-libraries*)`.
+  This is done by checking for the existence of libraries with
+  `check-library-exists`. Returns an array of libraries that were not found."
+  [& libs]
+  (search-libs-impl true *static-libs* libs))
+
+(defn search-dynamic-libraries
+  "Search for dynamic libraries on the current POSIX system and configure `(dyn *dynamic-libraries*)`.
+  This is done by checking for the existence of libraries with
+  `check-library-exists`. Returns an array of libraries that were not found."
+  [& libs]
+  (search-libs-impl false *dynamic-libs* libs))
+
+(defn- pkg-config-impl
+  [& cmd]
+  (def output (sh/exec-slurp ;cmd))
+  (string/split " " (string/trim output)))
+
+###
+### Package Config wrapper to find libraries and set flags
+###
+
+(defn pkg-config
+  "Setup defines, cflags, and library flags from pkg-config."
+  [& pkg-config-libraries]
+  (def pkg-config-path (or (lib-path) (dyn *syspath* ".")))
+  (def wp (string "--with-path=" pkg-config-path))
+  (def pkp (string "--with-path=" (path/join pkg-config-path "pkgconfig")))
+  (def cflags (pkg-config-impl "pkg-config" "--cflags" wp pkp ;pkg-config-libraries))
+  (def lflags (pkg-config-impl "pkg-config" "--libs-only-L" "--libs-only-other" wp pkp ;pkg-config-libraries))
+  (def libs (pkg-config-impl "pkg-config" "--libs-only-l" wp pkp ;pkg-config-libraries))
+  (def leftovers (search-static-libraries ;libs))
+  (def leftovers (search-dynamic-libraries ;leftovers))
+  (unless (empty? leftovers)
+    (errorf "could not find libraries %j" leftovers))
+  (setdyn *cflags* (array/concat (dyn *cflags* @[]) cflags))
+  (setdyn *lflags* (array/concat (dyn *lflags* @[]) lflags))
+  nil)
