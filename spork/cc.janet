@@ -127,12 +127,13 @@
 
 (defn- out-path
   "Take a source file path and convert it to an output path."
-  [path to-ext]
+  [path to-ext &opt sep]
+  (default sep "/")
   (def flatpath
     (->> path
        (string/replace-all "\\" "___")
        (string/replace-all "/" "___")))
-   (string (build-dir) "/" flatpath to-ext))
+   (string (build-dir) sep flatpath to-ext))
 
 (defn- compile-many
   "Compile a number of source files, and return the
@@ -224,13 +225,13 @@
 (defn msvc-link-shared
   "Link a C/C++ program with MSVC to make a shared library. Return the command arguments."
   [objects to]
-  (exec ["link" "/nologo" "/DLL" (string "/OUT:" to) ;objects "/LIBPATH:" (dyn *syspath* ".") ;(lflags)]
+  (exec ["link" "/nologo" "/DLL" (string "/OUT:" to) ;objects (string "/LIBPATH:" (dyn *syspath* ".")) ;(lflags)]
         objects [to] (string "linking " to "...")))
 
 (defn msvc-link-executable
   "Link a C/C++ program with MSVC to make an executable. Return the command arguments."
   [objects to]
-  (exec ["link" "/nologo" (string "/OUT:" to) ;objects "/LIBPATH:" (dyn *syspath* ".") ;(lflags)]
+  (exec ["link" "/nologo" (string "/OUT:" to) ;objects (string "/LIBPATH:" (dyn *syspath* ".")) ;(lflags)]
         objects [to] (string "linking " to "...")))
 
 (defn msvc-make-archive
@@ -248,7 +249,7 @@
   [sources cmds-into]
   (def objects @[])
   (each source sources
-    (def o (out-path source ".o"))
+    (def o (out-path source ".o" "\\"))
     (cond
       (string/has-suffix? ".cpp" source)
       (do
