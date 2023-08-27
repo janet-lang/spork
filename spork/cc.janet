@@ -38,7 +38,12 @@
 (defdyn *target-os* "Operating system to assume is being used for target compiler toolchain")
 (defdyn *visit* "Optional callback to process each CLI command and its inputs and outputs")
 (defdyn *use-rpath* "Optional setting to enable using `(dyn *syspath*)` as the runtime path to load for Shared Objects. Defaults to true")
+(defdyn *use-rdynamic*
+  ``Optional setting to enable using `-rdynamic` or `-Wl,-export_dynamic` when linking executables.
+  This is the preferred way on POSIX systems to let an executable load native modules dynamically at runtime.
+  Defaults to true``)
 (defdyn *pkg-config-flags* "Extra flags to pass to pkg-config")
+(defdyn *smart-libs* "Try to resolve circular or out-of-order dependencies between libraries by using --start-group and --end-group. Some linkers support this by default, some not at all. Defaults to false.")
 
 ###
 ### Universal helpers for all toolchains
@@ -75,6 +80,17 @@
     (setdyn sym @[])
     x))
 
+(defn- classify-source
+  "Classify a source file as C or C++"
+  [path]
+  (cond
+    (string/has-suffix? ".c" path) :c
+    (string/has-suffix? ".cc" path) :c++
+    (string/has-suffix? ".cpp" path) :c++
+    (string/has-suffix? ".cxx" path) :c++
+    # else
+    (errorf "unknown source file type for %v" path)))
+
 ###
 ### Basic GCC-like Compiler Wrapper
 ###
@@ -104,15 +120,24 @@
     [(string "-Wl,-rpath=" (lib-path))
      (string "-Wl,-rpath=" (dyn *syspath* "."))]
     []))
+(defn- smart-libs []
+  (def dflt (index-of (target-os) [:linux :macos]))
+  (dyn *smart-libs* dflt))
 (defn- libs []
+  (def sg (if (smart-libs) ["-Wl,--start-group"] []))
+  (def eg (if (smart-libs) ["-Wl,--end-group"] []))
   [;(lflags)
+   ;sg
    "-Wl,-Bstatic" ;(static-libs)
    "-Wl,-Bdynamic" ;(dynamic-libs)
+   ;eg
    ;(rpath)])
 (defn- rdynamic
   "Some systems like -rdynamic, some like -Wl,-export_dynamic"
   []
-  (if (= (target-os) :macos) "-Wl,-export_dynamic" "-rdynamic"))
+  (if (dyn *use-rdynamic* true)
+    [(if (= (target-os) :macos) "-Wl,-export_dynamic" "-rdynamic")]
+    []))
 (defn- ccstd [] "-std=c99")
 (defn- c++std [] "-std=c++11")
 
@@ -143,13 +168,13 @@
 (defn link-executable-c
   "Link a C program to make an executable. Return the command arguments."
   [objects to]
-  (exec [(cc) (ccstd) (opt) ;(extra-paths) ;(cflags) ;(g) "-o" to ;objects (rdynamic) "-pthread" ;(libs)]
+  (exec [(cc) (ccstd) (opt) ;(extra-paths) ;(cflags) ;(g) "-o" to ;objects ;(rdynamic) "-pthread" ;(libs)]
         objects [to] (string "linking " to "...")))
 
 (defn link-executable-c++
   "Link a C program to make an executable. Return the command arguments."
   [objects to]
-  (exec [(c++) (c++std) (opt) ;(extra-paths) ;(c++flags) ;(g) "-o" to ;objects (rdynamic) "-pthread" ;(libs)]
+  (exec [(c++) (c++std) (opt) ;(extra-paths) ;(c++flags) ;(g) "-o" to ;objects ;(rdynamic) "-pthread" ;(libs)]
         objects [to] (string "linking " to "...")))
 
 (defn make-archive
@@ -178,21 +203,19 @@
   (var has-cpp false)
   (each source sources
     (def o (out-path source ".o"))
-    (cond
-      (string/has-suffix? ".cpp" source)
+    (def source-type (classify-source source))
+    (case source-type
+      :c
       (do
-        (set has-cpp true)
-        (array/push cmds-into (compile-c++ source o))
+        (array/push cmds-into (compile-c source o))
         (array/push objects o))
-      (string/has-suffix? ".cc" source)
+      :c++
       (do
         (set has-cpp true)
         (array/push cmds-into (compile-c++ source o))
         (array/push objects o))
       # else
-      (do
-        (array/push cmds-into (compile-c source o))
-        (array/push objects o))))
+      (errorf "unknown source file type for %v" source)))
   [has-cpp objects])
 
 (defn compile-and-link-shared
@@ -231,7 +254,7 @@
 ### TODO:
 ### - libraries
 ### - multiple standards
-### 
+###
 
 (defn- msvc-opt
   []
@@ -288,19 +311,18 @@
   (def objects @[])
   (each source sources
     (def o (out-path source ".o" "\\"))
-    (cond
-      (string/has-suffix? ".cpp" source)
+    (def source-type (classify-source source))
+    (case source-type
+      :c
       (do
-        (array/push cmds-into (msvc-compile-c++ source o))
+        (array/push cmds-into (msvc-compile-c source o))
         (array/push objects o))
-      (string/has-suffix? ".cc" source)
+      :c++
       (do
         (array/push cmds-into (msvc-compile-c++ source o))
         (array/push objects o))
       # else
-      (do
-        (array/push cmds-into (msvc-compile-c source o))
-        (array/push objects o))))
+      (errorf "unknown source file type for %v" source)))
   objects)
 
 (defn msvc-compile-and-link-shared
@@ -351,6 +373,18 @@
   (print "\t@echo " (describe message))
   (print "\t@'" (string/join cmd "' '") "'\n"))
 
+(defn visit-execute
+  "A function that can be provided as `(dyn *visit*)` that will execute commands."
+  [cmd inputs outputs message]
+  (if (dyn :verbose)
+    (do
+      (print (string/join cmd " "))
+      (os/execute cmd :px))
+    (do
+      (print message)
+      (def devnull (sh/devnull))
+      (os/execute cmd :px {:out devnull :err devnull}))))
+
 (defn visit-execute-if-stale
   "A function that can be provided as `(dyn *visit*)` that will execute a command
   if inputs are newer than outputs, providing a simple, single-threaded, incremental build tool.
@@ -361,14 +395,7 @@
   (def im (max ;(map itime inputs)))
   (def om (min ;(map otime outputs)))
   (if (>= om im) (break))
-  (if (dyn :verbose)
-    (do
-      (print (string/join cmd " "))
-      (os/execute cmd :px))
-    (do
-      (print message)
-      (def devnull (sh/devnull))
-      (os/execute cmd :px {:out devnull :err devnull}))))
+  (visit-execute cmd inputs outputs message))
 
 (defn visit-execute-quiet
   "A function that can be provided as `(dyn *visit*)` that will execute commands quietly."
@@ -401,9 +428,9 @@
                     *dynamic-libs* dlibs]
           (compile-and-link-executable executable src)
           (def devnull (sh/devnull))
-          (os/execute [executable] :x {:out devnull :err devnull}))
-        ([e] -1)))
-    (= 0 result)))
+          (os/execute [executable] :x {:out devnull :err devnull})
+          true)
+        ([e] false)))))
 
 (defn- search-libs-impl
   [static dynb libs]
