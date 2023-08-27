@@ -1,12 +1,15 @@
 ###
 ### cc.janet
 ###
+### Improved version of the C Compiler abstraction from JPM that should be more correct, composable, and
+### have less configuration.
+###
 ### Wrapper around the system C compiler for compiling Janet native modules and executables.
 ### Opinionated and optimized for use with Janet, and does not actually run
-### commands unless specified with (dyn *visit*).
+### commands unless specified with (dyn *visit*). Also included is package config integration.
 ### Headers, static libraries, and dynamic libraries can all be used from `(dyn *syspath*)`.
 ###
-### Configuration is done via dynamic variables, so normal usage would look like:
+### Example usage:
 ###
 ### (use spork/cc)
 ###
@@ -35,6 +38,7 @@
 (defdyn *target-os* "Operating system to assume is being used for target compiler toolchain")
 (defdyn *visit* "Optional callback to process each CLI command and its inputs and outputs")
 (defdyn *use-rpath* "Optional setting to enable using `(dyn *syspath*)` as the runtime path to load for DLLs. Defaults to true")
+(defdyn *pkg-config-flags* "Extra flags to pass to pkg-config")
 
 ###
 ### Universal helpers for all toolchains
@@ -43,8 +47,10 @@
 (defn- cflags [] (dyn *cflags* []))
 (defn- c++flags [] (dyn *c++flags* []))
 (defn- lflags [] (dyn *lflags* []))
-(defn- target-os []
-  (dyn *target-os* (os/which)))
+(defn- target-os [] (dyn *target-os* (os/which)))
+(defn- build-dir [] (dyn *build-dir* "."))
+(defn- static-libs [] (dyn *static-libs* []))
+(defn- dynamic-libs [] (dyn *dynamic-libs* []))
 (defn- build-type []
   (def bt (dyn *build-type* :develop))
   (if-not (in {:develop true :debug true :release true} bt)
@@ -56,14 +62,11 @@
   (def parts (filter next (path/parts sp)))
   (if (= "janet" (last parts))
     (path/abspath (string sp "/.."))))
-(defn- static-libs [] (dyn *static-libs* []))
-(defn- dynamic-libs [] (dyn *dynamic-libs* []))
 (defn- default-exec [&])
 (defn- exec
   "Call the (dyn *visit*) function on commands"
   [cmd inputs outputs message]
   ((dyn *visit* default-exec) cmd inputs outputs message) cmd)
-(defn- build-dir [] (dyn *build-dir* "."))
 
 (defn- getsetdyn
   [sym]
@@ -331,6 +334,13 @@
   "A visiting function that has no side effects and therefor does nothing."
   [&])
 
+(defn visit-clean
+  "A visiting function that will remove all outputs."
+  [cmd inputs outputs message]
+  (print "cleaing " (string/join outputs " ") "...")
+  (each output outputs
+    (sh/rm output)))
+
 (defn visit-generate-makefile
   "A function that can be provided as `(dyn *visit*)` that will generate Makefile targets."
   [cmd inputs outputs message]
@@ -341,7 +351,8 @@
 
 (defn visit-execute-if-stale
   "A function that can be provided as `(dyn *visit*)` that will execute a command
-  if inputs are newer than outputs, providing a simple, single-threaded, incremental build tool."
+  if inputs are newer than outputs, providing a simple, single-threaded, incremental build tool.
+  This is not optimal for parallel builds, but is simple and works well for small projects."
   [cmd inputs outputs message]
   (defn otime [file] (or (os/stat file :modified) math/-inf))
   (defn itime [file] (or (os/stat file :modified) (errorf "%v: input file %v does not exist!" message file)))
@@ -363,13 +374,13 @@
   (def devnull (sh/devnull))
   (os/execute cmd :px {:out devnull :err devnull}))
 
-
 ###
 ### Library discovery and self check
 ###
 
 (defn check-library-exists
-  "Check if a library exists on the current POSIX system."
+  "Check if a library exists on the current POSIX system. Will run a test compilation
+  and return true if the compilation succeeds."
   [libname &opt static test-source-code]
   (def slibs (if static [libname] []))
   (def dlibs (if static [] [libname]))
@@ -426,12 +437,11 @@
 ### Package Config wrapper to find libraries and set flags
 ###
 
-(defdyn *pkg-config-flags* "Extra flags to pass to pkg-config")
-
 (defn pkg-config
   "Setup defines, cflags, and library flags from pkg-config."
   [& pkg-config-libraries]
   (def pkg-config-path (or (lib-path) (dyn *syspath* ".")))
+  # Janet may be installed in a non-standard location, so we need to tell pkg-config where to look
   (def wp (string "--with-path=" pkg-config-path))
   (def pkp (string "--with-path=" (path/join pkg-config-path "pkgconfig")))
   (def extra (dyn *pkg-config-flags* []))
