@@ -37,7 +37,7 @@
 (defdyn *static-libs* "List of static libraries to use when compiling")
 (defdyn *target-os* "Operating system to assume is being used for target compiler toolchain")
 (defdyn *visit* "Optional callback to process each CLI command and its inputs and outputs")
-(defdyn *use-rpath* "Optional setting to enable using `(dyn *syspath*)` as the runtime path to load for DLLs. Defaults to true")
+(defdyn *use-rpath* "Optional setting to enable using `(dyn *syspath*)` as the runtime path to load for Shared Objects. Defaults to true")
 (defdyn *pkg-config-flags* "Extra flags to pass to pkg-config")
 
 ###
@@ -228,13 +228,16 @@
 ### MSVC Compiler Wrapper (msvc 2017 and later)
 ###
 
-### TODO: libraries
+### TODO:
+### - libraries
+### - multiple standards
+### 
 
 (defn- msvc-opt
   []
   (case (build-type)
-    :debug "/Od"
-    "/O2"))
+    :debug ["/Od" "/Zi" "/MDd"]
+    ["/O2" "/MD"]))
 (defn- msvc-defines []
   (def res @[])
   (array/push res (string "/DJANET_BUILD_TYPE=" (build-type)))
@@ -242,19 +245,18 @@
     (array/push res (string "/D" k "=" v)))
   (sort res) # for deterministic builds
   res)
-(defn- crt [] "/MD") # TODO: support for static linking
 
 (defn msvc-compile-c
   "Compile a C program with MSVC. Return the command arguments."
   [from to]
-  (exec ["cl" "/c" "/std:c11" "/utf-8" "/nologo" ;(cflags) (crt) (msvc-opt) ;(msvc-defines)
+  (exec ["cl" "/c" "/std:c11" "/utf-8" "/nologo" ;(cflags) ;(msvc-opt) ;(msvc-defines)
          "/I" (dyn *syspath* ".") from (string "/Fo" to)]
         [from] [to] (string "compiling " from "...")))
 
 (defn msvc-compile-c++
   "Compile a C program with MSVC. Return the command arguments."
   [from to]
-  (exec ["cl" "/c" "/std:c++14" "/utf-8" "/nologo" "/EHsc" ;(c++flags) (crt) (msvc-opt) ;(msvc-defines)
+  (exec ["cl" "/c" "/std:c++14" "/utf-8" "/nologo" "/EHsc" ;(c++flags) ;(msvc-opt) ;(msvc-defines)
          "/I" (dyn *syspath* ".") from (string "/Fo" to)]
         [from] [to] (string "compiling " from "...")))
 
@@ -428,26 +430,26 @@
   [& libs]
   (search-libs-impl false *dynamic-libs* libs))
 
-(defn- pkg-config-impl
-  [& cmd]
-  (def output (sh/exec-slurp ;cmd))
-  (string/split " " (string/trim output)))
-
 ###
 ### Package Config wrapper to find libraries and set flags
 ###
 
-(defn pkg-config
-  "Setup defines, cflags, and library flags from pkg-config."
-  [& pkg-config-libraries]
+(defn- pkg-config-impl
+  [& cmd]
   (def pkg-config-path (or (lib-path) (dyn *syspath* ".")))
   # Janet may be installed in a non-standard location, so we need to tell pkg-config where to look
   (def wp (string "--with-path=" pkg-config-path))
   (def pkp (string "--with-path=" (path/join pkg-config-path "pkgconfig")))
   (def extra (dyn *pkg-config-flags* []))
-  (def cflags (pkg-config-impl "pkg-config" "--cflags" wp pkp ;extra ;pkg-config-libraries))
-  (def lflags (pkg-config-impl "pkg-config" "--libs-only-L" "--libs-only-other" wp pkp ;extra ;pkg-config-libraries))
-  (def libs (pkg-config-impl "pkg-config" "--libs-only-l" wp pkp ;pkg-config-libraries))
+  (def output (sh/exec-slurp "pkg-config" wp pkp ;extra ;cmd))
+  (string/split " " (string/trim output)))
+
+(defn pkg-config
+  "Setup defines, cflags, and library flags from pkg-config."
+  [& pkg-config-libraries]
+  (def cflags (pkg-config-impl "--cflags" ;pkg-config-libraries))
+  (def lflags (pkg-config-impl "--libs-only-L" "--libs-only-other" ;pkg-config-libraries))
+  (def libs (pkg-config-impl "--libs-only-l" ;pkg-config-libraries))
   (def leftovers (search-static-libraries ;libs))
   (def leftovers (search-dynamic-libraries ;leftovers))
   (unless (empty? leftovers)
@@ -455,3 +457,26 @@
   (array/concat (getsetdyn *cflags*) cflags)
   (array/concat (getsetdyn *lflags*) lflags)
   nil)
+
+###
+### Save and Load configuration
+###
+
+# Get all dynamic bindings in this module and make them saveable.
+(def- save-map
+  (tabseq
+    [k :keys (curenv) :when (symbol? k) :when (string/has-prefix? "*" k)]
+    (keyword (slice k 1 -2)) true))
+
+(defn save-settings
+  "Get a snapshot of the current settings for various compiler flags, libraries, defines, etc. that can be loaded later."
+  []
+  (freeze
+    (tabseq [k :keys save-map]
+      k (dyn k))))
+
+(defn load-settings
+  "Load settings from a snapshot of settings saved with `save-settings`."
+  [settings]
+  (eachp [k v] (thaw settings)
+    (setdyn k v)))
