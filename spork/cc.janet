@@ -32,6 +32,7 @@
 (defdyn *cc* "C compiler, defaults to `cc`.")
 (defdyn *cflags* "Extra C compiler flags to use during compilation")
 (defdyn *defines* "Map of extra defines to use when compiling")
+(defdyn *libs* "List of libraries to use when compiling - can be static or dynamic depending on system.")
 (defdyn *dynamic-libs* "List of dynamic libraries to use when compiling")
 (defdyn *lflags* "Extra linker flags")
 (defdyn *static-libs* "List of static libraries to use when compiling")
@@ -56,17 +57,27 @@
 (defn- build-dir [] (dyn *build-dir* "."))
 (defn- static-libs [] (dyn *static-libs* []))
 (defn- dynamic-libs [] (dyn *dynamic-libs* []))
+(defn- default-libs [] (dyn *libs* []))
+
 (defn- build-type []
   (def bt (dyn *build-type* :develop))
   (if-not (in {:develop true :debug true :release true} bt)
     (errorf "invalid build type %v, expected :release, :develop, or :debug" bt))
   bt)
+
 (defn- lib-path []
   "Guess a library path based on the current system path"
   (def sp (dyn *syspath* "."))
   (def parts (filter next (path/parts sp)))
   (if (= "janet" (last parts))
     (path/abspath (string sp "/.."))))
+
+(defn- include-path []
+  "Guess a library path based on the current system path"
+  (def lp (lib-path))
+  (if lp
+    (path/join lp "../include")))
+
 (defn- default-exec [&])
 (defn- exec
   "Call the (dyn *visit*) function on commands"
@@ -113,7 +124,10 @@
 (defn- extra-paths []
   (def sp (dyn *syspath* "."))
   (def lp (lib-path))
-  [(string "-I" sp) (string "-L" sp) ;(if lp [(string "-L" lp)] [])])
+  (def ip (include-path))
+  [(string "-I" sp) (string "-L" sp)
+   ;(if lp [(string "-L" lp)] [])
+   ;(if ip [(string "-I" ip)] [])])
 (defn- rpath
   []
   (if (dyn *use-rpath* true)
@@ -128,6 +142,7 @@
   (def eg (if (smart-libs) ["-Wl,--end-group"] []))
   [;(lflags)
    ;sg
+   ;(default-libs)
    "-Wl,-Bstatic" ;(static-libs)
    "-Wl,-Bdynamic" ;(dynamic-libs)
    ;eg
@@ -410,9 +425,7 @@
 (defn check-library-exists
   "Check if a library exists on the current POSIX system. Will run a test compilation
   and return true if the compilation succeeds."
-  [libname &opt static test-source-code]
-  (def slibs (if static [libname] []))
-  (def dlibs (if static [] [libname]))
+  [libname &opt binding test-source-code]
   (default test-source-code "int main() { return 0; }")
   (def temp (string "_temp" (gensym)))
   (def src (string temp "/" (gensym) ".c"))
@@ -424,8 +437,10 @@
       (try
         (with-dyns [*visit* visit-execute-quiet
                     *build-dir* temp
-                    *static-libs* slibs
-                    *dynamic-libs* dlibs]
+                    *static-libs* []
+                    *dynamic-libs* []
+                    *libs* []]
+          (setdyn binding [libname])
           (compile-and-link-executable executable src)
           (def devnull (sh/devnull))
           (os/execute [executable] :x {:out devnull :err devnull})
@@ -433,29 +448,36 @@
         ([e] false)))))
 
 (defn- search-libs-impl
-  [static dynb libs]
+  [dynb libs]
   (def ls (getsetdyn dynb))
   (def notfound @[])
   (each lib libs
     (def llib (if (string/has-prefix? "-l" lib) lib (string "-l" lib)))
-    (if (check-library-exists llib static)
+    (if (check-library-exists llib dynb)
       (array/push ls llib)
       (array/push notfound lib)))
   notfound)
+
+(defn search-libraries
+  "Search for static libraries on the current POSIX system and configure `(dyn *static-libraries*)`.
+  This is done by checking for the existence of libraries with
+  `check-library-exists`. Returns an array of libraries that were not found."
+  [& libs]
+  (search-libs-impl *libs* libs))
 
 (defn search-static-libraries
   "Search for static libraries on the current POSIX system and configure `(dyn *static-libraries*)`.
   This is done by checking for the existence of libraries with
   `check-library-exists`. Returns an array of libraries that were not found."
   [& libs]
-  (search-libs-impl true *static-libs* libs))
+  (search-libs-impl *static-libs* libs))
 
 (defn search-dynamic-libraries
   "Search for dynamic libraries on the current POSIX system and configure `(dyn *dynamic-libraries*)`.
   This is done by checking for the existence of libraries with
   `check-library-exists`. Returns an array of libraries that were not found."
   [& libs]
-  (search-libs-impl false *dynamic-libs* libs))
+  (search-libs-impl *dynamic-libs* libs))
 
 ###
 ### Package Config wrapper to find libraries and set flags
@@ -477,8 +499,7 @@
   (def cflags (pkg-config-impl "--cflags" ;pkg-config-libraries))
   (def lflags (pkg-config-impl "--libs-only-L" "--libs-only-other" ;pkg-config-libraries))
   (def libs (pkg-config-impl "--libs-only-l" ;pkg-config-libraries))
-  (def leftovers (search-static-libraries ;libs))
-  (def leftovers (search-dynamic-libraries ;leftovers))
+  (def leftovers (search-libraries ;libs))
   (unless (empty? leftovers)
     (errorf "could not find libraries %j" leftovers))
   (array/concat (getsetdyn *cflags*) cflags)
