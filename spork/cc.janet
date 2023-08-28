@@ -44,7 +44,11 @@
   This is the preferred way on POSIX systems to let an executable load native modules dynamically at runtime.
   Defaults to true``)
 (defdyn *pkg-config-flags* "Extra flags to pass to pkg-config")
-(defdyn *smart-libs* "Try to resolve circular or out-of-order dependencies between libraries by using --start-group and --end-group. Some linkers support this by default, some not at all. Defaults to false.")
+(defdyn *smart-libs*
+  ``Try to resolve circular or out-of-order dependencies between libraries by using --start-group and --end-group.
+  Some linkers support this by default, but  not at all. Defaults to true on linux and macos.``)
+(defdyn *c-std* "C standard to use as a 2 digit number, defaults to 99 on GCC-like compilers, 11 on msvc.")
+(defdyn *c++-std* "C++ standard to use as a 2 digit number, defaults to 11 on GCC-like compilers, 14 on msvc.")
 
 ###
 ### Universal helpers for all toolchains
@@ -110,10 +114,12 @@
 (defn- ar [] (dyn *ar* "ar"))
 (defn- cc [] (dyn *cc* "cc"))
 (defn- c++ [] (dyn *c++* "c++"))
-(defn- opt [] (case (build-type)
-                :debug "-O0"
-                "-O2"))
-(defn- g [] (case (build-type) :release [] ["-g"]))
+(defn- opt []
+  (case (build-type)
+    :debug ["-O0" "-g"]
+    :develop ["-O2" "-g"]
+    :release ["-O2"]
+    []))
 (defn- defines []
   (def res @[])
   (array/push res (string "-DJANET_BUILD_TYPE=" (build-type)))
@@ -125,9 +131,10 @@
   (def sp (dyn *syspath* "."))
   (def lp (lib-path))
   (def ip (include-path))
-  [(string "-I" sp) (string "-L" sp)
-   ;(if lp [(string "-L" lp)] [])
-   ;(if ip [(string "-I" ip)] [])])
+  [(string "-I" sp)
+   ;(if ip [(string "-I" ip)] [])
+   (string "-L" sp)
+   ;(if lp [(string "-L" lp)] [])])
 (defn- rpath
   []
   (if (dyn *use-rpath* true)
@@ -153,43 +160,51 @@
   (if (dyn *use-rdynamic* true)
     [(if (= (target-os) :macos) "-Wl,-export_dynamic" "-rdynamic")]
     []))
-(defn- ccstd [] "-std=c99")
-(defn- c++std [] "-std=c++11")
+(defn- ccstd []
+  (def std (dyn *c-std* 99))
+  (if (and (bytes? std) (string/has-prefix? "-" std))
+    std
+    (string "-std=c" std)))
+(defn- c++std []
+  (def std (dyn *c++-std* 11))
+  (if (and (bytes? std) (string/has-prefix? "-" std))
+    std
+    (string "-std=c++" std)))
 
 (defn compile-c
   "Compile a C program to an object file. Return the command arguments."
   [from to]
-  (exec [(cc) (ccstd) (opt) ;(extra-paths) "-fPIC" ;(cflags) ;(g) ;(defines) "-c" from "-o" to "-pthread"]
+  (exec [(cc) (ccstd) ;(opt) ;(extra-paths) "-fPIC" ;(cflags) ;(defines) "-c" from "-o" to "-pthread"]
         [from] [to] (string "compiling " from "...")))
 
 (defn compile-c++
   "Compile a C++ program to an object file. Return the command arguments."
   [from to]
-  (exec [(c++) (c++std) (opt) ;(extra-paths) "-fPIC" ;(c++flags) ;(g) ;(defines) "-c" from "-o" to "-pthread"]
+  (exec [(c++) (c++std) ;(opt) ;(extra-paths) "-fPIC" ;(c++flags) ;(defines) "-c" from "-o" to "-pthread"]
         [from] [to] (string "compiling " from "...")))
 
 (defn link-shared-c
   "Link a C program to make a shared library. Return the command arguments."
   [objects to]
-  (exec [(cc) (ccstd) (opt) ;(extra-paths) ;(cflags) ;(g) "-o" to ;objects "-pthread" ;(libs) "-shared"]
+  (exec [(cc) (ccstd) ;(opt) ;(extra-paths) ;(cflags) "-o" to ;objects "-pthread" ;(libs) "-shared"]
         objects [to] (string "linking " to "...")))
 
 (defn link-shared-c++
   "Link a C++ program to make a shared library. Return the command arguments."
   [objects to]
-  (exec [(c++) (c++std) (opt) ;(extra-paths) ;(c++flags) ;(g) "-o" to ;objects "-pthread" ;(libs) "-shared"]
+  (exec [(c++) (c++std) ;(opt) ;(extra-paths) ;(c++flags) "-o" to ;objects "-pthread" ;(libs) "-shared"]
         objects [to] (string "linking " to "...")))
 
 (defn link-executable-c
   "Link a C program to make an executable. Return the command arguments."
   [objects to]
-  (exec [(cc) (ccstd) (opt) ;(extra-paths) ;(cflags) ;(g) "-o" to ;objects ;(rdynamic) "-pthread" ;(libs)]
+  (exec [(cc) (ccstd) ;(opt) ;(extra-paths) ;(cflags) "-o" to ;objects ;(rdynamic) "-pthread" ;(libs)]
         objects [to] (string "linking " to "...")))
 
 (defn link-executable-c++
   "Link a C program to make an executable. Return the command arguments."
   [objects to]
-  (exec [(c++) (c++std) (opt) ;(extra-paths) ;(c++flags) ;(g) "-o" to ;objects ;(rdynamic) "-pthread" ;(libs)]
+  (exec [(c++) (c++std) ;(opt) ;(extra-paths) ;(c++flags) "-o" to ;objects ;(rdynamic) "-pthread" ;(libs)]
         objects [to] (string "linking " to "...")))
 
 (defn make-archive
@@ -267,9 +282,8 @@
 ###
 
 ### TODO:
+### - more testing
 ### - libraries
-### - multiple standards
-###
 
 (defn- msvc-opt
   []
@@ -283,18 +297,30 @@
     (array/push res (string "/D" k "=" v)))
   (sort res) # for deterministic builds
   res)
+(defn- msvc-cstd
+  []
+  (def std (dyn *c-std* 11))
+  (if (and (bytes? std) (string/has-prefix? "/" std))
+    std
+    (string "/std:c" std)))
+(defn- msvc-c++std
+  []
+  (def std (dyn *c++-std* 14))
+  (if (and (bytes? std) (string/has-prefix? "/" std))
+    std
+    (string "/std:c++" std)))
 
 (defn msvc-compile-c
   "Compile a C program with MSVC. Return the command arguments."
   [from to]
-  (exec ["cl" "/c" "/std:c11" "/utf-8" "/nologo" ;(cflags) ;(msvc-opt) ;(msvc-defines)
+  (exec ["cl" "/c" (msvc-cstd) "/utf-8" "/nologo" ;(cflags) ;(msvc-opt) ;(msvc-defines)
          "/I" (dyn *syspath* ".") from (string "/Fo" to)]
         [from] [to] (string "compiling " from "...")))
 
 (defn msvc-compile-c++
   "Compile a C program with MSVC. Return the command arguments."
   [from to]
-  (exec ["cl" "/c" "/std:c++14" "/utf-8" "/nologo" "/EHsc" ;(c++flags) ;(msvc-opt) ;(msvc-defines)
+  (exec ["cl" "/c" (msvc-c++std) "/utf-8" "/nologo" "/EHsc" ;(c++flags) ;(msvc-opt) ;(msvc-defines)
          "/I" (dyn *syspath* ".") from (string "/Fo" to)]
         [from] [to] (string "compiling " from "...")))
 
