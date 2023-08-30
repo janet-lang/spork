@@ -34,6 +34,7 @@
 (defdyn *defines* "Map of extra defines to use when compiling")
 (defdyn *libs* "List of libraries to use when compiling - can be static or dynamic depending on system.")
 (defdyn *dynamic-libs* "List of dynamic libraries to use when compiling")
+(defdyn *msvc-libs* "List of .lib libraries to use when compiling with msvc")
 (defdyn *lflags* "Extra linker flags")
 (defdyn *static-libs* "List of static libraries to use when compiling")
 (defdyn *target-os* "Operating system to assume is being used for target compiler toolchain")
@@ -81,6 +82,14 @@
   (def lp (lib-path))
   (if lp
     (path/join lp "../include")))
+
+(defn- msvc-cpath
+  "Guess a library and header path for msvc with a defualt Janet windows install."
+  []
+  (def sp (dyn *syspath* "."))
+  (def parts (filter next (path/parts sp)))
+  (if (= "Library" (last parts))
+    (path/abspath (string sp "\\..\\C\\"))))
 
 (defn- default-exec [&])
 (defn- exec
@@ -309,37 +318,53 @@
   (if (and (bytes? std) (string/has-prefix? "/" std))
     std
     (string "/std:c++" std)))
+(defn- msvc-compile-paths
+  []
+  (def cpath (msvc-cpath))
+  [(string "/I" cpath) (string "/I" (dyn *syspath* "."))])
+(defn- msvc-link-paths
+  []
+  (def cpath (msvc-cpath))
+  [(string "/LIBPATH:" cpath) (string "/LIBPATH:" (dyn *syspath* "."))])
+(defn- msvc-libs []
+  (seq [l :in (dyn *msvc-libs* [])]
+    (if (string/has-suffix? ".lib" l)
+      l
+      (string l ".lib"))))
+(defn- cl.exe [] "cl.exe")
+(defn- link.exe [] "link.exe")
+(defn- lib.exe [] "lib.exe")
 
 (defn msvc-compile-c
   "Compile a C program with MSVC. Return the command arguments."
   [from to]
-  (exec ["cl" "/c" (msvc-cstd) "/utf-8" "/nologo" ;(cflags) ;(msvc-opt) ;(msvc-defines)
+  (exec [(cl.exe) "/c" (msvc-cstd) "/utf-8" "/nologo" ;(cflags) ;(msvc-compile-paths) ;(msvc-opt) ;(msvc-defines)
          "/I" (dyn *syspath* ".") from (string "/Fo" to)]
         [from] [to] (string "compiling " from "...")))
 
 (defn msvc-compile-c++
   "Compile a C program with MSVC. Return the command arguments."
   [from to]
-  (exec ["cl" "/c" (msvc-c++std) "/utf-8" "/nologo" "/EHsc" ;(c++flags) ;(msvc-opt) ;(msvc-defines)
+  (exec [(cl.exe) "/c" (msvc-c++std) "/utf-8" "/nologo" "/EHsc" ;(c++flags) ;(msvc-compile-paths) ;(msvc-opt) ;(msvc-defines)
          "/I" (dyn *syspath* ".") from (string "/Fo" to)]
         [from] [to] (string "compiling " from "...")))
 
 (defn msvc-link-shared
   "Link a C/C++ program with MSVC to make a shared library. Return the command arguments."
   [objects to]
-  (exec ["link" "/nologo" "/DLL" (string "/OUT:" to) ;objects (string "/LIBPATH:" (dyn *syspath* ".")) ;(lflags)]
+  (exec [(link.exe) "/nologo" "/DLL" (string "/OUT:" to) ;objects ;(msvc-link-paths) ;(msvc-libs) ;(lflags)]
         objects [to] (string "linking " to "...")))
 
 (defn msvc-link-executable
   "Link a C/C++ program with MSVC to make an executable. Return the command arguments."
   [objects to]
-  (exec ["link" "/nologo" (string "/OUT:" to) ;objects (string "/LIBPATH:" (dyn *syspath* ".")) ;(lflags)]
+  (exec [(link.exe) "/nologo" (string "/OUT:" to) ;objects ;(msvc-link-paths) ;(msvc-libs) ;(lflags)]
         objects [to] (string "linking " to "...")))
 
 (defn msvc-make-archive
   "Make an archive file with MSVC. Return the command arguments."
   [objects to]
-  (exec ["lib" "/nologo" (string "/OUT:" to) ;objects]
+  (exec [(lib.exe) "/nologo" (string "/OUT:" to) ;objects]
         objects [to] (string "archiving " to "...")))
 
 # Compound commands
