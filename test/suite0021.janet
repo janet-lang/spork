@@ -1,7 +1,7 @@
 (use ../spork/test)
 (import ../spork/data :as d)
 
-(start-suite)
+(start-suite 21)
 
 (assert-docs "/spork/data")
 
