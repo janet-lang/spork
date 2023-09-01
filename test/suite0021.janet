@@ -51,7 +51,37 @@
    [{:a 1 :b 2} @{:a 1 :b 2 :c 4 :d 5} @[nil @{:c 4 :d 5} @{:a 1 :b 2}] "Should be: Struct and Table, different"]
 
    [@[1 2 3] [1 2 3] @[nil nil @[1 2 3]] "Should be: Array and Tuple, same"]
-   [@[1 2 3] [1 2 3 4 5] @[nil @[nil nil nil 4 5] @[1 2 3]] "Should be: Array and Tuple, different"]])
+   [@[1 2 3] [1 2 3 4 5] @[nil @[nil nil nil 4 5] @[1 2 3]] "Should be: Array and Tuple, different"]
+
+   [@{:a [1 2 {:b {:c 3}}] 5 @[:d :e 4] 6 @{7 {:f "test" :g {8 [9 10 11] :h 12}}}}
+    @{:a [1 2 {:b {:c 3}}] 5 @[:d :e 4] 6 @{7 {:f "test" :g {8 [9 10 11] :h 12}}}}
+    @[nil nil @{6 @{7 @{:f "test" :g @{8 @[9 10 11] :h 12}}} :a @[1 2 @{:b @{:c 3}}] 5 @[:d :e 4]}]
+    "Should be: Nested Complex Data Structures, same"]
+
+   [@{:a [1 2 {:b {:c 3}}] 5 @[:d :e 4] 6 @{7 {:f "test" :g {8 [9 10 11] :h 12}}}}
+    @{:a [1 2 {:b {:c 3}}] 5 @[:d :e 4] 6 @{7 {:f "test" :g {8 [9 10 {:z 100} 11] :h 12}}}}
+    @[@{6 @{7 @{:g @{8 @[nil nil 11]}}}} @{6 @{7 @{:g @{8 @[nil nil {:z 100} 11]}}}} @{5 @[:d :e 4] 6 @{7 @{:f "test" :g @{8 @[9 10] :h 12}}} :a @[1 2 @{:b @{:c 3}}]}]
+    "Should be: Nested Complex Data Structures, deep insertion"]
+
+   [@{:a [1 2 {:b {:c 3}}] 5 @[:d :e 4] 6 @{7 {:f "test" :g {8 [9 10 11] :h 12}}}}
+    @{:a [1 2 {:b {:c 3}}] 5 @[:d :e 4] 6 @{7 {:f "test" :g {8 [9 10 11]}}}}
+    @[@{6 @{7 @{:g @{:h 12}}}} nil @{6 @{7 @{:g @{8 @[9 10 11]} :f "test"}} 5 @[:d :e 4] :a @[1 2 @{:b @{:c 3}}]}]
+    "Should be: Nested Complex Data Structures, deep delete"]
+
+   [@{:a [1 2 {:b {:c 3}}] 5 @[:d :e 4] 6 @{7 {:f "test" :g {8 [9 10 11] :h 12}}}}
+    @{:a [1 2 {:b {:c 3}}] 5 @[:d :e 4] 6 @{7 {:f "test" :g {8 [:z 10 11] :h 12}}}}
+    @[@{6 @{7 @{:g @{8 @[9]}}}} @{6 @{7 @{:g @{8 @[:z]}}}} @{6 @{7 @{:f "test" :g @{8 @[nil 10 11] :h 12}}} 5 @[:d :e 4] :a @[1 2 @{:b @{:c 3}}]}]
+    "Should be: Nested Complex Data Structures, deep update"]
+
+   [@{:a [1 2 {:b {:c 3}}] 5 @[:d :e 4] 6 @{7 {:f "test" :g {8 [9 10 11] :h 12}}}}
+    @{:a [1 2 {:b {:c 3}}] 5 @[:d :e 4] 6 @{7 {:f "test" :g {8 {:z 100 :x 10000 :y 100000} :h 12}}}}
+    @[@{6 @{7 @{:g @{8 [9 10 11]}}}} @{6 @{7 @{:g @{8 {:x 10000 :y 100000 :z 100}}}}} @{:a @[1 2 @{:b @{:c 3}}] 5 @[:d :e 4] 6 @{7 @{:f "test" :g @{:h 12}}}}]
+    "Should be: Nested Complex Data Structures, deep update of a whole structure"]
+
+   [@{:a [1 2 {:b {:c 3}}] 5 @[:d :e 4] 6 @{7 {:f "test" :g {8 [9 10 11] :h 12}}}}
+    @{:zz [1 10000 {:b {:c 3}}] 5 @[:d :e 1000] 6 @{7 {:f "test" :g {8 [9 10 11 {:z 10}] :h 12}}}}
+    @[@{5 @[nil nil 4] :a [1 2 {:b {:c 3}}]} @{5 @[nil nil 1000] 6 @{7 @{:g @{8 @[nil nil nil {:z 10}]}}} :zz [1 10000 {:b {:c 3}}]} @{5 @[:d :e] 6 @{7 @{:f "test" :g @{8 @[9 10 11] :h 12}}}}]
+    "Should be: Nested Complex Data Structures, multiple deep updates"]])
 
 (map |(diff-assert ;$) cases)
 
