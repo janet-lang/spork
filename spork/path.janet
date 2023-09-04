@@ -183,7 +183,7 @@
 #
 
 (def ext nil)
-(def sep "HOHOHO" nil)
+(def sep nil)
 (def delim nil)
 (def basename nil)
 (def dirname nil)
