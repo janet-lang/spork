@@ -303,7 +303,7 @@ static const char *decode_one(const char **p, Janet *out, int depth) {
 
     /* Errors */
 recurdepth:
-    return "recured too deeply";
+    return "recursed too deeply";
 eos:
     return "unexpected end of source";
 badident:
@@ -545,7 +545,7 @@ badtype:
 invalidutf8:
     return "string contains invalid utf-8";
 recurdepth:
-    return "recured too deeply";
+    return "recursed too deeply";
 }
 
 static Janet json_encode(int32_t argc, Janet *argv) {
