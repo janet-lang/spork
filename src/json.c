@@ -372,6 +372,7 @@ static void encode_newline(Encoder *e) {
 }
 
 static const char *encode_one(Encoder *e, Janet x, int depth) {
+    if ((depth & 0xFFFF) > JANET_RECURSION_GUARD) goto recurdepth;
     switch(janet_type(x)) {
         default:
             goto badtype;
@@ -543,6 +544,8 @@ badtype:
     return "type not supported";
 invalidutf8:
     return "string contains invalid utf-8";
+recurdepth:
+    return "recured too deeply";
 }
 
 static Janet json_encode(int32_t argc, Janet *argv) {

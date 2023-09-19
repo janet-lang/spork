@@ -1,7 +1,7 @@
 (use ../spork/test)
 (import spork/json :as json)
 
-(start-suite 14)
+(start-suite)
 
 (defn check-object [x]
   (def y (json/decode (json/encode x)))
@@ -27,5 +27,12 @@
 
 # Decoding utf-8 strings 
 (assert (deep= "šč" (json/decode `"šč"`)) "did not decode utf-8 string correctly")
+
+# Recursion guard
+(def one @{:links @[]})
+(def two @{:links @[one]})
+(array/push (one :links) two)
+(def objects @{:one one :two two})
+(assert-error "error on cycles" (json/encode objects))
 
 (end-suite)
