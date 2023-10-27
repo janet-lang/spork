@@ -157,7 +157,8 @@
     (when-let [action (handler :action)]
       (cond
         (= action :help) (usage)
-        (function? action) (action)))
+        (or (function? action)
+            (cfunction? action)) (action)))
 
     # Early exit for things like help
     (when (handler :short-circuit)
