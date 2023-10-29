@@ -124,7 +124,8 @@
   (defn handle-map [name handler]
     (when-let [value (get res name)
                map-func (handler :map)
-               is-func (function? map-func)]
+               is-func (or (function? map-func)
+                           (cfunction? map-func))]
       (put res name (map-func value))))
 
   # Handle an option
@@ -156,7 +157,8 @@
     (when-let [action (handler :action)]
       (cond
         (= action :help) (usage)
-        (function? action) (action)))
+        (or (function? action)
+            (cfunction? action)) (action)))
 
     # Early exit for things like help
     (when (handler :short-circuit)
