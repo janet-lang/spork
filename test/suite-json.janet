@@ -3,11 +3,12 @@
 
 (start-suite)
 
-(defn check-object [x]
+(defn check-object [x &opt z]
+  (default z x)
   (def y (json/decode (json/encode x)))
   (def y1 (json/decode (json/encode x " " "\n")))
-  (assert (deep= x y) (string/format "failed roundtrip 1: %p" x))
-  (assert (deep= x y1) (string/format "failed roundtrip 2: %p" x)))
+  (assert (deep= z y) (string/format "failed roundtrip 1: %p" x))
+  (assert (deep= z y1) (string/format "failed roundtrip 2: %p" x)))
 
 (check-object 1)
 (check-object 100)
@@ -34,5 +35,11 @@
 (array/push (one :links) two)
 (def objects @{:one one :two two})
 (assert-error "error on cycles" (json/encode objects))
+
+# null values
+(check-object @{"result" :null})
+(check-object {"result" :null} @{"result" :null})
+(check-object :null)
+(check-object nil :null)
 
 (end-suite)

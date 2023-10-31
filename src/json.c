@@ -399,6 +399,10 @@ static const char *encode_one(Encoder *e, Janet x, int depth) {
                 const uint8_t *c;
                 const uint8_t *end;
                 int32_t len;
+                if (janet_keyeq(x, "null")) {
+                    janet_buffer_push_cstring(e->buffer, "null");
+                    break;
+                }
                 janet_bytes_view(x, &bytes, &len);
                 janet_buffer_push_u8(e->buffer, '"');
                 c = bytes;
