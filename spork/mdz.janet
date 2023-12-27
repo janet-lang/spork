@@ -4,7 +4,7 @@
 
 (import ./htmlgen)
 
-(defdyn *front-matter* "Dynamic binding to front matter after parsing, compilation, and evaluation, of markup completes.")
+(defdyn *front-matter* "Dynamic binding to front matter of markup after parsing, compilation, and evaluation completes.")
 (defdyn *markup-dom* "The htmlgen source that can be used to generate a document with htmlgen/html.")
 
 (defn- capture-front

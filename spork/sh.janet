@@ -11,7 +11,7 @@
   (os/open (if (= :windows (os/which)) "NUL" "/dev/null") :rw))
 
 (defn exec
-  "Execute command specified by args returning it's exit code"
+  "Execute command specified by args returning its exit code"
   [& args]
   (os/execute args :p))
 

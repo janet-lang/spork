@@ -170,8 +170,8 @@
 
 (defn queue-task
   "Add a task specification to a queue. Supply an argv string array that will be
-  used to invoke s a subprocess. The optional `note` parameter is just a textual note
-  for task trackingv. The `priority` parameter should be an integer between 0 and 9 inclusive, default
+  used to invoke a subprocess. The optional `note` parameter is just a textual note
+  for task tracking. The `priority` parameter should be an integer between 0 and 9 inclusive, default
   is 4. Lower priority jobs in the same queue will be executed by higher priority. Use input to pass in generic, 
   unstructured input to a task."
   [tasker argv &opt note priority qname timeout expiration input]
@@ -250,7 +250,7 @@
   (ev-utils/join-nursery (tasker :nurse)))
 
 (defn close-queues
-  "Prevent any tasks from being added to queues. When an executor finishes it's
+  "Prevent any tasks from being added to queues. When an executor finishes its
   current job, if there are any, it will terminate. When all executors complete, the
   call to `run-executors` will complete."
   [tasker]

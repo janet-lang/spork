@@ -26,7 +26,7 @@
 ###    - (props & k v) - Takes a sequence of keys and values (alternating in order). Only matches
 ###      the data if, for a key, the corresponding schema `v` matches.
 ###    - (length l) - Only match if the data has a length of l. Uses of the length combinator should assert
-###      the data type before do a length check.
+###      the data type before doing a length check.
 ###    - (length min max) - Only match lengths between min and max inclusive
 ###    - (peg pattern) - Matches only if the peg matches
 ###    - (not pattern) - Only matches if pattern does not match

@@ -11,7 +11,7 @@
 (defn dedent
   ```
   Remove indentation after concatenating the arguments. Works by removing
-  leading whitespace, and then removing that same pattern of whitepsace after
+  leading whitespace, and then removing that same pattern of whitespace after
   new lines.
   ```
   [& xs]
@@ -137,7 +137,7 @@
   ```
   Iterate through the rows of a data structure and print a table in a human
   readable way, with padding and heading information. Can optionally provide
-  a function use to print a row, as well as optionally select column keys
+  a function used to print a row, as well as optionally select column keys
   for each row. Lastly, a `header-mapping` dictionary can be provided that
   changes the printed header names by mapping column keys to the desired
   header name. If no mapping is found, then the column key will be used as
@@ -164,7 +164,7 @@
   Also allow for callbacks before and after visiting the children
   of a node. Also allow for a custom `get-children` function to
   change traversal as needed. Will detect cycles if an empty table
-  is passed as the `seen` parameter, which is used to cached values
+  is passed as the `seen` parameter, which is used to cache values
   that have been visited.
   ```
   [data visit-leaf &opt node-before node-after get-children seen]
@@ -262,8 +262,8 @@
 (defmacro cond->
   ```
   Threading conditional macro. It takes `val` to mutate,
-  and `clauses` pairs with condition and operation to which the `val`,
-  is put as first argument. All conditions are tried and
+  and `clauses` pairs with condition and operation to which `val`,
+  is passed as first argument. All conditions are tried and
   for truthy conditions the operation is executed.
   Returns the value mutated if any condition is truthy.
   ```
@@ -285,9 +285,9 @@
 (defmacro cond->>
   ```
   Threading conditional macro. It takes `val` to mutate,
-  and `clauses` pairs of condition and operation to which the `val`,
-  is put as last argument. All conditions are tried and
-  for truthy the operation is ran.
+  and `clauses` pairs of condition and operation to which `val`,
+  is passed as last argument. All conditions are tried and
+  for truthy conditions the operation is executed.
   Returns mutated value if any condition is truthy.
   ```
   [val & clauses]
@@ -305,7 +305,7 @@
 
 (defmacro make
   ```
-  Convenience macro for creating new table from even number of kvs pairs in a variadic `table-or-pairs`
+  Convenience macro for creating new table from even number of kvs pairs in variadic `pairs`
   arguments and setting its prototype to `prototype`.
   Factory function for creating new objects from prototypes.
   ```
@@ -314,7 +314,7 @@
 
 (defmacro do-var
   ```
-  Convenience macro for defining varible named `v` with value `d` before `body`
+  Convenience macro for defining variable named `v` with value `d` before `body`
   and returning it after evaluating `body`, that presumably modifies `v`.
   ```
   [v d & body]
@@ -324,7 +324,7 @@
   ```
   Convenience macro for defining constant named `c` with value `d` before `body`
   and returning it after evaluating `body`, that presumably modifies
-  the `c` refered content. For example buffer, table or array.
+  the content referred to by `c`. For example, a buffer, table or array.
   ```
   [c d & body]
   ~(do (def ,c ,d) ,;body ,c))
@@ -337,7 +337,7 @@
 
 (defmacro capout
   ```
-  Captures the standart output of the variadic `body` and returns it as
+  Captures the standard output of the variadic `body` and returns it as
   a buffer.
   ```
   [& body]
@@ -345,20 +345,20 @@
 
 (defmacro caperr
   ```
-  Captures the standart error output of the variadic `body` and returns it
+  Captures the standard error output of the variadic `body` and returns it
   as a buffer.
   ```
   [& body]
   ~(as-macro ,cap* :err ,;body))
 
 (defmacro vars
-  "Defines many variables as in let `bindings`, but without creating new scope."
+  "Defines many variables as in let `bindings`, but without creating a new scope."
   [& bindings]
   ~(upscope
      ,;(seq [[n v] :in (partition 2 bindings)] (tuple 'var n v))))
 
 (defmacro defs
-  "Defines many constants as in let `bindings`, but without creating new scope."
+  "Defines many constants as in let `bindings`, but without creating a new scope."
   [& bindings]
   ~(upscope
      ,;(seq [[n v] :in (partition 2 bindings)] (tuple 'def n v))))
@@ -394,9 +394,9 @@
   (math/trunc (/ ;xs)))
 
 (defmacro gett
-  "Recursive macro (get). Similar to get-in, but keys are variadic argument."
-  [ds & keys]
-  (reduce (fn [t key] (tuple get t key)) ds keys))
+  "Recursive macro (get). Similar to get-in, but `keyz` is variadic."
+  [ds & keyz]
+  (reduce (fn [t key] (tuple get t key)) ds keyz))
 
 (defmacro until
   ```
@@ -408,8 +408,8 @@
 
 (defn table-filter
   ```
-  Filter a key-value structure info a table. Semantics are the same as for
-  built-in `filter`, except that `pred` takes two arguments (key and value.)
+  Filter a key-value structure into a table. Semantics are the same as for
+  built-in `filter`, except that `pred` takes two arguments (key and value).
   Does not consider prototypes.
   ```
   [pred dict]
@@ -456,14 +456,14 @@
         (math/ceil (/ (math/log (math/abs int)) (math/log base)))
         (if (< int 0) 1 0))))
   (var int int)
-  (def neg? (< int 0))
-  (if neg?
+  (def ngtv? (< int 0))
+  (if ngtv?
     (set int (- int)))
   (while (not= int 0)
     (def digit (mod int base))
     (buffer/push buf (int-alphabet digit))
     (set int (int/ int base)))
-  (if neg?
+  (if ngtv?
     (buffer/push buf "-"))
   (string/reverse buf))
 

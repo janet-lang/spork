@@ -9,7 +9,7 @@
 (def- tests-run-ref (get (dyn 'num-tests-run) :ref))
 
 (defmacro assert
-  "Override's the default assert with some nice error handling."
+  "Overrides the default assert with some nice error handling."
   [x &opt e]
   (default e (string/format "%j" (dyn :macro-form)))
   (def xx (gensym))
@@ -51,7 +51,7 @@
   (set num-tests-run 0))
 
 (defn end-suite
-  "Ends test suite, prints summary and exits if any have failed."
+  "Ends test suite, prints summary and exits if any tests have failed."
   []
   (def delta (- (os/clock) start-time))
   (prinf "test suite %V finished in %.3f seconds - " suite-num delta)
@@ -61,7 +61,7 @@
 (defmacro timeit
   ```
   Time the execution of `form` using `os/clock` before and after,
-  and print the result to stdout.  returns: result of executing `form`.
+  and print the result to stdout.  Returns result of executing `form`.
   Uses `tag` (default "Elapsed time:") to tag the printout.
   ```
   [form &opt tag]
@@ -136,14 +136,14 @@
   ~(as-macro ,suppress-* :out ,;body))
 
 (defmacro suppress-stderr
-  "Suppreses stdout from the body"
+  "Suppreses stderr from the body"
   [& body]
   ~(as-macro ,suppress-* :err ,;body))
 
 (defn assert-docs
   ```
-  Assert that all symbols, when module on the path is required,
-  have proper doc string
+  Assert that all symbols have proper docstring when module on the
+  path is required.
   ```
   [path]
   (loop [[sym val] :pairs (require path)
