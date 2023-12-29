@@ -82,8 +82,9 @@
   (def chan (ev/chan))
   (def res (if (dictionary? data) @{} @[]))
   (join chan
-        (seq [[i x] :pairs data]
-          (ev/go (fiber/new (fn [] (put res i (f x))) :tp) nil chan)))
+        (tabseq [[i x] :pairs data
+                 :let [fib (ev/go (fiber/new (fn [] (put res i (f x))) :tp) nil chan)]]
+          fib fib))
   res)
 
 (defn pmap-limited
