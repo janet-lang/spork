@@ -338,6 +338,8 @@
             (kback)
             9 # tab
             (autocomplete)
+            11 # ctrl-k
+            (do (buffer/popn buf (- (length buf) pos)) (refresh))
             12 # ctrl-l
             (do (clear) (refresh))
             13 # enter
