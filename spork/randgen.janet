@@ -45,22 +45,22 @@
   # We use the Box-Muller transform
   (let [rho (math/sqrt (* -2 (math/log q)))
         theta (* 2 math/pi p)
-        _box    (* rho (math/cos theta))
+        _box (* rho (math/cos theta))
         _muller (* rho (math/sin theta))
-        box    (scale _box)
+        box (scale _box)
         muller (scale _muller)]
 
     (yield box)
     muller))
 
-(defn sample-n 
+(defn sample-n
   "Generate n samples based on the random sampler f. E.g.
   (sample-n |(rand-int 0 3) 4) # => @[0 1 2 0]
   (sample-n |(rand-uniform) 4)
   (sample-n |(rand-gaussian 5 0.1) 4)
   "
   [f n]
-  (take n (generate [_ :iterate true] 
+  (take n (generate [_ :iterate true]
             (f))))
 
 (defn rand-index
