@@ -35,14 +35,12 @@
   (rand-gaussian 5 0.1) # => 5.3397...
   "
   [&opt m sd]
-  (default [m sd] [0 1])
+  (default m 0)
+  (default sd 1)
   (defn scale [x] (+ m (* sd x)))
 
-  (def p (rand-uniform))
-
-  (def q (rand-uniform))
-
-  (math/rng-uniform ))
+  (def p (math/rng-uniform (get-rng)))
+  (def q (math/rng-uniform (get-rng)))
 
   # We use the Box-Muller transform
   (let [rho (math/sqrt (* -2 (math/log q)))
@@ -53,8 +51,7 @@
         muller (scale _muller)]
 
     (yield box)
-    muller
-    ))
+    muller))
 
 (defn sample-n 
   "Generate n samples based on the random sampler f. E.g.
@@ -123,4 +120,3 @@
   [weights & paths]
   ~(case (,rand-weights ,weights)
      ,;(array/concat @[] ;(map tuple (range (length paths)) paths))))
-
