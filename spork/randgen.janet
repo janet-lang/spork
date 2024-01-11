@@ -28,6 +28,44 @@
   (def diff (- end start))
   (+ start (math/floor (* diff (rand-uniform)))))
 
+(defn rand-gaussian
+  "Get a random sample from the standard Gaussian distribution. 
+  Optionall specify the mean m and the standard deviation sd. E.g.:
+  (rand-gaussian) # => 0.1324...
+  (rand-gaussian 5 0.1) # => 5.3397...
+  "
+  [&opt m sd]
+  (default [m sd] [0 1])
+  (defn scale [x] (+ m (* sd x)))
+
+  (def p (rand-uniform))
+
+  (def q (rand-uniform))
+
+  (math/rng-uniform ))
+
+  # We use the Box-Muller transform
+  (let [rho (math/sqrt (* -2 (math/log q)))
+        theta (* 2 math/pi p)
+        _box    (* rho (math/cos theta))
+        _muller (* rho (math/sin theta))
+        box    (scale _box)
+        muller (scale _muller)]
+
+    (yield box)
+    muller
+    ))
+
+(defn sample-n 
+  "Generate n samples based on the random sampler f. E.g.
+  (sample-n |(rand-int 0 3) 4) # => @[0 1 2 0]
+  (sample-n |(rand-uniform) 4)
+  (sample-n |(rand-gaussian 5 0.1) 4)
+  "
+  [f n]
+  (take n (generate [_ :iterate true] 
+            (f))))
+
 (defn rand-index
   "Get a random numeric index of an indexed data structure"
   [xs]
