@@ -8,6 +8,13 @@
 (defdyn *rng* "RNG used to generate random numbers")
 
 (defn- get-rng
+  ``
+  Get RNG.
+
+  If dynamic variable *rng* is non-nil, use that as RNG.
+  Otherwise create a new RNG and set the dynamic variable
+  *rng* to the newly created value.
+  ``
   []
   (def rng (dyn *rng*))
   (if rng rng (setdyn *rng* (math/rng))))
