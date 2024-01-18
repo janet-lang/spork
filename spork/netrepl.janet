@@ -211,7 +211,11 @@
           (set name (string name (gensym))))
         (put name-set name true)
         (eprint "client " name " connected")
-        (def e (coerce-to-env env name stream))
+        (def e
+          (try (coerce-to-env env name stream)
+            ([err fib]
+              (eprint err)
+              (debug/stacktrace fib "coerce-to-env failed" ""))))
         (def p (parser/new))
         # Print welcome message
         (when (and welcome-msg auto-flush)
