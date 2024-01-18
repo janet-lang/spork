@@ -143,7 +143,7 @@
 (defn hexs->words
   ```
   Returns an array of pgp words for arbitrary long string of hexs.
-  Sanitizes out the white space from hex-string.
+  Sanitizes out the whitespace from `hex-string`.
   ```
   [hex-string]
   (def hexs

@@ -109,7 +109,7 @@
      for every string key, and any query parameters that aren't given a value are mapped to true.
 
   Note that data is read in chunks and any data after the header terminator is
-  stored in `:buffer.`"
+  stored in `:buffer`."
   [conn buf &opt no-query]
   (def head (read-header conn buf request-peg :method :path))
   (if (= :error head) (break head))
@@ -138,7 +138,7 @@
   * `:message` - the HTTP status message.
 
   Note that data is read in chunks and any data after the header terminator is
-  stored in `:buffer.`"
+  stored in `:buffer`."
   [conn buf]
   (read-header conn buf response-peg :status :message))
 

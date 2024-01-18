@@ -47,7 +47,7 @@
 (defdyn *pkg-config-flags* "Extra flags to pass to pkg-config")
 (defdyn *smart-libs*
   ``Try to resolve circular or out-of-order dependencies between libraries by using --start-group and --end-group.
-  Some linkers support this by default, but  not at all. Defaults to true on linux and macos.``)
+  Some linkers support this by default, but not at all. Defaults to true on linux and macos.``)
 (defdyn *c-std* "C standard to use as a 2 digit number, defaults to 99 on GCC-like compilers, 11 on msvc.")
 (defdyn *c++-std* "C++ standard to use as a 2 digit number, defaults to 11 on GCC-like compilers, 14 on msvc.")
 
@@ -78,7 +78,7 @@
     (path/abspath (string sp "/.."))))
 
 (defn- include-path []
-  "Guess a library path based on the current system path"
+  "Guess a header path based on the current system path"
   (def lp (lib-path))
   (if lp
     (path/join lp "../include")))
@@ -211,7 +211,7 @@
         objects [to] (string "linking " to "...")))
 
 (defn link-executable-c++
-  "Link a C program to make an executable. Return the command arguments."
+  "Link a C++ program to make an executable. Return the command arguments."
   [objects to]
   (exec [(c++) (c++std) ;(opt) ;(extra-paths) ;(c++flags) "-o" to ;objects ;(rdynamic) "-pthread" ;(libs)]
         objects [to] (string "linking " to "...")))
@@ -258,7 +258,7 @@
   [has-cpp objects])
 
 (defn compile-and-link-shared
-  "Compile and link a shared C/C++ program. Return an array of commands."
+  "Compile and link a shared C/C++ library. Return an array of commands."
   [to & sources]
   (def res @[])
   (def [has-cpp objects] (compile-many sources res))
@@ -343,7 +343,7 @@
         [from] [to] (string "compiling " from "...")))
 
 (defn msvc-compile-c++
-  "Compile a C program with MSVC. Return the command arguments."
+  "Compile a C++ program with MSVC. Return the command arguments."
   [from to]
   (exec [(cl.exe) "/c" (msvc-c++std) "/utf-8" "/nologo" "/EHsc" ;(c++flags) ;(msvc-compile-paths) ;(msvc-opt) ;(msvc-defines)
          "/I" (dyn *syspath* ".") from (string "/Fo" to)]
@@ -392,7 +392,7 @@
   objects)
 
 (defn msvc-compile-and-link-shared
-  "Compile and link a shared C/C++ program. Return an array of commands."
+  "Compile and link a shared C/C++ library. Return an array of commands."
   [to & sources]
   (def res @[])
   (def objects (msvc-compile-many sources res))
@@ -510,14 +510,14 @@
   notfound)
 
 (defn search-libraries
-  "Search for static libraries on the current POSIX system and configure `(dyn *static-libraries*)`.
+  "Search for libraries on the current POSIX system and configure `(dyn *libs*)`.
   This is done by checking for the existence of libraries with
   `check-library-exists`. Returns an array of libraries that were not found."
   [& libs]
   (search-libs-impl *libs* libs))
 
 (defn search-static-libraries
-  "Search for static libraries on the current POSIX system and configure `(dyn *static-libraries*)`.
+  "Search for static libraries on the current POSIX system and configure `(dyn *static-libs*)`.
   This is done by checking for the existence of libraries with
   `check-library-exists`. Returns an array of libraries that were not found."
   [& libs]

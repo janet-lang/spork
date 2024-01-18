@@ -56,7 +56,7 @@
     (* cumsum inv-total-weight)))
 
 (defn rand-cdf
-  "Pick a random index, weighted by a discrete cummulative distribution function."
+  "Pick a random index, weighted by a discrete cumulative distribution function."
   [cdf]
   (def p (rand-uniform))
   (def l (length cdf))
@@ -82,13 +82,13 @@
      ,;(array/concat @[] ;(map tuple (range (length paths)) paths))))
 
 (defmacro rand-cdf-path
-  "Execute on of the paths randomly given a discrete distribution as a CDF"
+  "Execute one of the paths randomly given a discrete distribution as a CDF"
   [cdf & paths]
   ~(case (,rand-cdf ,cdf)
      ,;(array/concat @[] ;(map tuple (range (length paths)) paths))))
 
 (defmacro rand-weights-path
-  "Execute on of the paths randomly given a discrete distribution as a set of weights"
+  "Execute one of the paths randomly given a discrete distribution as a set of weights"
   [weights & paths]
   ~(case (,rand-weights ,weights)
      ,;(array/concat @[] ;(map tuple (range (length paths)) paths))))

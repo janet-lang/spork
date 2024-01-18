@@ -369,12 +369,12 @@
     (+ b (* m x))))
 
 (defn check-probability
-  "Asserts that probability in in the [0 1] range."
+  "Asserts that probability is in the [0 1] range."
   [p]
   (assert (<= 0 p 1) "probability must be between 0 and 1"))
 
 (defn bernoulli-distribution
-  "Creates Bernoulli distribution from popability `p` in the tuple."
+  "Creates Bernoulli distribution from probability `p` in the tuple."
   [p]
   (check-probability p)
   [(- 1 p) p])
@@ -496,7 +496,7 @@
   ```
   Conducts a permutation test to determine if two data sets
   `xs` and `ys` are *significantly* different from each other.
-  You can use alternative hypotesis `a`, which defaults to `:two-side`,
+  You can use alternative hypothesis `a`, which defaults to `:two-side`,
   with `:greater` and `:lesser` being the other two options.
   The last optional argument is `k` number of values
   in permutation distribution
@@ -959,7 +959,7 @@
 
 (defn binominal-coeficient
   ```
-  Computes binominal coeficient from set of size `n`
+  Computes binominal coefficient from set of size `n`
   and sample size `k`.
   ```
   [n k]
@@ -1004,12 +1004,12 @@
   ~(in (in ,m 0) 0))
 
 (defn rows
-  "Returns numbers of rows of matrix `m`."
+  "Returns number of rows of matrix `m`."
   [m]
   (length m))
 
 (defn cols
-  "Returns numbers of columns of matrix `m`."
+  "Returns number of columns of matrix `m`."
   [m]
   (length (m 0)))
 
