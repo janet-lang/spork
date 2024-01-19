@@ -99,7 +99,7 @@
     (describe x)))
 
 (defn add-route
-  "Add a single manually route to a server. Prefer using `httpf/add-bindings-as-routes` for the usual case."
+  "Add a single route manually to a server. Prefer using `httpf/add-bindings-as-routes` for the usual case."
   [server path docstring schema handler &opt read-mime render-mime]
   (def routes (get server :routes))
   (def docs (get server :route-docs))

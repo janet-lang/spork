@@ -53,7 +53,7 @@
   (peg/compile '(* '(to ":") ":" '(to "=") "=" '(any 1))))
 
 (defn- type-split-dflt
-  "Same as type split, but require a name, type, and default. Support (name type dflt), as well
+  "Same as type split, but require a name, type, and default. Supports (name type dflt), as well
   as name:type=dflt."
   [x]
   (case (type x)

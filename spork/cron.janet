@@ -4,9 +4,9 @@
 ### Timer library for interfacing with the UNIX crontab format.
 ###
 ### The cron format support is based on the unix cron syntax, with an optional
-### seconds field. Each field can be a comma separated  list of individual values
-### or a range of values. A range is specified by two values with a "-" between them, optional
-### followed by a "/" and a step value. An asterix ("*") can be used to denote all possible values.
+### seconds field. Each field can be a comma separated list of individual values
+### or a range of values. A range is specified by two values with a "-" between them, optionally
+### followed by a "/" and a step value. An asterisk ("*") can be used to denote all possible values.
 ###
 ### The fields:
 ###  * minutes: 0-59

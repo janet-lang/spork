@@ -3,7 +3,7 @@
 ###
 ### A module for compiling a subset of regexes to Janet PEGs.
 ### All regex are considered to be anchored, and performance is
-### is not going to be competitive with a native regex engine.
+### not going to be competitive with a native regex engine.
 ###
 ###
 ### Supported regex features:
@@ -13,9 +13,9 @@
 ###   - Repetitions, e.g. a{1}, a{1,3}. Repetitions are eagerly evaluated.
 ###   - Ranges, e.g. [A-Za-z]
 ###   - Character classes, inverted character classes, e.g. [abc], [^abc]
-###   - Alteration (choice), except alteration is ordered, as in pegs - e.g a|b|c
-###   - Captures using parentheses, .e.g (abc)
-###   - Non-capture groups, e.v. (?:abc)
+###   - Alternation (choice), except alternation is ordered, as in pegs - e.g. a|b|c
+###   - Captures using parentheses, e.g. (abc)
+###   - Non-capture groups, e.g. (?:abc)
 ###
 ###
 ### Features found in other regex may never be added - for more complex usage,
@@ -54,7 +54,7 @@
 
 (defn- make-choice
   "Combine multiple patterns with the choice combinator, or
-  return a the first argument if there is only one argument.
+  return the first argument if there is only one argument.
   Will also reduce multiple choices into a single choice operator."
   [l &opt r]
   (if r
@@ -116,7 +116,7 @@
       # Character modifiers
       :cc-with-mod (/ (* :cc :postfix) ,postfix-modify)
 
-      # Single alteration is a sequence of character classes.
+      # Single alternation is a sequence of character classes.
       :span (/ (some :cc-with-mod) ,make-sequence)
 
       # Captures and groupings

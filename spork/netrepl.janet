@@ -125,11 +125,13 @@
   (default port default-port)
   (eprint "Starting networked repl server on " host ", port " port "...")
   (def name-set @{})
+  (def syspath (dyn :syspath))
   (net/server
     host port
     (fn repl-handler [stream]
 
       # Setup closures and state
+      (setdyn :syspath syspath)
       (var name "<unknown>")
       (var last-flush 0)
       (def outbuf @"")

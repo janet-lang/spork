@@ -60,7 +60,7 @@
 
 (defn make-getline
   "Reads a line of input into a buffer, like `getline`. However, allow looking up entries with a general
-  lookup function rather than a environment table."
+  lookup function rather than an environment table."
   [&opt autocomplete-context autocomplete-options doc-fetch]
 
   (default autocomplete-context default-autocomplete-context)
@@ -68,12 +68,12 @@
   (default doc-fetch default-doc-fetch)
 
   # state
-  (var w "last measured terminal width (columns)" 0)
-  (var h "last measured height (rows)" 0)
-  (var buf "line buffer" @"")
-  (var prpt "prompt string (line prefix)" "")
-  (var prpt-width "prompt string character width" 0)
-  (def history "history stack. Top item is current placeholder." @[])
+  (var w "Last measured terminal width (columns)" 0)
+  (var h "Last measured height (rows)" 0)
+  (var buf "Line buffer" @"")
+  (var prpt "Prompt string (line prefix)" "")
+  (var prpt-width "Prompt string character width" 0)
+  (def history "History stack. Top item is current placeholder." @[])
   (def tmp-buf "Buffer to group writes to stderr for terminal rendering." @"")
   (var pos "Cursor byte position in buf. Must be on valid utf-8 start byte at all times." 0)
   (var lines-below "Number of dirty lines below input line for drawing cleanup." 0)
@@ -338,6 +338,8 @@
             (kback)
             9 # tab
             (autocomplete)
+            11 # ctrl-k
+            (do (buffer/popn buf (- (length buf) pos)) (refresh))
             12 # ctrl-l
             (do (clear) (refresh))
             13 # enter
