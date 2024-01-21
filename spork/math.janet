@@ -1439,7 +1439,7 @@
    
 (defn qr 
   ```
-  Stable and robust QR decomposition of a square matrix. 
+  Stable and robust QR decomposition of a matrix. 
   Decompose a matrix using Householder transformations. O(n^3).
   ```
   [m]
@@ -1485,3 +1485,12 @@
    :S R1
    :V V})
 
+(defn m-approx=
+  "Evaluates a matrix (list of row vectors) for equivalence within epsilon."
+  [m1 m2]
+  # TODO: 
+  (let [v1 (apply array/concat m1)
+        v2 (apply array/concat m2)
+        b  (map approx-eq v1 v2)]
+    (and (= (length v1) (length v2))
+         (every? b)))) 
