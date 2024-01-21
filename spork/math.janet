@@ -1026,7 +1026,7 @@
   [c &opt r]
   (def v (array/new-filled c 0))
   (if r
-    (seq [_ :range [0 c]] (array/slice v))
+    (seq [_ :range [0 r]] (array/slice v))
     v))
 
 (defn scalar
@@ -1067,7 +1067,7 @@
     (if-not (empty? a) |(op $ ;a) op))
   (for i 0 (cols m)
     (for j 0 (rows m)
-      (update-in m [i j] opa))))
+      (update-in m [i j] opa))) m)
 
 (defn mop
   ```
@@ -1077,7 +1077,7 @@
   [m op a]
   (for i 0 (cols m)
     (for j 0 (rows m)
-      (update-in m [j i] op (get-in a [j i])))))
+      (update-in m [j i] op (get-in a [j i])))) m)
 
 (defn add
   ```
@@ -1354,3 +1354,134 @@
     (if (> x one)
       (array/concat res (factor-pollard x))))
   res)
+
+(defn matmul [a b]
+  (let [transpose (fn [m] (apply map array m))
+        b-t (transpose b)]
+    (map (fn [row-a]
+           (map (fn [col-b]
+                  (apply + (map * row-a col-b)))
+                b-t))
+         a)))
+
+(defn dot [v1 v2]
+  (apply + (map * v1 v2)))
+
+(defn scale [v k]
+  (map (fn [x] (* x k)) v))
+
+(defn subtract [v1 v2]
+  (map - v1 v2))
+
+(defn copy [xs] (if (= :ta/view (type xs)) (:slice xs) (array/slice xs)))
+
+(defn sign [x]
+  (if (>= x 0) 1 -1))
+
+(defn trans-m [m] (apply map array m))
+(defn trans-v [xs] (map array xs))
+
+(defn outer [xs] (matmul (map array xs) (array xs))) 
+
+(defn unit-e [n k]
+  (update-in 
+    (zero n) [k] (fn [x] 1)))
+
+(defn normalize-v [xs]
+  (map |(/ $0 (math/sqrt (dot xs xs))) xs))
+  
+(defn rbind [m1 m2]
+  (array/concat m1 m2))
+
+(defn cbind [m1 m2]
+  (let [tm1 (trans-m m1)
+        tm2 (trans-m m2)]
+    (trans-m (rbind tm1 tm2))))
+
+(defn flipud [m] (reverse m))
+(defn fliplr [m] (-> m
+                     trans-m
+                     flipud
+                     trans-m))
+
+(defn expand-m 
+  "Returns a new transposed matrix from `m`."
+  [n m]
+  (let [I (ident n)
+        left (rbind I (zero n (rows m)))
+        right (rbind (zero (cols m) n) m)]
+    (cbind left right)))
+
+(defn slice-m 
+  [m rslice cslice] 
+  (-> m (array/slice ;rslice)
+      trans-m
+      (array/slice ;cslice)
+      trans-m))
+
+
+(defn- qr1 
+ "Transform using Householder reflections by one step."
+  [m]
+  (let [x ((trans-m m) 0) # take first column
+        k 0
+        a (* -1 (sign (x k)) (math/sqrt (dot x x)))
+        e1 (unit-e (length x) 0)
+        u (subtract x (map |(* $ a) e1)) # (mul e1 a)
+        v (normalize-v u)
+        I (ident (length u))
+        Q (mop I - (sop (outer v) * 2))
+        Qm (matmul Q m)
+        m^ (slice-m Qm [1] [1])]
+    {:Q Q
+     :m^ m^}))
+
+   
+(defn qr 
+  ```
+  Stable and robust QR decomposition of a square matrix. 
+  Decompose a matrix using Householder transformations. O(n^3).
+  ```
+  [m]
+  # TODO: Simplify with a single `reduce` to avoid storing intermediates.
+  (var m^ m)
+  (var Qs (seq [i :range [0 (min (- (rows m) 1) (cols m))]]
+            (do
+              (def res (qr1 m^))
+              (set m^ (res :m^))
+              (def Q^ (expand-m i (res :Q)))
+              Q^)))
+  (def I (ident (cols Qs)))
+  (var Q (reduce matmul I Qs))
+  (var R (reduce matmul I (array/concat (reverse Qs) (array m))))
+  {:Q Q
+   :R R})
+
+(defn svd
+  ```
+  Simple Singular-Value-Decomposition based on repeated QR decomposition. The algorithm converges at O(n^3).
+  ```
+  [m &opt n-iter]
+  (def n-iter 100)
+  (var U (ident (rows m)))
+  (var V U)
+  (var Q1 U)
+  (var Q2 U)
+  (var R1 m)
+  (var R2 U)
+  (var Q1 U)
+  (loop [i :range [0 n-iter]]
+    (do
+      (var res (qr R1))
+      (set Q1 (res :Q))
+      (set R1 (res :R))
+      (var res^ (qr (trans-m R1)))
+      (set Q2 (res^ :Q))
+      (set R2 (res^ :R))
+      (set R1 (trans-m R2))
+      (set U (matmul U Q1))
+      (set V (matmul V Q2)))) 
+  {:U U
+   :S R1
+   :V V})
+

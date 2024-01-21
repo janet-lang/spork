@@ -412,6 +412,19 @@
                      @[-3 3 -1]]))
         "determinant")
 
+
+(def m3 @[@[1 2 3] @[4 5 6] @[7 8 9]])
+(def m23 @[@[1 2 3] @[4 5 6]])
+
+(let [res (svd m3)
+      U (res :U)
+      S (res :S)
+      V (res :V)]
+  (reduce matmul (ident (rows U)) (array U S (trans-m V))))
+ 
+(let [res (qr m3)]
+  (det (res :Q)))
+
 (assert (= 10 (perm @[@[1 2]
                       @[3 4]]))
         "pernament")
