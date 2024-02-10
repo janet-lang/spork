@@ -432,35 +432,35 @@
               "rbind")
       (assert (deep= (cbind m23 m23) @[@[1 2 3 1 2 3] @[4 5 6 4 5 6]]) 
               "cbind")
-      (assert (deep-approx= m23 (matmul (res-m23 :Q) (res-m23 :R)))
+      (assert (m-approx= m23 (matmul (res-m23 :Q) (res-m23 :R)))
               "qr-non-square")
-      (assert (deep-approx= m3 (matmul (res-m3 :Q) (res-m3 :R)))
+      (assert (m-approx= m3 (matmul (res-m3 :Q) (res-m3 :R)))
               "qr-square")
-      (assert (deep-approx= (res-m3 :Q)
+      (assert (m-approx= (res-m3 :Q)
                @[@[-0.123091490979333 0.904534033733291 0.408248290463864]
                  @[-0.492365963917331 0.301511344577765 -0.816496580927726]
                  @[-0.861640436855329 -0.301511344577764 0.408248290463863]])
               "qr-q")
-      (assert (deep-approx= (res-m3 :R)
+      (assert (m-approx= (res-m3 :R)
                @[@[-8.12403840463596 -9.60113629638795 -11.0782341881399]
                  @[-8.88178419700125e-16 0.90453403373329 1.80906806746658]
                  @[-8.88178419700125e-16 -4.44089209850063e-16 8.88178419700125e-16]])
               "qr-q")
-      (assert (deep-approx= m3 (reduce matmul (ident (rows U)) 
-                                       (array U S (trans-m V))))
+      (assert (m-approx= m3 (reduce matmul (ident (rows U)) 
+                                    (array U S (trans-m V))))
               "svd-USV'")
-      (assert (deep-approx= U 
+      (assert (m-approx= U 
                      @[@[0.214837238368396 -0.887230688346371 0.408248290463863]
                        @[0.520587389464737 -0.249643952988298 -0.816496580927726]
                        @[0.826337540561078 0.387942782369775 0.408248290463863]])
               "svd-U")
-      (assert (deep-approx= S 
+      (assert (m-approx= S 
                      @[@[16.8481033526142 0 0]
                        @[-1.1642042401554e-237 -1.06836951455471 0]
                        @[-6.42285339593621e-323 0 3.62597321469472e-16]])
 
               "svd-S")
-      (assert (deep-approx= V 
+      (assert (m-approx= V 
                      @[@[0.479671177877771 -0.776690990321559 0.408248290463863]
                        @[0.572367793972062 -0.0756864701045582 -0.816496580927726]
                        @[0.665064410066353 0.625318050112442 0.408248290463863]])
