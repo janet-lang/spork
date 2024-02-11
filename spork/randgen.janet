@@ -37,9 +37,7 @@
 
 (defn rand-gaussian
   "Get a random sample from the standard Gaussian distribution. 
-  Optionall specify the mean m and the standard deviation sd. E.g.:
-  (rand-gaussian) # => 0.1324...
-  (rand-gaussian 5 0.1) # => 5.3397...
+  Optionall specify the mean m and the standard deviation sd. 
   "
   [&opt m sd]
   (default m 0)
@@ -52,8 +50,10 @@
   # We use the Box-Muller transform
   (let [rho (math/sqrt (* -2 (math/log q)))
         theta (* 2 math/pi p)
-        # _box (* rho (math/cos theta))
         _muller (* rho (math/sin theta))
+        # in devices where hardware entropy pool usage should be efficient
+        # we can achieve x2 efficiency by using the `box` variable as well
+        # _box (* rho (math/cos theta))
         # box (scale _box)
         muller (scale _muller)]
 
@@ -61,11 +61,7 @@
     muller))
 
 (defn sample-n
-  "Generate n samples based on the random sampler f. E.g.
-  (sample-n |(rand-int 0 3) 4) # => @[0 1 2 0]
-  (sample-n |(rand-uniform) 4)
-  (sample-n |(rand-gaussian 5 0.1) 4)
-  "
+  "Generate n samples based on the random sampler `f`."
   [f n]
   (take n (generate [_ :iterate true]
             (f))))
