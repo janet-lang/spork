@@ -1399,7 +1399,7 @@
 (defn join-rows 
   "Stack vertically rows of two matrices."
   [m1 m2]
-  (array/concat m1 m2))
+  (array/concat @[] m1 m2))
 
 (defn join-cols 
   "Stack horizontally columns of two matrices."
