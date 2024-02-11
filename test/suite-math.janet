@@ -350,10 +350,10 @@
                @[@[1 4] @[2 5] @[3 6]])
         "trans")
 
-(assert (deep= (dot @[@[1 2] @[4 5]]
+(assert (deep= (matmul @[@[1 2] @[4 5]]
                     @[@[3 4] @[6 7]])
                @[@[15 18] @[42 51]])
-        "dot")
+        "matmul")
 
 (let [m @[@[1 2] @[4 5]]]
   (add m 3)
@@ -417,6 +417,7 @@
 
 (let [m3 @[@[1 2 3] @[4 5 6] @[7 8 9]]
       m23 @[@[1 2 3] @[4 5 6]]
+      res1-m3 (qr1 m3)
       res-m23 (qr m23)
       res-m3 (qr m3)
       res-svd (svd m3)
@@ -424,47 +425,90 @@
       S (res-svd :S)
       V (res-svd :V)]
      (do 
-      (assert (deep= (flipud m23) @[@[4 5 6] @[1 2 3]])
+      (assert (deep= m23 m23)
+              "deep= matrix")
+
+      (assert (deep= (flipud m23) 
+                     @[@[4 5 6] @[1 2 3]])
               "flipud")
-      (assert (deep= (fliplr m23) @[@[3 2 1] @[6 5 4]])
+
+      (assert (deep= (fliplr m23) 
+                     @[@[3 2 1] @[6 5 4]])
               "fliplr")
-      (assert (deep= (rbind m3 m23) @[@[1 2 3] @[4 5 6] @[7 8 9] @[1 2 3] @[4 5 6]])
-              "rbind")
-      (assert (deep= (cbind m23 m23) @[@[1 2 3 1 2 3] @[4 5 6 4 5 6]]) 
-              "cbind")
-      (assert (m-approx= m23 (matmul (res-m23 :Q) (res-m23 :R)))
-              "qr-non-square")
-      (assert (m-approx= m3 (matmul (res-m3 :Q) (res-m3 :R)))
-              "qr-square")
+
+      (assert (deep= (join-rows m3 m23) 
+                     @[@[1 2 3] 
+                       @[4 5 6] 
+                       @[7 8 9] 
+                       @[1 2 3] 
+                       @[4 5 6]])
+              "join-rows")
+
+      (assert (deep= (join-cols m23 m23) 
+                     @[@[1 2 3 1 2 3] 
+                       @[4 5 6 4 5 6]]) 
+              "join-cols")
+
+      (assert (m-approx= (res1-m3 :Q) 
+                         @[@[-0.123091490979333 -0.492365963917331 -0.861640436855329]
+                           @[-0.492365963917331 0.784145597779528 -0.377745203885826]
+                           @[-0.861640436855329 -0.377745203885826 0.338945893199805]])
+              "qr1-q")
+
+      (assert (m-approx= (res1-m3 :m^) 
+                         @[@[-0.0859655700236277 -0.171931140047257] 
+                           @[-0.90043974754135 -1.8008794950827]])
+              "qr1-m")
+
       (assert (m-approx= (res-m3 :Q)
                @[@[-0.123091490979333 0.904534033733291 0.408248290463864]
                  @[-0.492365963917331 0.301511344577765 -0.816496580927726]
                  @[-0.861640436855329 -0.301511344577764 0.408248290463863]])
               "qr-q")
+
       (assert (m-approx= (res-m3 :R)
                @[@[-8.12403840463596 -9.60113629638795 -11.0782341881399]
                  @[-8.88178419700125e-16 0.90453403373329 1.80906806746658]
                  @[-8.88178419700125e-16 -4.44089209850063e-16 8.88178419700125e-16]])
-              "qr-q")
-      (assert (m-approx= m3 (reduce matmul (ident (rows U)) 
-                                    (array U S (trans-m V))))
-              "svd-USV'")
+              "qr-r")
+
       (assert (m-approx= U 
                      @[@[0.214837238368396 -0.887230688346371 0.408248290463863]
                        @[0.520587389464737 -0.249643952988298 -0.816496580927726]
                        @[0.826337540561078 0.387942782369775 0.408248290463863]])
               "svd-U")
+
       (assert (m-approx= S 
                      @[@[16.8481033526142 0 0]
                        @[-1.1642042401554e-237 -1.06836951455471 0]
                        @[-6.42285339593621e-323 0 3.62597321469472e-16]])
 
               "svd-S")
+
       (assert (m-approx= V 
                      @[@[0.479671177877771 -0.776690990321559 0.408248290463863]
                        @[0.572367793972062 -0.0756864701045582 -0.816496580927726]
                        @[0.665064410066353 0.625318050112442 0.408248290463863]])
-              "svd-U")))
+              "svd-U")
+
+      (assert (m-approx= (matmul m3 (ident (rows m3)))
+                         m3)
+              "matmul identity left")
+
+      (assert (m-approx= (matmul (ident (rows m3)) m3)
+                         m3)
+              "matmul identity right")
+
+      (assert (m-approx= m3 (matmul (res-m3 :Q) (res-m3 :R)))
+              "qr-square decompose")
+
+      (assert (m-approx= m23 (matmul (res-m23 :Q) (res-m23 :R)))
+              "qr-non-square decompose")
+
+      (assert (m-approx= m3 (reduce matmul (ident (rows U)) 
+                                    (array U S (trans V))))
+              "svd-USV' decompose")))
+     
 
 (assert (= 10 (perm @[@[1 2]
                       @[3 4]]))
