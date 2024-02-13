@@ -136,7 +136,6 @@
   `Copy a file or directory recursively from one location to another.
   Expects input to be unix style paths`
   [src dest]
-  (print "copying " src " to " dest "...")
   (if (= :windows (os/which))
     (let [end (last (path/posix/parts src))
           isdir (= (os/stat src :mode) :directory)]
