@@ -392,8 +392,7 @@
   (def cells @[])
   (forever
     (set (cells x)
-     (*
-       bc
+     (* bc
        (math/pow p x)
        (math/pow (- 1 p) (- t x))))
     (+= cp (cells x))
@@ -1067,7 +1066,8 @@
     (if-not (empty? a) |(op $ ;a) op))
   (for i 0 (cols m)
     (for j 0 (rows m)
-      (update-in m [i j] opa))) m)
+      (update-in m [i j] opa))) 
+  m)
 
 (defn mop
   ```
@@ -1462,14 +1462,12 @@
   Decompose a matrix using Householder transformations. O(n^3).
   ```
   [m]
-  # TODO: Simplify with a single `reduce` to avoid storing intermediates.
   (var m^ m)
   (var Qs (seq [i :range [0 (min (- (rows m) 1) (cols m))]]
-            (do
               (def res (qr1 m^))
               (set m^ (res :m^))
               (def Q^ (expand-m i (res :Q)))
-              Q^)))
+              Q^))
   (def I (ident (cols Qs)))
   (var Q (reduce matmul I Qs))
   (var R (reduce matmul I (array/concat (reverse Qs) (array m))))
@@ -1490,7 +1488,6 @@
   (var R2 U)
   (var Q1 U)
   (loop [i :range [0 n-iter]]
-    (do
       (var res (qr R1))
       (set Q1 (res :Q))
       (set R1 (res :R))
@@ -1499,7 +1496,7 @@
       (set R2 (res^ :R))
       (set R1 (trans R2))
       (set U (matmul U Q1))
-      (set V (matmul V Q2)))) 
+      (set V (matmul V Q2))) 
   {:U U
    :S R1
    :V V})
@@ -1512,8 +1509,3 @@
         b  (map approx-eq v1 v2)]
     (and (= (length v1) (length v2))
          (every? b))))
-
-(let [m3 @[@[1 2 3] @[4 5 6] @[7 8 9]]]
-  (assert (m-approx= (matmul m3 (ident (rows m3)))
-                     m3)
-          "matmul identity left: this test succeeds here but fails in suite-math.janet"))
