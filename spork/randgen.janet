@@ -57,7 +57,6 @@
         # box (scale _box)
         muller (scale _muller)]
 
-    # (yield box)
     muller))
 
 (defn sample-n
