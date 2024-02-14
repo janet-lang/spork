@@ -392,9 +392,9 @@
   (def cells @[])
   (forever
     (set (cells x)
-     (* bc
-       (math/pow p x)
-       (math/pow (- 1 p) (- t x))))
+         (* bc
+            (math/pow p x)
+            (math/pow (- 1 p) (- t x))))
     (+= cp (cells x))
     (++ x)
     (set bc (/ (* bc (+ (- t x) 1)) x))
@@ -1051,10 +1051,10 @@
 
 (defn row->col
   "Transposes a row vector `xs` to col vector. Returns `xs` if it has higher dimensions."
-  [xs] 
+  [xs]
   (case (type (xs 0))
     :number (map array xs)
-    :array xs)) 
+    :array xs))
 
 (defn sop
   ```
@@ -1066,7 +1066,7 @@
     (if-not (empty? a) |(op $ ;a) op))
   (for i 0 (cols m)
     (for j 0 (rows m)
-      (update-in m [i j] opa))) 
+      (update-in m [i j] opa)))
   m)
 
 (defn mop
@@ -1089,16 +1089,16 @@
     :number (sop m + a)
     :array (mop m + a)))
 
-(defn dot 
+(defn dot
   "Dot product between two row vectors."
   [v1 v2]
   (apply + (map * v1 v2)))
 
-(defn dot-fast 
+(defn dot-fast
   "Fast dot product between two row vectors of equal size."
-  [v1 v2] 
-  (var t 0) 
-  (for i 0 (length v1) 
+  [v1 v2]
+  (var t 0)
+  (for i 0 (length v1)
     (+= t (* (get v1 i) (get v2 i))))
   t)
 
@@ -1361,67 +1361,67 @@
       (array/concat res (factor-pollard x))))
   res)
 
-(defn scale 
+(defn scale
   "Scale a vector `v` by a number `k`."
   [v k]
   (map (fn [x] (* x k)) v))
 
-(defn subtract 
+(defn subtract
   "Elementwise subtract vector `v2` from `v1`."
   [v1 v2]
   (map - v1 v2))
 
-(defn copy 
+(defn copy
   "Deep copy an array or view `xs`."
-  [xs] 
+  [xs]
   (if (= :ta/view (type xs)) (:slice xs) (array/slice xs)))
 
-(defn sign 
+(defn sign
   "Sign function."
   [x] (cmp x 0))
 
 (defn outer
   "Outer product of vectors `v1` and `v2`."
-  [v1 v2] 
-  (matmul (map array v1) (array v2))) 
+  [v1 v2]
+  (matmul (map array v1) (array v2)))
 
-(defn unit-e 
+(defn unit-e
   "Unit vector of `n` dimensions along dimension `k`."
   [n k]
-  (update-in 
+  (update-in
     (zero n) [k] (fn [x] 1)))
 
-(defn normalize-v 
+(defn normalize-v
   "Returns normalized vector of `xs` by Euclidian (L2) norm."
   [xs]
   (map |(/ $0 (math/sqrt (dot xs xs))) xs))
 
-(defn join-rows 
+(defn join-rows
   "Stack vertically rows of two matrices."
   [m1 m2]
   (array/concat @[] m1 m2))
 
-(defn join-cols 
+(defn join-cols
   "Stack horizontally columns of two matrices."
   [m1 m2]
   (map join-rows m1 m2))
 
 (defn squeeze
   "Concatenate a list of rows into a single row. Does not mutate `m`."
-  [m] 
+  [m]
   (array/concat @[] ;m))
 
-(defn flipud 
+(defn flipud
   "Flip a matrix upside-down."
-  [m] 
+  [m]
   (reverse m))
 
-(defn fliplr 
+(defn fliplr
   "Flip a matrix leftside-right."
-  [m] 
-  (map reverse m))  
+  [m]
+  (map reverse m))
 
-(defn expand-m 
+(defn expand-m
   "Embeds a matrix `m` inside an identity matrix of size n."
   [n m]
   (let [I (ident n)
@@ -1429,18 +1429,18 @@
         right (join-rows (zero (cols m) n) m)]
     (join-cols left right)))
 
-(defn slice-m 
-  "Slice a matrix `m` by rows and columns." 
+(defn slice-m
+  "Slice a matrix `m` by rows and columns."
   [m rslice cslice]
-  (-> m 
-    (array/slice ;rslice)
-    trans
-    (array/slice ;cslice)
-    trans))
+  (-> m
+      (array/slice ;rslice)
+      trans
+      (array/slice ;cslice)
+      trans))
 
 
-(defn qr1 
- "Transform using Householder reflections by one step."
+(defn qr1
+  "Transform using Householder reflections by one step."
   [m]
   (let [x ((trans m) 0) # take first column
         k 0
@@ -1455,8 +1455,8 @@
     {:Q Q
      :m^ m^}))
 
-   
-(defn qr 
+
+(defn qr
   ```
   Stable and robust QR decomposition of a matrix. 
   Decompose a matrix using Householder transformations. O(n^3).
@@ -1464,10 +1464,10 @@
   [m]
   (var m^ m)
   (var Qs (seq [i :range [0 (min (- (rows m) 1) (cols m))]]
-              (def res (qr1 m^))
-              (set m^ (res :m^))
-              (def Q^ (expand-m i (res :Q)))
-              Q^))
+            (def res (qr1 m^))
+            (set m^ (res :m^))
+            (def Q^ (expand-m i (res :Q)))
+            Q^))
   (def I (ident (cols Qs)))
   (var Q (reduce matmul I Qs))
   (var R (reduce matmul I (array/concat (reverse Qs) (array m))))
@@ -1488,15 +1488,15 @@
   (var R2 U)
   (var Q1 U)
   (loop [i :range [0 n-iter]]
-      (var res (qr R1))
-      (set Q1 (res :Q))
-      (set R1 (res :R))
-      (var res^ (qr (trans R1)))
-      (set Q2 (res^ :Q))
-      (set R2 (res^ :R))
-      (set R1 (trans R2))
-      (set U (matmul U Q1))
-      (set V (matmul V Q2))) 
+    (var res (qr R1))
+    (set Q1 (res :Q))
+    (set R1 (res :R))
+    (var res^ (qr (trans R1)))
+    (set Q2 (res^ :Q))
+    (set R2 (res^ :R))
+    (set R1 (trans R2))
+    (set U (matmul U Q1))
+    (set V (matmul V Q2)))
   {:U U
    :S R1
    :V V})
@@ -1506,6 +1506,6 @@
   [m1 m2 &opt tolerance]
   (let [v1 (squeeze m1)
         v2 (squeeze m2)
-        b  (map approx-eq v1 v2)]
+        b (map approx-eq v1 v2)]
     (and (= (length v1) (length v2))
          (every? b))))
