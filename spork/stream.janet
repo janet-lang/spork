@@ -36,9 +36,10 @@
   * end of stream is reached.
   * stream or channel is closed.
 
-  This function ignores errors from closed streams and closed channels.
+  If `supervisor` is a channel, the channel is used as the supervisor channel. If `supervisor` is nil or not specified,
+  the task inherits the current supervisor channel.
   ```
-  [stream &opt separator]
+  [stream &named separator supervisor]
   (def fiber (lines stream separator))
   (def ch (ev/chan))
   (defn give-lines
@@ -46,10 +47,7 @@
     (when-let [line (resume fiber)]
       (ev/give ch line)
       (give-lines)))
-  (ev/spawn
-    (try
-      (defer (:close ch)
-        (give-lines))
-      # Ignore errors caused by closed streams and closed channels.
-      ([_])))
+  (ev/go |(defer (:close ch)
+            (give-lines))
+         nil supervisor)
   ch)
