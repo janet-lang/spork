@@ -1,9 +1,10 @@
 (defn lines
   ```
   Returns a fiber that yields each line from a core/stream value. If separator is not specified, the default separator
-  is `\n`. If the stream is closed before the fiber yields all lines, an error is thrown from the stream.
+  is `\n`. After the fiber yields the last line, it returns `nil`. If the fiber is resumed after the stream is closed or
+  after the fiber returns `nil`, an error is thrown.
   ```
-  [stream &opt separator]
+  [stream &named separator]
   (default separator "\n")
   (defn yield-lines
     [chunk]
@@ -30,17 +31,13 @@
   ```
   Returns a channel that gives each line from a core/stream value. An asynchronous task feeds lines to the channel. If
   separator is not specified, the default separator is `\n`. To make sure that the task is finished, drain all lines
-  from the channel, or close the stream and the channel. Otherwise, the task remains frozen in the background. The
-  channel gives `nil` after one of those conditions applies.
-
-  * end of stream is reached.
-  * stream or channel is closed.
-
-  If `supervisor` is a channel, the channel is used as the supervisor channel. If `supervisor` is nil or not specified,
-  the task inherits the current supervisor channel.
+  from the channel, or close the stream and the channel. Otherwise, the task remains frozen in the background. After the
+  channel gives the last line, the channel is closed. After stream or channel is closed, the channel gives `nil`. If
+  `supervisor` is a channel, the channel is used as the supervisor channel. If `supervisor` is nil or not specified, the
+  task inherits the current supervisor channel.
   ```
   [stream &named separator supervisor]
-  (def fiber (lines stream separator))
+  (def fiber (lines stream :separator separator))
   (def ch (ev/chan))
   (defn give-lines
     []
