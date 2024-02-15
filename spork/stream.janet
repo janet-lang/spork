@@ -7,10 +7,7 @@
   (default separator "\n")
   (defn yield-lines
     [chunk]
-    # if-let breaks tail call optimization. when-let depends on if-let.
-    # https://github.com/janet-lang/janet/issues/1401
-    (def idx (string/find "\n" chunk))
-    (when idx
+    (when-let [idx (string/find separator chunk)]
       # Yield the first line
       (yield (buffer/slice chunk 0 idx))
       # Eliminate the first line from chunk without creating a new buffer
@@ -46,13 +43,9 @@
   (def ch (ev/chan))
   (defn give-lines
     []
-    # if-let breaks tail call optimization. when-let depends on if-let.
-    # https://github.com/janet-lang/janet/issues/1401
-    (def line (resume fiber))
-    (when line
-      (do
-        (ev/give ch line)
-        (give-lines))))
+    (when-let [line (resume fiber)]
+      (ev/give ch line)
+      (give-lines)))
   (ev/spawn
     (try
       (defer (:close ch)
