@@ -21,33 +21,40 @@
   (os/execute args :px))
 
 (defn exec-slurp
-   "Read stdout of command specified by args and return it trimmed in a string."
-   [& args]
-   (def proc (os/spawn args :px {:out :pipe}))
-   (def out (get proc :out))
-   (def buf @"")
-   (ev/gather
-     (:read out :all buf)
-     (:wait proc))
-   (string/trimr buf))
+  ```
+  It executes args with `os/spawn` and throws an error if the process returns with non-zero exit code. If the process
+  exits with zero exit code, this function trims standard output of the process and returns it. Before the function
+  finishes, the spawned process is closed for resource control.
+  ```
+  [& args]
+  # Close the process pipes. If the process pipes are not closed, janet can run out of file descriptors.
+  (with [proc (os/spawn args :xp {:out :pipe})]
+    (let [[out] (ev/gather
+                  (ev/read (proc :out) :all)
+                  (os/proc-wait proc))]
+      (if out (string/trimr out) ""))))
 
 (defn exec-slurp-all
-   `Read stdout and stderr of subprocess and return it trimmed in a struct with :err and :out containing the output as string.
-   This will also return the exit code under the :status key.`
-   [& args]
-   (def proc (os/spawn args :p {:out :pipe :err :pipe}))
-   (def out (get proc :out))
-   (def err (get proc :err))
-   (def out-buf @"")
-   (def err-buf @"")
-   (var status 0)
-   (ev/gather
-     (:read out :all out-buf)
-     (:read err :all err-buf)
-     (set status (:wait proc)))
-   {:err (string/trimr err-buf)
-    :out (string/trimr out-buf)
-    :status status})
+  ```
+  It executes args with `os/spawn` and returns a struct which has the following keys.
+
+  * `:out` - trimmed standard output of the process
+  * `:err` - trimmed standard error of the process
+  * `:status` - the exit code of the process
+
+  Before the function finishes, the spawned process is closed for resource control.
+  ```
+  [& args]
+  # Close the process pipes. If the process pipes are not closed, janet can run out of file descriptors.
+  (with [proc (os/spawn args :p {:out :pipe :err :pipe})]
+    (let [[out err status]
+          (ev/gather
+            (ev/read (proc :out) :all)
+            (ev/read (proc :err) :all)
+            (os/proc-wait proc))]
+      {:out (if out (string/trimr out) "")
+       :err (if err (string/trimr err) "")
+       :status status})))
 
 (defn rm
   "Remove a directory and all sub directories recursively."
@@ -129,7 +136,6 @@
   `Copy a file or directory recursively from one location to another.
   Expects input to be unix style paths`
   [src dest]
-  (print "copying " src " to " dest "...")
   (if (= :windows (os/which))
     (let [end (last (path/posix/parts src))
           isdir (= (os/stat src :mode) :directory)]
