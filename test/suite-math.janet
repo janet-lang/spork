@@ -420,7 +420,7 @@
       res-svd (svd m3)
       U (res-svd :U)
       S (res-svd :S)
-      V (res-svd :V)
+      V (res-svd :V)]
       (assert (deep= m23 m23)
               "deep= matrix")
 
@@ -503,7 +503,7 @@
 
       (assert (m-approx= m3 (reduce matmul (ident (rows U))
                                     (array U S (trans V))))
-              "svd-USV' decompose")])
+              "svd-USV' decompose"))
 
 
 (assert (= 10 (perm @[@[1 2]
