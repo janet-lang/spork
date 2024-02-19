@@ -35,6 +35,36 @@
   (def diff (- end start))
   (+ start (math/floor (* diff (rand-uniform)))))
 
+(defn rand-gaussian
+  "Get a random sample from the standard Gaussian distribution. 
+  Optionall specify the mean m and the standard deviation sd. 
+  "
+  [&opt m sd]
+  (default m 0)
+  (default sd 1)
+  (defn scale [x] (+ m (* sd x)))
+
+  (def p (math/rng-uniform (get-rng)))
+  (def q (math/rng-uniform (get-rng)))
+
+  # We use the Box-Muller transform
+  (let [rho (math/sqrt (* -2 (math/log q)))
+        theta (* 2 math/pi p)
+        _muller (* rho (math/sin theta))
+        # in devices where hardware entropy pool usage should be efficient
+        # we can achieve x2 efficiency by using the `box` variable as well
+        # _box (* rho (math/cos theta))
+        # box (scale _box)
+        muller (scale _muller)]
+
+    muller))
+
+(defn sample-n
+  "Generate n samples based on the random sampler `f`."
+  [f n]
+  (take n (generate [_ :iterate true]
+            (f))))
+
 (defn rand-index
   "Get a random numeric index of an indexed data structure"
   [xs]
@@ -92,4 +122,3 @@
   [weights & paths]
   ~(case (,rand-weights ,weights)
      ,;(array/concat @[] ;(map tuple (range (length paths)) paths))))
-
