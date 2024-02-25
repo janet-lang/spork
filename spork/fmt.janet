@@ -89,8 +89,8 @@
            "for" "each" "eachp" "eachk" "case" "cond" "do" "defglobal" "varglobal"
            "if" "when" "when-let" "when-with" "while" "with-syms" "with-vars"
            "if-let" "if-not" "if-with" "let" "short-fn" "try" "unless" "default" "forever" "upscope"
-           "repeat" "eachy" "forv" "compwhen" "compif" "ev/spawn" "ev/do-thread" "ev/with-deadline"
-           "label" "prompt"]))
+           "repeat" "forv" "compwhen" "compif" "ev/spawn" "ev/do-thread" "ev/spawn-thread" "ev/with-deadline"
+           "label" "prompt" "forever"]))
 
 (def- indent-2-peg
   "Peg to use to fuzzy match certain forms."
