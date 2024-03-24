@@ -5,8 +5,13 @@
 ###
 ### The cron format support is based on the unix cron syntax, with an optional
 ### seconds field. Each field can be a comma separated list of individual values
-### or a range of values. A range is specified by two values with a "-" between them, optionally
-### followed by a "/" and a step value. An asterisk ("*") can be used to denote all possible values.
+### or a range of values.
+### A range has three variants as follows
+###   Two values with a "-" between them, optionally followed by a "/" and a step value.
+###   An asterisk ("*") followed by a "/" and a step value. This implies every "step" value.
+###   A single value followed by a "/" and a step value. This implies every "step" value
+###     starting with the single value. i.e. 2/3 implies every 3 units from 2 to max units.
+### A single asterisk ("*") can be used to denote all possible values.
 ###
 ### The fields:
 ###  * minutes: 0-59
@@ -89,16 +94,29 @@
   [start &opt end step]
   (default end start)
   (default step 1)
-  [start end step])
+  (if (= start :*)
+    [start start end]
+    (if (and (string? start) (string/has-suffix? "*" start))
+      [(scan-number (string/replace "*" "" start)) :* end]
+      [start end step])))
 
 (def- cron-peg
   (peg/compile
     ~{:3code '(some :a)
       :num (+ (/ ':d+ ,scan-number) :3code)
-      :range (/ (* :num (? (* "-" :num (? (* "/" :num))))) ,capture-range)
-      :range-group (group (* :range (any (* "," :range))))
       :star (* "*" (constant :*))
-      :field (+ :star :range-group)
+      :start (/ ':d+ ,|(string $0 "*"))
+      :num-range (* :num "-" :num)
+
+      :slash-left (+ :star :num-range :start)
+      :slash (* :slash-left "/" :num)
+
+      :range (+ :slash :num-range :num)
+      :range-val (/ :range ,capture-range)
+      :range-group (group (* :range-val (any (* "," :range-val))))
+
+      :field (+ :range-group :star)
+
       :main (* :field :s+ :field :s+ :field :s+ :field :s+ :field :s*
                (? (* :field :s*)) -1)}))
 
@@ -111,12 +129,16 @@
       (bitmap-setrange bitmap (+ offset mini) (+ offset maxi))
       (do
         (each [start end step] ranges
-          (def start (if (and codes (string? start))
-                       (- (assert (in codes (string/ascii-lower start)) (string "invalid code " start)) offset)
-                       start))
-          (def end (if (and codes (string? end))
-                     (- (assert (in codes (string/ascii-lower end)) (string "invalid code " end)) offset)
-                     end))
+          (def start (if (= :* start)
+                       mini
+                       (if (and codes (string? start))
+                         (- (assert (in codes (string/ascii-lower start)) (string "invalid code " start)) offset)
+                         start)))
+          (def end (if (= :* end)
+                     maxi
+                     (if (and codes (string? end))
+                       (- (assert (in codes (string/ascii-lower end)) (string "invalid code " end)) offset)
+                       end)))
           (assert (>= start mini) (string "invalid " debug-name ": " start))
           (assert (<= end maxi) (string "invalid " debug-name ": " end))
           (bitmap-setrange bitmap (+ offset start) (+ offset end) step))

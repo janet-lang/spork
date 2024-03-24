@@ -33,7 +33,7 @@
   (map print (get-sequence cron n start-time local)))
 
 # Pick a stable start time
-(def stable-start 1665693611)
+(def stable-start 1665693600)
 
 (assert (deep= (get-sequence "10 14 * jan mon,tue" 10 stable-start)
                @["2023-01-02 14:10:00"
@@ -46,5 +46,10 @@
                  "2023-01-24 14:10:00"
                  "2023-01-30 14:10:00"
                  "2023-01-31 14:10:00"]) "sequence 1")
+
+(assert (cron/check "40 * * * *" stable-start))
+(assert (cron/check "5,40 * * * *" stable-start))
+(assert (cron/check "10/5 * * * *" stable-start))
+(assert (cron/check "*/5 * * * *" stable-start))
 
 (end-suite)
