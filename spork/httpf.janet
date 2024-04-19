@@ -216,16 +216,15 @@
         (setdyn :response-headers response-headers)
         (case method
           "GET" (try
-                  (make-response
-                    200
-                    (do
-                      (def query (get req :query {}))
-                      (def raw-post-data (get query "data"))
-                      (def post-data (if raw-post-data (parse raw-post-data)))
-                      (when-let [validate (get schemas path)]
-                        (validate post-data))
-                      (setdyn :data post-data)
-                      (handler req post-data)))
+                  (do
+                    (def query (get req :query {}))
+                    (def raw-post-data (get query "data"))
+                    (def post-data (if raw-post-data (parse raw-post-data)))
+                    (when-let [validate (get schemas path)]
+                      (validate post-data))
+                    (setdyn :data post-data)
+                    (let [content (handler req post-data)]
+                      (make-response (dyn :response-code 200) content)))
                   ([err f]
                    (make-400-response (string err) f)))
           "OPTIONS" {:status 200
@@ -241,13 +240,16 @@
                               body)]
                    (setdyn :data data)
                    (try
-                     (make-response 200 (do (if validate (validate data)) (handler req data)))
+                     (do
+                       (when validate (validate data))
+                       (let [content (handler req data)]
+                         (make-response (dyn :response-code 200) content)))
                      ([err f] (make-400-response (string err) f))))
           (make-response 405 "Method not allowed. Use GET, OPTIONS, or POST.")))
-    ([err f]
-     (eprint "internal server error: " (string err) f)
-     (debug/stacktrace (fiber/current))
-     (make-response 500 err))))
+      ([err f]
+       (eprint "internal server error: " (string err) f)
+       (debug/stacktrace (fiber/current))
+       (make-response 500 err))))
 
   (put state :on-connection
        (fn connection-handler [conn]
@@ -281,4 +283,3 @@
         (repeat n-workers (ev-utils/spawn-nursery n (forever (on-connection (ev/take q)))))
         (ev-utils/join-nursery n))))
   (print "server closed"))
-
