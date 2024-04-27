@@ -27,7 +27,7 @@
     (def len (+ b0 (* b1 0x100) (* b2 0x10000) (* b3 0x1000000)))
     (buffer/clear buf)
     (if-not (:chunk stream len buf) (break))
-    (unpack (string buf))))
+    (unpack buf)))
 
 (defn make-send
   "Create a function that when called with a msgs sends that msg.
