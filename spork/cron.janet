@@ -17,7 +17,7 @@
 ###  * minutes: 0-59
 ###  * hours: 0-23
 ###  * day of month: 1-31
-###  * month: 1-12. Also allowed are the following month codes in any casing:
+###  * month: 1-12. Also allowed are the following month codes in any case:
 ###    jan,feb,mar,apr,may,jun,jul,aug,sep,oct,nov,dec
 ###  * day of week: 0-7, where 0 or 7 is sunday, monday is 1, etc. allows the following day codes (any case):
 ###    sun,mon,tue,wed,thu,fri,sat

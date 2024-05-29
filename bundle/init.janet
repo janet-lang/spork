@@ -2,11 +2,8 @@
 (import "/spork/sh" :as sh)
 
 (defn install [m &]
-  (bundle/add-directory m "spork")
   (bundle/add-file m "src/tarray.h" "tarray.h")
-  (each file (os/dir "spork")
-    (bundle/add-file m (string "spork/" file)))
-
+  (bundle/add m "spork")
   (each file (os/dir "build")
     (def f (string "build/" file))
     (when (= (os/stat f :mode) :file)

@@ -2,7 +2,7 @@
 ### services.janet
 ###
 ### Module for running a number of background processes in a controlled manner.
-### Similar to ev-utils and managerrys, but more involved with defaults for IO
+### Similar to ev-utils, but more involved with defaults for IO
 ### and naming fibers for debugging purposes. Services can also implicitly
 ### launch sibling or child services if needed.
 ###
