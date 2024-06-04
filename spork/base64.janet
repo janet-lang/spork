@@ -51,8 +51,8 @@
        (map |(array ;$0))))
 
 (defn- sextets->octets
-  [octets]
-  (->> octets
+  [sextets]
+  (->> sextets
        flatten
        (partition 8)))
 
