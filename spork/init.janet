@@ -10,6 +10,7 @@
 (import ./htmlgen :export true)
 (import ./http :export true)
 (import ./httpf :export true)
+(import ./infix :export true)
 (import ./mdz :export true)
 (import ./misc :export true)
 (import ./msg :export true)
