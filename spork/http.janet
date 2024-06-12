@@ -341,7 +341,7 @@
   (case (type x)
     :function x
     :number (let [msg (get status-messages x)]
-              (assert x (string "unknown http status code when making middleware: " x))
+              (assert msg (string "unknown http status code when making middleware: " x))
               (fn mw [&] {:status x :body msg}))
     :string (bytes-to-mw x)
     :buffer (bytes-to-mw x)
