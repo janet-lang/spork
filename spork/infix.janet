@@ -1,8 +1,8 @@
 ###
 ### infix.janet - A macro for infix syntax in Janet. Useful for math.
-### 
+###
 ### Examples:
-### 
+###
 ###     ($$ a + b ** 2)            --->   (+ a (math/pow b 2))
 ###     ($$ (a + b) ** 2)          --->   (math/pow (+ a b) 2)
 ###     ($$ y[2] + y[3])           --->   (+ (in y 2) (in y 3))
@@ -103,6 +103,10 @@
       (brak? op) # array subscripting (highest precedence)
       (let [index (parse-tokens op)]
         (parse-expression [in lhs index] min-prec))
+
+      # Function application for math/sin, etc.
+      (tup? op)
+      (parse-expression [lhs op] min-prec)
 
       (zero? prec) (errorf "expected binary operator, got %p" op)
 

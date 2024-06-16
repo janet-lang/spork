@@ -165,14 +165,7 @@
 
 (defn- shell-quote
   [arg]
-  (def buf (buffer/new (* (length arg) 2)))
-  (buffer/push-string buf "'")
-  (each c arg
-    (if (= c (chr "'"))
-      (buffer/push-string buf "'\\''")
-      (buffer/push-byte buf c)))
-  (buffer/push-string buf "'")
-  (string buf))
+  (string "'" (string/replace-all "'" `'\''` arg) "'"))
 
 (defn escape
   "Output a string with all arguments correctly quoted"
