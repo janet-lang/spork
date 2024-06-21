@@ -8,98 +8,101 @@
 (def- base64/table
   "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/")
 
-(defn- array-pad-right
-  [xs size padder]
-  (let [l (length xs)]
-    (if (< l size)
-      (do (for i l size
-            (put xs i padder))
-        xs)
-      xs)))
-
-(defn- array-pad-left
-  [xs size padder]
-  (let [l (length xs)]
-    (if (< l size)
-      (do (for i 0 (- size l)
-            (array/insert xs i padder))
-        xs)
-      xs)))
-
-(defn- decimal->binary
-  [x &opt bin]
-  (default bin @[])
-  (if (< x 1)
-    (reverse bin)
-    (let [rem (% x 2)
-          new-x (math/floor (/ x 2))]
-      (decimal->binary new-x (array/push bin rem)))))
-
-(defn- binary->decimal
-  [xs]
-  (var num 0)
-  (for i 0 (length xs)
-    (if (= 1 (get (reverse xs) i))
-      (set num (+ num (math/pow 2 i)))))
-  num)
-
-(defn- octets->sextets
-  [octets]
-  (->> octets
-       flatten
-       (partition 6)
-       (map |(array ;$0))))
-
-(defn- sextets->octets
-  [sextets]
-  (->> sextets
-       flatten
-       (partition 8)))
-
-(defn- quadruples->bytes [xs]
-  (let [sextets (map (fn [x]
-                       (-> (string/find (string/from-bytes x) base64/table)
-                           (decimal->binary)
-                           (array-pad-left 6 0))) xs)
-        octets (sextets->octets sextets)]
-    (apply string/from-bytes (map binary->decimal octets))))
-
-(defn- pad-last-sextet [xs]
-  (let [last-index (dec (length xs))]
-    (update xs last-index array-pad-right 6 0)))
-
-(defn- add-padding [s]
-  (if (zero? (% (length s) 4))
-    s
-    (let [pad-count (- 4 (% (length s) 4))]
-      (string s (string/repeat "=" pad-count)))))
-
 (defn encode
   "Converts a string of any format (UTF-8, binary, ..) to base64 encoding."
-  [s]
-  (if (> (length s) 0)
-    (let [octets (map |(-> $0
-                           decimal->binary
-                           (array-pad-left 8 0))
-                      (string/bytes s))
-          sextets (pad-last-sextet (octets->sextets octets))
-          bytes (map binary->decimal sextets)
-          base64-bytes (map (fn [i] (get base64/table i)) bytes)
-          base64 (add-padding (apply string/from-bytes base64-bytes))]
-      base64)
-    ""))
+  [input]
+  (var cursor 0)
+  (def rem (% (length input) 3))
+  (def
+    output
+    (buffer/new-filled
+      (->
+        (length input)
+        (+ rem)
+        (div 3)
+        (* 4))
+      0))
+  (each
+    triplet
+    (partition
+      3
+      (case rem
+        0 input
+        1 (buffer input @"\0\0")
+        2 (buffer input @"\0")))
+    (set
+      (output cursor)
+      (in base64/table (brshift (triplet 0) 2)))
+    (set
+      (output (+ cursor 1))
+      (in
+        base64/table
+        (bor
+          (-> (triplet 0) (band 2r11) (blshift 4))
+          (brshift (triplet 1) 4))))
+    (set
+      (output (+ cursor 2))
+      (in
+        base64/table
+        (bor
+          (-> (triplet 1) (band 2r1111) (blshift 2))
+          (brshift (triplet 2) 6))))
+    (set
+      (output (+ cursor 3))
+      (in base64/table (band (triplet 2) 2r111111)))
+    (set cursor (+ cursor 4)))
+  (case rem
+    1
+    (do
+      (set (output (- cursor 1)) 61)
+      (set (output (- cursor 2)) 61))
+    2 (set (output (- cursor 1)) 61))
+  (string output))
 
 (defn decode
   ```
   Converts a base64 encoded string to its binary representation of any format
   (UTF-8, binary, ..).
   ```
-  [s]
-  (if-not (empty? s)
-    (let [without-padding (string/replace-all "=" "" s)
-          padded? (not (zero? (% (length without-padding) 4)))
-          quadruples (partition 4 without-padding)
-          bytes (map quadruples->bytes quadruples)
-          base64 (apply string bytes)]
-      (if padded? (slice base64 0 (dec (length base64))) base64))
-    ""))
+  [input]
+  (def padded-input
+    (case (% (length input) 4)
+      0 input
+      3 (string input "=")
+      2 (string input "==")
+      1 (error "Wrong length")))
+  (def output (buffer/new-filled (* 3 (/ (length padded-input) 4)) 0))
+  (var cursor 0)
+  (each quadruple (partition 4 padded-input)
+    (def values
+      (map
+        |(or
+           (string/find (string/from-bytes $) base64/table)
+           (if (= 61 $)
+             0
+             (errorf "Wrong character: %s" (string/from-bytes $))))
+        quadruple))
+    (set
+      (output cursor)
+      (bor
+        (blshift (values 0) 2)
+        (brshift (values 1) 4)))
+    (set
+      (output (+ cursor 1))
+      (bor
+        (blshift (values 1) 4)
+        (brshift (values 2) 2)))
+    (set
+      (output (+ cursor 2))
+      (bor
+        (blshift (values 2) 6)
+        (values 3)))
+    (set cursor (+ cursor 3)))
+  (slice
+    output
+    0
+    (-
+      (length output)
+      (-
+        (length padded-input)
+        (length (string/trimr padded-input "="))))))

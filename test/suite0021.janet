@@ -98,6 +98,8 @@
 (assert (= (base64/encode "foobar") "Zm9vYmFy"))
 
 #base64/decode
+(assert (= "Wrong length" (last (protect (base64/decode "A")))))
+(assert (= "Wrong character: %" (last (protect (base64/decode "A%")))))
 (assert (= (base64/decode "dGhpcyBpcyBhIHRlc3Q=") "this is a test"))
 (assert (= (base64/decode "") ""))
 (do (def some-string "\x1Cdawdawdadwdaw\xB0")
