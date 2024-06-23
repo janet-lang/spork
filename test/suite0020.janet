@@ -37,7 +37,6 @@
 (assert-docs "spork/tarray")
 (assert-docs "spork/rawterm")
 (assert-docs "spork/utf8")
-(assert-docs "spork/base64")
 
 (assert
   (deep= (misc/map-keys string {1 2 3 4}) @{"1" 2 "3" 4})
