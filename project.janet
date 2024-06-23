@@ -56,3 +56,7 @@
 (declare-native
   :name "spork/cmath"
   :source @["src/cmath.c"])
+
+(declare-native
+  :name "spork/base64"
+  :source @["src/base64.c"])
