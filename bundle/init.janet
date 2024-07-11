@@ -52,6 +52,7 @@
   (make1 "utf8")
   (make1 "rawterm")
   (make1 "tarray")
+  (make1 "base64")
   (setdyn cc/*defines* {"_LARGEFILE64_SOURCE" true})
   (make1 "zip" "deps/miniz/miniz.c")
 
