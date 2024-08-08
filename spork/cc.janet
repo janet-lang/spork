@@ -147,20 +147,26 @@
 (defn- rpath
   []
   (if (dyn *use-rpath* true)
-    [(string "-Wl,-rpath=" (lib-path))
-     (string "-Wl,-rpath=" (dyn *syspath* "."))]
+    [(string "-Wl,-rpath," (lib-path))
+     (string "-Wl,-rpath," (dyn *syspath* "."))]
     []))
 (defn- smart-libs []
-  (def dflt (index-of (target-os) [:linux :macos]))
+  (def dflt (index-of (target-os) [:linux]))
   (dyn *smart-libs* dflt))
 (defn- libs []
+  (def dl (if (= (target-os) :macos) ["-undefined" "dynamic_lookup"] []))
   (def sg (if (smart-libs) ["-Wl,--start-group"] []))
   (def eg (if (smart-libs) ["-Wl,--end-group"] []))
+  (def bs (if (not= (target-os) :macos) ["-Wl,-Bstatic"] []))
+  (def bd (if (not= (target-os) :macos) ["-Wl,-Bdynamic"] []))
   [;(lflags)
+   ;dl
    ;sg
    ;(default-libs)
-   "-Wl,-Bstatic" ;(static-libs)
-   "-Wl,-Bdynamic" ;(dynamic-libs)
+   ;bs
+   ;(static-libs)
+   ;bd
+   ;(dynamic-libs)
    ;eg
    ;(rpath)])
 (defn- rdynamic
