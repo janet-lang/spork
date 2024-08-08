@@ -154,11 +154,13 @@
   (def dflt (index-of (target-os) [:linux]))
   (dyn *smart-libs* dflt))
 (defn- libs []
+  (def dl (if (= (target-os) :macos) ["-undefined" "dynamic_lookup"] []))
   (def sg (if (smart-libs) ["-Wl,--start-group"] []))
   (def eg (if (smart-libs) ["-Wl,--end-group"] []))
   (def bs (if (not= (target-os) :macos) ["-Wl,-Bstatic"] []))
   (def bd (if (not= (target-os) :macos) ["-Wl,-Bdynamic"] []))
   [;(lflags)
+   ;dl
    ;sg
    ;(default-libs)
    ;bs
