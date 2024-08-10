@@ -4,6 +4,9 @@
 (defn install [m &]
   (bundle/add-file m "src/tarray.h" "tarray.h")
   (bundle/add m "spork")
+  (when (dyn 'bundle/add-bin)
+    (bundle/add-bin m "bin/janet-format")
+    (bundle/add-bin m "bin/janet-netrepl"))
   (each file (os/dir "build")
     (def f (string "build/" file))
     (when (= (os/stat f :mode) :file)
