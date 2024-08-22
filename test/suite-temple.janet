@@ -3,7 +3,7 @@
 
 (temple/add-loader)
 
-(test/start-suite 8)
+(test/start-suite)
 
 (defn- remove-r [x] (string/replace-all "\r" "" x))
 

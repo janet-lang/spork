@@ -1,7 +1,7 @@
 (use ../spork/test)
 (import ../spork/regex)
 
-(start-suite 4)
+(start-suite)
 
 (assert (regex/match `abc` `abcdefg`) "match 1")
 (assert (regex/match `a.c` `azcdefg`) "match 2")

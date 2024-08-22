@@ -1,7 +1,7 @@
 (use ../spork/test)
 (import ../spork/msg)
 
-(start-suite 3)
+(start-suite)
 
 (defn handler [s]
   (def recv (msg/make-recv s))

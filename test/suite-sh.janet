@@ -2,7 +2,7 @@
 (import ../spork/sh)
 (import ../spork/path)
 
-(start-suite 17)
+(start-suite)
 
 (def base-path "test")
 

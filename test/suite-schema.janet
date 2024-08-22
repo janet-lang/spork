@@ -1,7 +1,7 @@
 (use ../spork/test)
 (import ../spork/schema :as schema)
 
-(start-suite 13)
+(start-suite)
 
 (def c1 (schema/predicate :number))
 (assert (not (c1 :test)) "checker c1 1")

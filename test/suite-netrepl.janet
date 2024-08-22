@@ -2,7 +2,7 @@
 (import ../spork/msg)
 (import ../spork/netrepl)
 
-(start-suite 9)
+(start-suite)
 
 (with [wt (netrepl/server "127.0.0.1" "8000")]
   (with [s (net/connect "127.0.0.1" "8000")]
