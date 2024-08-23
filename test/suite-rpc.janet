@@ -1,7 +1,7 @@
 (use ../spork/test)
 (import ../spork/rpc)
 
-(start-suite 2)
+(start-suite)
 
 (def fns
   {:hi (fn [self msg]

@@ -2,7 +2,7 @@
 (use ../spork/math)
 (import spork/tarray)
 
-(start-suite 15)
+(start-suite)
 
 (defn inspect-tarray
   [x]

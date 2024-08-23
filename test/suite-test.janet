@@ -1,6 +1,6 @@
 (import ../spork/test)
 
-(test/start-suite 7)
+(test/start-suite)
 # test/assert
 (assert (test/assert true "assert"))
 
@@ -60,5 +60,29 @@
      (test/capture-stderr
        (test/suppress-stderr (print "Hello world!"))))
   "suppress-stderr")
+
+(test/assert-docs "/spork/test")
+(test/assert-docs "/spork/argparse")
+(test/assert-docs "/spork/fmt")
+(test/assert-docs "/spork/generators")
+(test/assert-docs "/spork/getline")
+(test/assert-docs "/spork/htmlgen")
+(test/assert-docs "/spork/http")
+(test/assert-docs "/spork/httpf")
+(test/assert-docs "/spork/misc")
+(test/assert-docs "/spork/msg")
+(test/assert-docs "/spork/netrepl")
+(test/assert-docs "/spork/path")
+(test/assert-docs "/spork/regex")
+(test/assert-docs "/spork/rpc")
+(test/assert-docs "/spork/schema")
+(test/assert-docs "/spork/sh")
+(test/assert-docs "/spork/tasker")
+(test/assert-docs "/spork/temple")
+
+(test/assert-docs "spork/json")
+(test/assert-docs "spork/tarray")
+(test/assert-docs "spork/rawterm")
+(test/assert-docs "spork/utf8")
 
 (test/end-suite)

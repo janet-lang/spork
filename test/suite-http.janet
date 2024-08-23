@@ -2,7 +2,7 @@
 (import ../spork/http :as http)
 (import ../spork/httpf :as httpf)
 
-(start-suite 12)
+(start-suite)
 
 (defn- test-http-item
   [x

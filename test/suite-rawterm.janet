@@ -1,7 +1,7 @@
 (use ../spork/test)
 (import spork/rawterm)
 
-(start-suite 19)
+(start-suite)
 
 # TODO: This tests the reduced set of codepoints based on the original set in
 # Bestline:

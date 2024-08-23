@@ -1,7 +1,7 @@
 (import spork/utf8)
 (use ../spork/test)
 
-(start-suite 18)
+(start-suite)
 
 ###
 ### utf8/decode-rune

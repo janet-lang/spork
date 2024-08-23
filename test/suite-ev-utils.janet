@@ -1,7 +1,7 @@
 (use ../spork/test)
 (import ../spork/ev-utils :as eu)
 
-(start-suite 10)
+(start-suite)
 
 (var x 0)
 (eu/pcall (fn workerf [&] (++ x)) 10)

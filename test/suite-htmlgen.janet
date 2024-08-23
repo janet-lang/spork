@@ -1,7 +1,7 @@
 (use ../spork/test)
 (import ../spork/htmlgen :as htmlgen)
 
-(start-suite 16)
+(start-suite)
 
 (var check-count 0)
 (defn check-render

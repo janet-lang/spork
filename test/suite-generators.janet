@@ -2,7 +2,7 @@
 (import ../spork/ev-utils :as eu)
 (import ../spork/generators :as generators)
 
-(start-suite 11)
+(start-suite)
 
 (defn- generator-assert!
   [s]

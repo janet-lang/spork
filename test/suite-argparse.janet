@@ -1,7 +1,7 @@
 (use ../spork/test)
 (import ../spork/argparse)
 
-(start-suite 5)
+(start-suite)
 
 (def argparse-params
   ["A simple CLI tool. An example to show the capabilities of argparse."
