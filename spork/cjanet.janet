@@ -2,7 +2,7 @@
 ### cjanet.janet
 ###
 ### A DSL that compiles to C. Improved version of jpm/cgen
-### that is more ammenable to Janet integration, macros,
+### that is more amenable to Janet integration, macros,
 ### and meta-programming.
 ###
 ### The semantics of the language are basically the
@@ -750,7 +750,7 @@
   (buffer/push signature ")")
   # Generate function for use in C
   (emit-function-impl docstring classes mangledname cparams (get type-alias-to-ctype (keyword ret-type))
-                 (eval (qq-wrap body)))
+                      (eval (qq-wrap body)))
   # Generate wrapper for use in Janet
   (def cfun_name (mangle (string "_generated_cfunction_" mangledname)))
   (print "\nJANET_FN(" cfun_name ",")
