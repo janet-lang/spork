@@ -1,7 +1,8 @@
-{:title "Services"
+{:title "services"
  :template "mdzdoc/main.html"}
  ---
 
+# Services
 
 Module for running a number of background processes in a controlled manner.
 Similar to ev-utils, but more involved with defaults for IO and naming fibers for debugging purposes. Services can also implicitly launch sibling or child services if needed.

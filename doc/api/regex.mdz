@@ -4,6 +4,8 @@
  :template "mdzdoc/main.html"}
 ---
 
+# Regex
+
 A module for compiling a subset of regexes to Janet PEGs.
 All regex are considered to be anchored, and performance is
 is not going to be competitive with a native regex engine.

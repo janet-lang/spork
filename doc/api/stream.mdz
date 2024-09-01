@@ -2,6 +2,8 @@
  :template "mdzdoc/main.html"}
  ---
 
+# Stream Utilities
+
 Stream utilities for Janet.
 
 ## Reference

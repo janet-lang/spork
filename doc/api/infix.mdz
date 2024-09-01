@@ -3,6 +3,7 @@
  ---
 
 # Infix
+
 A macro for infix syntax in Janet. Useful for math.
 
 ## Examples
@@ -35,4 +36,4 @@ Syntax is as follows:
 
 ## Reference
 
-@api-docs[../../spork/infix]
+@api-docs("../../spork" "infix")

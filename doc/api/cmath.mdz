@@ -2,6 +2,8 @@
  :template "mdzdoc/main.html"}
  ---
 
+# CMath
+
 ## Reference
 
 @api-docs[../../build/spork/cmath]

@@ -4,6 +4,8 @@
  :template "mdzdoc/main.html"}
 ---
 
+# Temple
+
 HTML templates for Janet.
 
 Simplified version of Mendoza's template system that is cleaner and

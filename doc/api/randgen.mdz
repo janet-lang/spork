@@ -4,6 +4,8 @@
  :template "mdzdoc/main.html"}
 ---
 
+# Random Generator
+
 A small utility for random number generation, especially with a focus on
 discrete numbers. The most powerful idea here is the ability to have branches
 that execute in a probabilistic manner - i.e. one branch is taken half the time

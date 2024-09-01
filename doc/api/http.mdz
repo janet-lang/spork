@@ -4,6 +4,8 @@
  :template "mdzdoc/main.html"}
 ---
 
+# HTTP
+
 The @code`http` module is an HTTP/1.1 parser, server and client module. It proves a simple server implementation, client, support for chunked encoding.
 The @code`http` module is also non-blocking, so a single thread can run
 many clients, servers, and connections at once.

@@ -4,6 +4,8 @@
  :template "mdzdoc/main.html"}
 ---
 
+# Formatting
+
 Provides a way to format Janet code strings and files.
 
 ## Strings
