@@ -1,0 +1,75 @@
+{:title "Netrepl"
+ :template "mdzdoc/main.html"}
+ ---
+
+# Networked REPL
+
+A simple async networked repl (both client and server) with a remote debugger
+and the ability to repl into existing environments.
+
+
+## Specifying the Environment
+
+Provide various ways to produce the environment to repl into.
+1. an environment factory function, called for each connection.
+2. an env (table value) - this means every connection will share the same environment
+3. default env, made via make-env with nice printing for each new connection.
+
+
+## NETREPL Protocol
+
+Clients don't need to support steps 4. and 5. if they never send messages prefixed with 0xFF or 0xFE bytes. These bytes should not occur in normal Janet source code and are not even valid utf8.
+
+Any message received by the client that begins with 0xFF should result in printing the message to a console, but not otherwise interrupt the flow of the protocol. 
+  This easily allows for partial results. A server should not send messages leading with 0xFF to the client unless the client is created with the :auto-flush connection setting.
+
+Any message received by the client that begins with 0xFE will discard this first byte and continue processing as usual.
+
+1. server <- {connection settings, including client name} <- client
+  1a. If msg starts with 0xFF, parse message as (-> msg (slice 1) parse) and extract
+      the :name key as the name. Other connection settings can be stored here.
+  1b. If msg does not start with 0xFF, the message is treated as the client name.
+      Other options are considered nil.
+2. server -> {repl prompt (no newline)} -> client
+3. server <- {one chunk of input (msg)} <- client
+4. If (= (msg 0) 0xFF)
+  4a. (def result (-> msg (slice 1) parse eval protect))
+  4b. server -> result -> client
+  4c. goto 3.
+5. If (= (msg 0) 0xFE)
+  5a. Return msg as either:
+      i. a keyword if the msg contains a command (e.g. :cancel)
+      ii. an array if the msg contains a command and arguments (e.g. @code`@[:source "path/to/source"]`
+  5b. goto 6b.
+6. Otherwise
+  6a. Send chunk to repl input stream
+  6b. Unless auto-flush is enabled, server -> {(dyn :out) and (dyn :err) (empty at first)} -> client
+  6c. goto 2.
+
+## Examples
+
+Launch a networked REPL server on one machine and connect to it from another machine or process.
+
+### Server
+
+@codeblock[janet]```
+(import spork/netrepl)
+
+(def some-def 10)
+
+# Serve a repl into the current environment (@code`some-def` will be visible).
+(netrepl/server "127.0.0.1" "9000" (fiber/getenv (fiber/current)))
+```
+
+### Client
+
+@codeblock[janet]```
+(import spork/netrepl)
+
+# Starts a nice terminal repl.
+(netrepl/client "127.0.0.1" "9000" "bob")
+```
+
+## Reference
+
+@api-docs[../../spork/netrepl]

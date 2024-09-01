@@ -1,0 +1,28 @@
+{:title "CC"
+ :template "mdzdoc/main.html"}
+ ---
+
+Improved version of the C Compiler abstraction from JPM that should be more correct, composable, and
+have less configuration.
+
+Wrapper around the system C compiler for compiling Janet native modules and executables.
+Opinionated and optimized for use with Janet, and does not actually run
+commands unless specified with (dyn *visit*). Also included is package config integration.
+Headers, static libraries, and dynamic libraries can all be used from `(dyn *syspath*)`.
+
+## Example usage
+
+@codeblock[janet]```
+(use spork/cc)
+
+(search-static-libraries "m" "rt" "dl")
+(search-dynamic-libraries "janet")
+(pkg-config "sdl2" "vulkan")
+(with-dyns [*defines* {"GAME_BUILD" "devel-0.0"}
+            *visit* visit-execute-if-stale]
+  (compile-and-link-executable "game" "main.c" "sound.c" "graphics.c"))
+```
+
+## Reference
+
+@api-docs[../../spork/cc]

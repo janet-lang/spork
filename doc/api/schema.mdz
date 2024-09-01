@@ -1,0 +1,40 @@
+{:title "Schema"
+ :template "mdzdoc/main.html"}
+ ---
+
+# Schema
+
+Simple schema validation library. Specify structure declaratively, and get
+functions that will check that structure and either raise an error or return a boolean.
+While reasonably general, use is intended for data such as one would find
+in configuration files or network protocols.
+
+Currently does not support more advanced features such as:
+  - Recursive schemas
+  - Full error reporting (only a single error is reported)
+  - PEG style grammars (used to enable recursion in PEGs)
+  - Unification (such as in the `match` macro)
+  - Parsing/data extraction
+
+Syntax:
+ - :keyword - match any value of that type
+ - Tuples are used to match various combinators:
+   - (any) - match any one value
+   - (enum & options) - match any of the option values
+   - (or & schemas) - similar to enum, but each option is considered a schema.
+   - (and & schemas) - Only matches if all clauses match
+   - (values schema) - Matches only if schema matches all values in a data structure.
+   - (keys schema) - Matches only if schema matches all keys in a data structure.
+   - (props & k v) - Takes a sequence of keys and values (alternating in order). Only matches
+     the data if, for a key, the corresponding schema `v` matches.
+   - (length l) - Only match if the data has a length of l. Uses of the length combinator should assert
+     the data type before doing a length check.
+   - (length min max) - Only match lengths between min and max inclusive
+   - (peg pattern) - Matches only if the peg matches
+   - (not pattern) - Only matches if pattern does not match
+   - (pred predicate) - Use a predicate function (function of 1 argument) to check if the data is valid.
+ - anything else - match that value literally
+
+## Reference
+
+@api-docs[../../spork/schema]

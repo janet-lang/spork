@@ -1,0 +1,9 @@
+{:title "Getline"
+ :template "mdzdoc/main.html"}
+ ---
+
+Module for fiber-based sequence combinators rather than array-based combinators, as are in the core library.
+
+## Reference
+
+@api-docs[../../spork/getline]

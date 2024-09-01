@@ -1,8 +1,7 @@
 {:title "Base64"
  :author "Josef Pospíšil"
  :license "MIT"
- :template "mdzdoc/main.html"
- :order 99}
+ :template "mdzdoc/main.html"}
 ---
 
 # Base64

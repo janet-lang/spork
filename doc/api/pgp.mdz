@@ -1,8 +1,7 @@
 {:title "PGP"
  :author "Josef Pospíšil"
  :license "MIT"
- :template "mdzdoc/main.html"
- :order 99}
+ :template "mdzdoc/main.html"}
 ---
 
 # PGP

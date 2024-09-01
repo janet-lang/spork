@@ -1,0 +1,9 @@
+{:title "Event Loop Utilities"
+ :template "mdzdoc/main.html"}
+ ---
+
+Module for parallel execution utilities with Janet.
+
+## Reference
+
+@api-docs[../../spork/ev-utils]

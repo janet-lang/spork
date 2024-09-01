@@ -1,8 +1,7 @@
 {:title "HTTP"
  :author "Calvin Rose"
  :license "MIT"
- :template "mdzdoc/main.html"
- :order 5}
+ :template "mdzdoc/main.html"}
 ---
 
 The @code`http` module is an HTTP/1.1 parser, server and client module. It proves a simple server implementation, client, support for chunked encoding.

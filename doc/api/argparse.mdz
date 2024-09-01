@@ -1,8 +1,7 @@
 {:title "argparse"
  :author "Calvin Rose"
  :license "MIT"
- :template "mdzdoc/main.html"
- :order 0}
+ :template "mdzdoc/main.html"}
 ---
 
 A moderately opinionated argument parser for

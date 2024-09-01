@@ -1,8 +1,7 @@
 {:title "Generators"
  :author "Z. D. Smith"
  :license "BSD3"
- :template "mdzdoc/main.html"
- :order 3}
+ :template "mdzdoc/main.html"}
 ---
 
 # Generators for Janet

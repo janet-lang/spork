@@ -1,0 +1,6 @@
+{:title "Zip"
+ :template "mdzdoc/main.html"}
+ ---
+
+Wrapper around miniz for compression functionality.
+

@@ -1,8 +1,7 @@
 {:title "RPC Protocol"
  :author "Calvin Rose"
  :license "MIT"
- :template "mdzdoc/main.html"
- :order 14}
+ :template "mdzdoc/main.html"}
 ---
 
 A simple remote procedure call tool for Janet.

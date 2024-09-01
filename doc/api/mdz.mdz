@@ -1,0 +1,9 @@
+{:title "Mendoza"
+ :template "mdzdoc/main.html"}
+ ---
+
+Re-implementation of mendoza markup. Designed to work with htmlgen.
+
+## Reference
+
+@api-docs[../../spork/mdz]

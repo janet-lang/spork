@@ -1,8 +1,7 @@
 {:title "Formatting"
  :author "Calvin Rose"
  :license "MIT"
- :template "mdzdoc/main.html"
- :order 2}
+ :template "mdzdoc/main.html"}
 ---
 
 Provides a way to format Janet code strings and files.

@@ -1,8 +1,7 @@
 {:title "Random Generator"
  :author "Calvin Rose"
  :license "MIT"
- :template "mdzdoc/main.html"
- :order 12}
+ :template "mdzdoc/main.html"}
 ---
 
 A small utility for random number generation, especially with a focus on

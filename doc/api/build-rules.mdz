@@ -1,0 +1,10 @@
+{:title "Build Rules"
+ :template "mdzdoc/main.html"}
+---
+
+Run commands that produce files in an incremental manner.
+Use to implement a build system.
+
+## Reference
+
+@api-docs[../../spork/build-rules]
