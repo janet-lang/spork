@@ -59,3 +59,7 @@ into an array, include @code`:default {:kind :accumulate}` in your
 arguments to @code`argparse`.
 
 Run @code`(doc argparse/argparse)` after importing for more information.
+
+## Reference
+
+@api-docs[../../spork/argparse]

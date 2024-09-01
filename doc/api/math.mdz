@@ -340,3 +340,7 @@ and standard deviation `d`.
 Creates vector of length `c`, or matrix if `r`
 is provided, and fills it with zeros.
 
+## Reference
+
+@api-docs[../../spork/math]
+

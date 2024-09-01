@@ -22,3 +22,7 @@ Provides a way to format Janet code strings and files.
 
 (fmt/format-file "main.janet")
 ```
+
+## Reference
+
+@api-docs[../../spork/fmt]

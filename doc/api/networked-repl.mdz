@@ -27,3 +27,8 @@ another machine or process.
 # Starts a nice terminal repl.
 (netrepl/client "127.0.0.1" "9000" "bob")
 ```
+
+## Reference
+
+@api-docs[../../spork/netrepl]
+

@@ -36,3 +36,8 @@ A simple remote procedure call tool for Janet.
 # Close the underlying connection
 (:close c)
 ```
+
+## Reference
+
+@api-docs[../../spork/rpc]
+

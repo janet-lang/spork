@@ -24,3 +24,9 @@ Supported regex features:
 
 Features found in other regex may never be added - for more complex usage,
 use Janet's native PEG library.
+
+## Reference
+
+@api-docs[../../spork/regex]
+
+

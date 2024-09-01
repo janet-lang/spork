@@ -1,8 +1,7 @@
 {:title "Spork"
  :author "Calvin Rose"
  :license "MIT"
- :template "mdzdoc/main.html"
- :order 6}
+ :template "mdzdoc/main.html" }
 ---
 
 Spork is a utility library for Janet. It contains a number of small
@@ -23,11 +22,3 @@ think of spork as a sort of extended standard library for Janet.
 ```
 
 
-## Index
-
-@api-index[../spork]
-
-
-## Reference
-
-@api-docs[../spork]

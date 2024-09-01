@@ -322,3 +322,7 @@ array is not sorted beforehand, the results are undefined. Returns the array.
 (misc/insert-sorted-by @[1 2 3 5] identity 4)
 # => @[1 2 3 4 5]
 ```
+
+## Reference
+
+@api-docs[../../spork/misc]

@@ -36,3 +36,7 @@ The return is @code`@[@{:a 1 :c @{:e 4}} @{:a 4 :c @{:e 5 :f 6}} @{:b 2 :c @{:d 
   @li{the nested value of @code`:e` appears in both and is different in each one (so @code`:c` is a key in both the first and second returned table, containing the value @code`:e` with with each value set as seen in the first and second original structs), and}
   @li{the key/value pair @code`:f` 6 only appears in the latter original struct (so only the second returned table contains @code`:f` and its value).}
 }
+
+## Reference
+
+@api-docs[../../spork/data]

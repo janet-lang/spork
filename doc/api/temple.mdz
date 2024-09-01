@@ -48,3 +48,8 @@ output.
 There is one more involved example in
 /janet-lang/spork/examples/temple/. You can run it with
 @code`janet examples/temple/example.janet`.
+
+## Reference
+
+@api-docs[../../spork/temple]
+

@@ -34,3 +34,7 @@ many clients, servers, and connections at once.
 (def body (http/read-body response))
 (print body)
 ```
+
+## Reference
+
+@api-docs[../../spork/http]

@@ -18,3 +18,9 @@ randomly, and another is taken otherwise.
   (print "b")
   (print "c"))
 ```
+
+## Reference
+
+@api-docs[../../spork/randgen]
+
+

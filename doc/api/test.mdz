@@ -150,3 +150,7 @@ when the `path` is required.
 ✘  suppress-stderr does not have proper doc
 ```
 
+## Reference
+
+@api-docs[../../spork/test]
+

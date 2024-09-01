@@ -134,3 +134,7 @@ Consume `s` into a new array.
 
   NB: this will create an infinite loop if `s` is an infinite generator!
 
+## Reference
+
+@api-docs[../../spork/generators]
+

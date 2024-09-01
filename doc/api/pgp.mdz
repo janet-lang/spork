@@ -47,3 +47,7 @@ Returns an array of hexs from the string with pgp words.
 # => @["01" "D1" "02" "EE" "F4" "F6"]
 ```
 
+## Reference
+
+@api-docs[../../spork/pgp]
+
