@@ -28,3 +28,6 @@ Converts a base64 encoded string to its binary representation of any format
 # => "this is a test"
 ```
 
+## Reference
+
+@api-docs("../../spork" "base64")

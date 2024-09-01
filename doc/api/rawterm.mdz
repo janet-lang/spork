@@ -6,4 +6,4 @@
 
 ## Reference
 
-@api-docs[../../build/spork/rawterm]
+@api-docs("../../spork" "rawterm")

@@ -6,3 +6,6 @@
 
 Wrapper around miniz for compression functionality.
 
+## Reference
+
+@api-docs("../../spork" "zip")

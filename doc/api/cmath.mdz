@@ -6,4 +6,4 @@
 
 ## Reference
 
-@api-docs[../../build/spork/cmath]
+@api-docs("../../spork" "cmath")

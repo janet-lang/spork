@@ -6,4 +6,4 @@
 
 ## Reference
 
-@api-docs[../../build/spork/json]
+@api-docs("../../spork" "json")

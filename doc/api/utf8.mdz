@@ -6,4 +6,4 @@
 
 ## Reference
 
-@api-docs[../../build/spork/utf8]
+@api-docs("../../spork" "utf8")
