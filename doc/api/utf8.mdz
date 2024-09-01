@@ -1,0 +1,9 @@
+{:title "utf8"
+ :template "mdzdoc/main.html"}
+ ---
+
+# UTF-8
+
+## Reference
+
+@api-docs[../../build/spork/utf8]
