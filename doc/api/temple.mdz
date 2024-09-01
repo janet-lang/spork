@@ -52,5 +52,5 @@ There is one more involved example in
 
 ## Reference
 
-@api-docs[../../spork/temple]
+@api-docs("../../spork" "temple")
 

@@ -28,6 +28,6 @@ use Janet's native PEG library.
 
 ## Reference
 
-@api-docs[../../spork/regex]
+@api-docs("../../spork" "regex")
 
 

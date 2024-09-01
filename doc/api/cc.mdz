@@ -27,4 +27,4 @@ Headers, static libraries, and dynamic libraries can all be used from `(dyn *sys
 
 ## Reference
 
-@api-docs[../../spork/cc]
+@api-docs("../../spork" "cc")

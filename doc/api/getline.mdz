@@ -8,4 +8,4 @@ Module for fiber-based sequence combinators rather than array-based combinators,
 
 ## Reference
 
-@api-docs[../../spork/getline]
+@api-docs("../../spork" "getline")

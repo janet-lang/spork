@@ -135,5 +135,5 @@ Consume `s` into a new array.
 
 ## Reference
 
-@api-docs[../../spork/generators]
+@api-docs("../../spork" "generators")
 

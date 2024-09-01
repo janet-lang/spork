@@ -40,4 +40,4 @@ The return is @code`@[@{:a 1 :c @{:e 4}} @{:a 4 :c @{:e 5 :f 6}} @{:b 2 :c @{:d 
 
 ## Reference
 
-@api-docs[../../spork/data]
+@api-docs("../../spork" "data")

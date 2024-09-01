@@ -8,4 +8,4 @@ Module for parallel execution utilities with Janet.
 
 ## Reference
 
-@api-docs[../../spork/ev-utils]
+@api-docs("../../spork" "ev-utils")

@@ -8,4 +8,4 @@ A simple task executor library/server.
 
 ## Reference
 
-@api-docs[../../spork/tasker]
+@api-docs("../../spork" "tasker")

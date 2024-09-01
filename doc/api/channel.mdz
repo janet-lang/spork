@@ -6,4 +6,4 @@
 
 ## Reference
 
-@api-docs[../../spork/channel]
+@api-docs("../../spork" "channel")

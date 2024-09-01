@@ -24,4 +24,4 @@ level protocols on top of TCP.
 
 ## Reference
 
-@api-docs[../../spork/msg]
+@api-docs("../../spork" "msg")

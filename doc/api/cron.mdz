@@ -35,4 +35,4 @@ Note that we have second precision here as opposed to minute precision
 
 ## Reference
 
-@api-docs[../../spork/cron]
+@api-docs("../../spork" "cron")

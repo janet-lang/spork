@@ -9,4 +9,5 @@ Use to implement a build system.
 
 ## Reference
 
-@api-docs[../../spork/build-rules]
+@api-docs("../../spork" "build-rules")
+

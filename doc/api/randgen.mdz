@@ -22,6 +22,6 @@ randomly, and another is taken otherwise.
 
 ## Reference
 
-@api-docs[../../spork/randgen]
+@api-docs("../../spork" "randgen")
 
 

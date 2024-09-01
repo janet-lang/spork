@@ -72,4 +72,4 @@ Launch a networked REPL server on one machine and connect to it from another mac
 
 ## Reference
 
-@api-docs[../../spork/netrepl]
+@api-docs("../../spork" "netrepl")

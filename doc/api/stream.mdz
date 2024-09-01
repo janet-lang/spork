@@ -8,4 +8,4 @@ Stream utilities for Janet.
 
 ## Reference
 
-@api-docs[../../spork/stream]
+@api-docs("../../spork" "stream")

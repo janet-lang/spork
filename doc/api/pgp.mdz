@@ -48,5 +48,5 @@ Returns an array of hexs from the string with pgp words.
 
 ## Reference
 
-@api-docs[../../spork/pgp]
+@api-docs("../../spork" "pgp")
 

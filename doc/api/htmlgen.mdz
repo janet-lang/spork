@@ -62,4 +62,4 @@ the HTML code from data structures
 
 ## Reference
 
-@api-docs[../../spork/htmlgen]
+@api-docs("../../spork" "htmlgen")

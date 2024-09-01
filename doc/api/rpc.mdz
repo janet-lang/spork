@@ -39,5 +39,5 @@ A simple remote procedure call tool for Janet.
 
 ## Reference
 
-@api-docs[../../spork/rpc]
+@api-docs("../../spork" "rpc")
 

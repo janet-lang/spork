@@ -326,4 +326,4 @@ array is not sorted beforehand, the results are undefined. Returns the array.
 
 ## Reference
 
-@api-docs[../../spork/misc]
+@api-docs("../../spork" "misc")

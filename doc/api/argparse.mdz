@@ -63,4 +63,4 @@ Run @code`(doc argparse/argparse)` after importing for more information.
 
 ## Reference
 
-@api-docs[../../spork/argparse]
+@api-docs("../../spork" "argparse")

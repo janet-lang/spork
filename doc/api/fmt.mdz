@@ -26,4 +26,4 @@ Provides a way to format Janet code strings and files.
 
 ## Reference
 
-@api-docs[../../spork/fmt]
+@api-docs("../../spork" "fmt")

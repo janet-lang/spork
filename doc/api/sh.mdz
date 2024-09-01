@@ -8,4 +8,4 @@ Shell utilities for Janet.
 
 ## Reference
 
-@api-docs[../../spork/sh]
+@api-docs("../../spork" "sh")

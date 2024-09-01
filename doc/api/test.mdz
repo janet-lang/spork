@@ -155,5 +155,5 @@ when the `path` is required.
 
 ## Reference
 
-@api-docs[../../spork/test]
+@api-docs("../../spork" "test")
 

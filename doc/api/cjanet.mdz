@@ -15,4 +15,4 @@ subset of valid C 99.
 
 ## Reference
 
-@api-docs[../../spork/cjanet]
+@api-docs("../../spork" "cjanet")

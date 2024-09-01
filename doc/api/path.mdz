@@ -36,3 +36,6 @@ path/delim # -> ":" on posix, ";" on windows
   "a/nested/directory/with/different/children") # -> "../../../different/children"
 ```
 
+## Reference
+
+@api-docs("../../spork" "path")

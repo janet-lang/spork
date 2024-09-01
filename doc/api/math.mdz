@@ -343,5 +343,5 @@ is provided, and fills it with zeros.
 
 ## Reference
 
-@api-docs[../../spork/math]
+@api-docs("../../spork" "math")
 

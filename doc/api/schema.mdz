@@ -37,4 +37,4 @@ Syntax:
 
 ## Reference
 
-@api-docs[../../spork/schema]
+@api-docs("../../spork" "schema")
