@@ -1,4 +1,4 @@
-{:title "RPC Protocol"
+{:title "rpc"
  :author "Calvin Rose"
  :license "MIT"
  :template "mdzdoc/main.html"}

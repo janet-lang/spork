@@ -1,4 +1,4 @@
-{:title "Base64"
+{:title "base64"
  :author "Josef Pospíšil"
  :license "MIT"
  :template "mdzdoc/main.html"}
