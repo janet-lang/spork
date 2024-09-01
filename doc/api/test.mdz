@@ -9,7 +9,9 @@
 This module contains a simple test helper when you do not need a specialized
 library.
 
-## assert
+## Examples
+
+### assert
 
 Modified version of `assert`, with some nice error handling.
 
@@ -21,7 +23,7 @@ Modified version of `assert`, with some nice error handling.
 ```
 
 
-## assert-not
+### assert-not
 
 Invert assert.
 
@@ -31,7 +33,7 @@ Invert assert.
 ```
 
 
-## assert-error
+### assert-error
 
 Test passes if forms throw errors.
 
@@ -41,7 +43,7 @@ Test passes if forms throw errors.
 ```
 
 
-## assert-no-error
+### assert-no-error
 
 Test passes if forms throw errors.
 
@@ -51,17 +53,17 @@ Test passes if forms throw errors.
 ```
 
 
-## start-suite
+### start-suite
 
 Starts test suite, which counts all and passed tests.
 
 
-## end-suite
+### end-suite
 
 Ends test suite, prints summary and exits if any have failed.
 
 
-## All together
+### All together
 
 Example of simple test suite.
 
@@ -84,7 +86,7 @@ Test suite 0 finished in 0.000 soconds
 ```
 
 
-## timeit
+### timeit
 
 Time code execution using os/clock, and print the result.
 Returns the value of the timed expression.
@@ -96,7 +98,7 @@ Elapsed time: 0.0718288 seconds
 ```
 
 
-## capture-stdout
+### capture-stdout
 
 Runs the body and captures stdout. Returns tuple with result and captured
 stdout in string.
@@ -109,7 +111,7 @@ stdout in string.
 ```
 
 
-## capture-stderr
+### capture-stderr
 
 Runs the body and captures stderr. Returns tuple with result and captured
 stderr in string.
@@ -122,7 +124,7 @@ stderr in string.
 ```
 
 
-## supress-stdout
+### supress-stdout
 
 Runs the form, but supresses its stdout.
 
@@ -132,7 +134,7 @@ Runs the form, but supresses its stdout.
 ```
 
 
-## supress-stderr
+### supress-stderr
 
 Runs the form, but supresses its stderr.
 
@@ -141,7 +143,7 @@ Runs the form, but supresses its stderr.
 # => nil
 ```
 
-## assert-docs
+### assert-docs
 
 Asserts that all public bindings from the environment have docstring, 
 when the `path` is required.
