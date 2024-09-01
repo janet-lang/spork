@@ -1,7 +1,6 @@
 # make (use spork) useful
 
 (import ./argparse :export true)
-(import ./base64 :export true)
 (import ./cron :export true)
 (import ./ev-utils :export true)
 (import ./fmt :export true)
@@ -27,6 +26,7 @@
 (import ./test :export true)
 
 # native dependencies
+(import spork/base64 :export true)
 (import spork/crc :export true)
 (import spork/json :export true)
 (import spork/rawterm :export true)
