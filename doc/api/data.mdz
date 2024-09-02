@@ -4,8 +4,6 @@
  :template "mdzdoc/main.html"}
 ---
 
-# Data
-
 @p{@link[https://clojure.org/]{Clojure} contains a very useful core library (or "namespace" in Clojure parlance) called @link[https://clojure.github.io/clojure/clojure.data-api.html]{clojure.data} (@link[https://github.com/clojure/clojure/blob/51c6d7a70912a8f65e81a8e11ae6f56c94920725/src/clj/clojure/data.clj]{source}). It contains one "exported" function: @code`clojure.data/diff`. This addition to spork, @code`data.janet`, should exactly replicate the behavior of @code`clojure.data/diff` using Janet tables, structs, arrays, and tuples in place of their Clojure equivalents.}
 
 ## Function

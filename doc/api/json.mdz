@@ -2,8 +2,6 @@
  :template "mdzdoc/main.html"}
  ---
 
-# JSON 
-
 ## Reference
 
 @api-docs("../../spork" "json")

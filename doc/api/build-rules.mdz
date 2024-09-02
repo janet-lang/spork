@@ -2,8 +2,6 @@
  :template "mdzdoc/main.html"}
 ---
 
-# Build Rules
-
 Run commands that produce files in an incremental manner.
 Use to implement a build system.
 

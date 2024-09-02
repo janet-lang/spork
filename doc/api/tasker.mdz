@@ -2,8 +2,6 @@
  :template "mdzdoc/main.html"}
  ---
 
-# Tasker
-
 A simple task executor library/server.
 
 ## Reference

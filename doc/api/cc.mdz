@@ -2,8 +2,6 @@
  :template "mdzdoc/main.html"}
  ---
 
-# CC
-
 Improved version of the C Compiler abstraction from JPM that should be more correct, composable, and
 have less configuration.
 

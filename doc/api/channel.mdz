@@ -2,8 +2,6 @@
  :template "mdzdoc/main.html"}
  ---
 
-# Channel Utilities
-
 ## Reference
 
 @api-docs("../../spork" "channel")

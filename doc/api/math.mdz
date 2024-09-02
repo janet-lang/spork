@@ -4,8 +4,6 @@
  :template "mdzdoc/main.html"}
 ---
 
-# Math
-
 The math module deals with two main areas of mathematics: statistics 
 and linear algebra. 	
 

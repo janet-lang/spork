@@ -2,8 +2,6 @@
  :template "mdzdoc/main.html"}
  ---
 
-# Raw Terminal
-
 ## Reference
 
 @api-docs("../../spork" "rawterm")

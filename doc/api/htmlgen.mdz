@@ -4,8 +4,6 @@
  :template "mdzdoc/main.html"}
 ---
 
-# HTML Gen
-
 HTMLgen is a rendering engine that can render plain data structures into
 an HTML string. Its API has only one constant and two functions:
 

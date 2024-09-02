@@ -4,8 +4,6 @@
  :template "mdzdoc/main.html"}
 ---
 
-# Argparse
-
 A moderately opinionated argument parser for
 @link[https://janet-lang.org][janet]. Use this for writing
 CLI scripts that need to have UNIX style switches and

@@ -2,8 +2,6 @@
  :template "mdzdoc/main.html"}
  ---
 
-# UTF-8
-
 ## Reference
 
 @api-docs("../../spork" "utf8")

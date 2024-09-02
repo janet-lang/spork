@@ -4,8 +4,6 @@
  :template "mdzdoc/main.html"}
 ---
 
-# Base64
-
 This module contains Base64 utilities.
 
 ## base64/encode

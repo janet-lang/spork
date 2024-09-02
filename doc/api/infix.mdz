@@ -2,8 +2,6 @@
  :template "mdzdoc/main.html"}
  ---
 
-# Infix
-
 A macro for infix syntax in Janet. Useful for math.
 
 ## Examples

@@ -4,8 +4,6 @@
  :template "mdzdoc/main.html"}
 ---
 
-# PGP
-
 This module contains PGP utils. For now only PGP words and hexs.
 
 ## pgp/hex->word

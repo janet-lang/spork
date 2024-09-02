@@ -2,8 +2,6 @@
  :template "mdzdoc/main.html"}
  ---
 
-# Event Loop Utilities
-
 Module for parallel execution utilities with Janet.
 
 ## Reference

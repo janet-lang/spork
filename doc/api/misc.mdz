@@ -4,8 +4,6 @@
  :template "mdzdoc/main.html"}
 ---
 
-# Miscellaneous Utilities
-
 ## Dedent
 
 Remove indentation after concatenating the arguments.

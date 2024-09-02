@@ -2,8 +2,6 @@
  :template "mdzdoc/main.html"}
  ---
 
-# Shell Utilities
-
 Shell utilities for Janet.
 
 ## Reference

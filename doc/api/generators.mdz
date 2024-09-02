@@ -4,8 +4,6 @@
  :template "mdzdoc/main.html"}
 ---
 
-# Generators for Janet
-
 A **generator** is an iterable data structure which yields individual values
 whenever called, potentially until its internal values are exhausted, at which
 point it&apos;s considered *dead*.

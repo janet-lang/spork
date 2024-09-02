@@ -4,8 +4,6 @@
  :template "mdzdoc/main.html"}
 ---
 
-# Remote Procedure Calls
-
 A simple remote procedure call tool for Janet.
 
 ## Server

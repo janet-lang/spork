@@ -2,8 +2,6 @@
  :template "mdzdoc/main.html"}
  ---
 
-# Zip
-
 Wrapper around miniz for compression functionality.
 
 ## Reference

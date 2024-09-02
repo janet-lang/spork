@@ -2,8 +2,6 @@
  :template "mdzdoc/main.html"}
  ---
 
-# Schema
-
 Simple schema validation library. Specify structure declaratively, and get
 functions that will check that structure and either raise an error or return a boolean.
 While reasonably general, use is intended for data such as one would find

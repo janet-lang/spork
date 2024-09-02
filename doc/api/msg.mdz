@@ -4,8 +4,6 @@
  :template "mdzdoc/main.html"}
 ---
 
-# Messages
-
 Provide a symmetric way to send and receive seqential messages over a
 networked stream.  Useful for building more complicated application
 level protocols on top of TCP.

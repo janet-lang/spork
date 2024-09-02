@@ -2,8 +2,6 @@
  :template "mdzdoc/main.html"}
  ---
 
-# Mendoza
-
 Re-implementation of mendoza markup. Designed to work with htmlgen.
 
 ## Reference

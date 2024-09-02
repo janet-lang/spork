@@ -4,8 +4,6 @@
  :template "mdzdoc/main.html"}
 ---
 
-# Test Utilities
-
 This module contains a simple test helper when you do not need a specialized
 library.
 

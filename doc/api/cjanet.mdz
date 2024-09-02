@@ -2,8 +2,6 @@
  :template "mdzdoc/main.html"}
  ---
 
-# CJanet
-
 A DSL that compiles to C. Improved version of jpm/cgen
 that is more amenable to Janet integration, macros,
 and meta-programming.

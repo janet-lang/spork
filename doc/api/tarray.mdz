@@ -2,7 +2,5 @@
  :template "mdzdoc/main.html"}
  ---
 
-# Typed Array
-
 Typed array abstract type.
 
