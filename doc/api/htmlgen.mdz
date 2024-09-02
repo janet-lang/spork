@@ -1,23 +1,16 @@
-{:title "HTMLgen"
+{:title "htmlgen"
  :author "Calvin Rose"
  :license "MIT"
- :template "mdzdoc/main.html"
- :order 4}
+ :template "mdzdoc/main.html"}
 ---
 
 HTMLgen is a rendering engine that can render plain data structures into
 an HTML string. Its API has only one constant and two functions:
 
 @ul{
-  @li{constant `doctype` is a string with html5 doctype header}
-  @li{function  `raw` returns the function that will add the raw string,
-    passed as an argument to the function, to the output, when rendered,
-    without any escaping.}
-  @li{function `html` has one required argument `data` with the data structure
-    rendered into bytes with HTML code. And optional `buf` to which function
-    renders final bytes. If you do not provide the `buf`, it will create
-    a new one.}
-}
+  @li{constant @code`doctype` is a string with html5 doctype header}
+  @li{function  @code`raw` returns the function that will add the raw string, passed as an argument to the function, to the output, when rendered, without any escaping.}
+  @li{function @code`html` has one required argument @code`data` with the data structure rendered into bytes with HTML code. And optional @code`buf` to which function renders final bytes. If you do not provide the @code`buf`, it will create a new one.} }
 
 ## Rules for rendering data structures
 
@@ -42,20 +35,21 @@ We will show how HTMLgen renders from the data structure by dissecting
 the example above:
 
 @ul{
-  @li{`array` (and `fiber` which is not in the example) each member of
+  @li{`array` (and @code`fiber` which is not in the example) each member of
     the sequence renders by one of these rules.}
-  @li{`tuple` represents the HTML tag. The first member must be the name of
+  @li{@code`tuple` represents the HTML tag. The first member must be the name of
     the HTML tag. The second member can be a dictionary with HTML attributes
     for the HTML tag. All the other members are children of the tag and renders
     according to these rules.}
-  @li{`string`, `buffer`, `number` and `boolean` coerces to string and,
+  @li{@code`string`, @code`buffer`, @code`number` and @code`boolean` coerces to string and,
     if necessary, escaped and pushed to the buffer.}
-  @li{`function` gets the buffer, with which it can do whatever it wants to,
+  @li{@code`function` gets the buffer, with which it can do whatever it wants to,
     presumably push some more content, but anything.}
-  @li{`nil` do not do anything to the buffer.}
+  @li{@code`nil` do not do anything to the buffer.}
 }
 
-As you may see, the rules are straightforward, yet with the `fiber`
-and `function` types you have pretty endless possibilities when constructing
-the HTML code from data structures
+As you may see, the rules are straightforward, yet with the @code`fiber` and @code`function` types you have pretty endless possibilities when constructing the HTML code from data structures.
 
+## Reference
+
+@api-docs("../../spork" "htmlgen")

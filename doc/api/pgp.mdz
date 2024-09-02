@@ -1,0 +1,12 @@
+{:title "pgp"
+ :author "Josef Pospíšil"
+ :license "MIT"
+ :template "mdzdoc/main.html"}
+---
+
+This module contains PGP utils. For now only PGP words and hexs.
+
+## Reference
+
+@api-docs("../../spork" "pgp")
+

@@ -1,0 +1,37 @@
+{:title "infix"
+ :template "mdzdoc/main.html"}
+ ---
+
+A macro for infix syntax in Janet. Useful for math.
+
+## Examples
+
+@codeblock[janet]```
+    ($$ a + b ** 2)            --->   (+ a (math/pow b 2))
+    ($$ (a + b) ** 2)          --->   (math/pow (+ a b) 2)
+    ($$ y[2] + y[3])           --->   (+ (in y 2) (in y 3))
+    ($$ a > b and ,(good? z))  --->   (and (> a b) (good? z))
+```
+
+## Syntax
+
+Syntax is as follows:
+
+  Binary operators <<, >>, >>>, =, !=, <, <=, >, >=, &, ^, bor, band, and, or,
+  +, -, *, /, %, ** are supported. Operator precedence is in the
+  `precedence table below (higher means more tightly binding). All
+  operators are left associative except ** (math/pow), which is right
+  associative.
+
+  Unary prefix operators !, -, bnot, not, ++, -- are supported.
+  No unary postfix operators are supported.
+
+  Square brackets can be used for indexing.
+
+  Normal parentheses are used for making subgroups
+
+  You can "escape" infix syntax use a quote or unquote (comma)
+
+## Reference
+
+@api-docs("../../spork" "infix")

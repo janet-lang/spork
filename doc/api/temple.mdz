@@ -1,8 +1,7 @@
-{:title "Temple"
+{:title "temple"
  :author "Calvin Rose"
  :license "MIT"
- :template "mdzdoc/main.html"
- :order 15}
+ :template "mdzdoc/main.html"}
 ---
 
 HTML templates for Janet.
@@ -48,3 +47,8 @@ output.
 There is one more involved example in
 /janet-lang/spork/examples/temple/. You can run it with
 @code`janet examples/temple/example.janet`.
+
+## Reference
+
+@api-docs("../../spork" "temple")
+

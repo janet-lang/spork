@@ -1,0 +1,10 @@
+{:title "tarray"
+ :template "mdzdoc/main.html"}
+ ---
+
+Typed array abstract type.
+
+## Reference
+
+@api-docs("../../spork" "tarray")
+

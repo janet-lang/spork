@@ -1,0 +1,20 @@
+{:title "generators"
+ :author "Z. D. Smith"
+ :license "BSD3"
+ :template "mdzdoc/main.html"}
+---
+
+A @strong[generator] is an iterable data structure which yields individual values whenever called, potentially until its internal values are exhausted, at which point it's considered @i[dead].
+
+This operation makes them very useful for:
+
+@ul{@li{Asynchronous behaviour}
+    @li{Memory-sensitive applications, where it's not necessary to keep an entire sequence in memory at once}
+    @li{Infinite sequences}}
+
+NB: Certain functions (specifically @code`run` and @code`to-array`) will create an infinite loop if their argument is an infinite generator!
+
+## Reference
+
+@api-docs("../../spork" "generators")
+

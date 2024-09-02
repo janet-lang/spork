@@ -1,0 +1,12 @@
+{:title "math"
+ :author "Josef Pospíšil"
+ :license "MIT"
+ :template "mdzdoc/main.html"}
+---
+
+The math module deals with two main areas of mathematics: statistics and linear algebra. 	
+
+## Reference
+
+@api-docs("../../spork" "math")
+

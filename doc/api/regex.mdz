@@ -1,0 +1,31 @@
+{:title "regex"
+ :author "Calvin Rose"
+ :license "MIT"
+ :template "mdzdoc/main.html"}
+---
+
+A module for compiling a subset of regexes to Janet PEGs.
+  All regex are considered to be anchored, and performance is not going to be competitive with a native regex engine.
+
+
+Supported regex features:
+
+@ul{
+  @li{ single bytes}
+  @li{ escape characters}
+  @li{ @code`+`, @code`*`, @code`?`, @code`.`}
+  @li{ Repetitions, e.g. @code`a{1}`, @code`a{1,3}`. Repetitions are eagerly evaluated.}
+  @li{ Ranges, e.g. @code`[A-Za-z]`}
+  @li{ Character classes, inverted character classes, e.g. @code`[abc]`, @code`[^abc]`}
+  @li{ Alteration (choice), except alteration is ordered, as in pegs -- e.g. @code`a|b|c`}
+  @li{ Captures using parentheses, e.g. @code`(abc)`}
+  @li{ Non-capture groups, e.g. @code`(?:abc)`}
+}
+
+Features found in other regex may never be added - for more complex usage, use Janet's native PEG library.
+
+## Reference
+
+@api-docs("../../spork" "regex")
+
+

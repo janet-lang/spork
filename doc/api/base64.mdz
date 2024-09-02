@@ -1,15 +1,14 @@
-{:title "Base64"
+{:title "base64"
  :author "Josef Pospíšil"
  :license "MIT"
- :template "mdzdoc/main.html"
- :order 99}
+ :template "mdzdoc/main.html"}
 ---
-
-# Base64
 
 This module contains Base64 utilities.
 
-## base64/encode
+## Examples
+
+### base64/encode
 
 Converts a string of any format (UTF-8, binary, ..) to base64 encoding.
 
@@ -18,8 +17,7 @@ Converts a string of any format (UTF-8, binary, ..) to base64 encoding.
 # => "dGhpcyBpcyBhIHRlc3Q="
 ```
 
-
-## base64/decode
+### base64/decode
 
 Converts a base64 encoded string to its binary representation of any format 
 (UTF-8, binary, ...).
@@ -29,3 +27,6 @@ Converts a base64 encoded string to its binary representation of any format
 # => "this is a test"
 ```
 
+## Reference
+
+@api-docs("../../spork" "base64")

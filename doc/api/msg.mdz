@@ -1,13 +1,14 @@
-{:title "Message Protocol"
+{:title "msg"
  :author "Calvin Rose"
  :license "MIT"
- :template "mdzdoc/main.html"
- :order 8}
+ :template "mdzdoc/main.html"}
 ---
 
 Provide a symmetric way to send and receive seqential messages over a
 networked stream.  Useful for building more complicated application
 level protocols on top of TCP.
+
+## Examples
 
 @codeblock[janet]```
 (import spork/msg)
@@ -20,3 +21,7 @@ level protocols on top of TCP.
 (send "blob1")
 (def blob-respose (recv))
 ```
+
+## Reference
+
+@api-docs("../../spork" "msg")

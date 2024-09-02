@@ -1,0 +1,9 @@
+{:title "zip"
+ :template "mdzdoc/main.html"}
+ ---
+
+Wrapper around miniz for compression functionality.
+
+## Reference
+
+@api-docs("../../spork" "zip")

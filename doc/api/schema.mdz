@@ -1,0 +1,43 @@
+{:title "schema"
+ :template "mdzdoc/main.html"}
+ ---
+
+Simple schema validation library. Specify structure declaratively, and get
+functions that will check that structure and either raise an error or return a boolean.
+While reasonably general, use is intended for data such as one would find
+in configuration files or network protocols.
+
+Currently does not support more advanced features such as:
+@ul{
+  @li{Recursive schemas}
+  @li{Full error reporting (only a single error is reported)}
+  @li{PEG style grammars (used to enable recursion in PEGs)}
+  @li{Unification (such as in the @code`(match)` macro)}
+  @li{Parsing/data extraction}
+}
+
+Syntax:
+@ul{
+@li{@code`:keyword` - match any value of that type}
+@li{Tuples are used to match various combinators:
+@ul{
+  @li{@code`(any)` - match any one value}
+  @li{@code`(enum & options)` - match any of the option values}
+  @li{@code`(or & schemas)` - similar to enum, but each option is considered a schema.}
+  @li{@code`(and & schemas)` - Only matches if all clauses match}
+  @li{@code`(values schema)` - Matches only if schema matches all values in a data structure.}
+  @li{@code`(keys schema)` - Matches only if schema matches all keys in a data structure.}
+  @li{@code`(props & k v)` - Takes a sequence of keys and values (alternating in order). Only matches}
+       the data if, for a key, the corresponding schema `v` matches.
+  @li{@code`(length l)` - Only match if the data has a length of l. Uses of the length combinator should assert the data type before doing a length check.}
+  @li{@code`(length min max)` - Only match lengths between min and max inclusive}
+  @li{@code`(peg pattern)` - Matches only if the peg matches}
+  @li{@code`(not pattern)` - Only matches if pattern does not match}
+  @li{@code`(pred predicate)` - Use a predicate function (function of 1 argument) to check if the data is valid.}
+}}
+@li{anything else - match that value literally}
+}
+
+## Reference
+
+@api-docs("../../spork" "schema")

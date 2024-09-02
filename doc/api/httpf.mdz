@@ -1,0 +1,11 @@
+{:title "httpf"
+ :template "mdzdoc/main.html"}
+ ---
+
+A simple, opinionated HTTP framework for HTML, JDN, and JSON servers.
+Servers can easily be configured from defn bindings with
+appropriate metadata.
+
+## Reference
+
+@api-docs("../../spork" "httpf")

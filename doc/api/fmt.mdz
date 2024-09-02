@@ -1,13 +1,14 @@
-{:title "Formatting"
+{:title "fmt"
  :author "Calvin Rose"
  :license "MIT"
- :template "mdzdoc/main.html"
- :order 2}
+ :template "mdzdoc/main.html"}
 ---
 
 Provides a way to format Janet code strings and files.
 
-## Strings
+## Examples
+
+### Strings
 
 @codeblock[janet]```
 (import spork/fmt)
@@ -15,10 +16,14 @@ Provides a way to format Janet code strings and files.
 (fmt/format "(def     a\n 3 )")  => @"(def a\n  3)\n"
 ```
 
-## Files
+### Files
 
 @codeblock[janet]```
 (import spork/fmt)
 
 (fmt/format-file "main.janet")
 ```
+
+## Reference
+
+@api-docs("../../spork" "fmt")

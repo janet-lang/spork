@@ -1,0 +1,38 @@
+{:title "cron"
+ :template "mdzdoc/main.html"}
+ ---
+
+Timer library for interfacing with the UNIX crontab format. 
+
+The cron format support is based on the unix cron syntax, with an optional seconds field. 
+  Each field can be a comma separated list of individual values or a range of values. 
+
+A range has three variants as follows: 
+@ol{
+  @li{Two values with a "-" between them, optionally followed by a "/" and a step value.}
+  @li{An asterisk ("*") followed by a "/" and a step value. This implies every "step" value.}
+  @li{A single value followed by a "/" and a step value. This implies every "step" value starting with the single value. I.e., 2/3 implies every 3 units from 2 to max units.}}
+
+A single asterisk ("*") can be used to denote all possible values.
+
+The fields:
+@ul{
+ @li{minutes: 0-5 }  
+ @li{hours: 0-2 } 
+ @li{day of month: 1-3 }  
+ @li{month: 1-12. Also allowed are the following month codes in any case } 
+   jan,feb,mar,apr,may,jun,jul,aug,sep,oct,nov,dec
+ @li{day of week: 0-7, where 0 or 7 is sunday, monday is 1, etc. allows the following day codes (any case)}  
+   sun,mon,tue,wed,thu,fri,sat
+ @li{ seconds (optional): 0-5}}
+
+Cron schedules are represented as tuples of 7 values, a string representation, followed
+by 6 bitmaps representing matching timestamps. Bitmaps are represented as any byte sequence.
+
+@codeblock`[string-rep minutes hours day-of-month month day-of-week seconds]`
+
+Note that we have second precision here as opposed to minute precision.
+
+## Reference
+
+@api-docs("../../spork" "cron")
