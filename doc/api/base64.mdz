@@ -6,7 +6,9 @@
 
 This module contains Base64 utilities.
 
-## base64/encode
+## Examples
+
+### base64/encode
 
 Converts a string of any format (UTF-8, binary, ..) to base64 encoding.
 
@@ -15,8 +17,7 @@ Converts a string of any format (UTF-8, binary, ..) to base64 encoding.
 # => "dGhpcyBpcyBhIHRlc3Q="
 ```
 
-
-## base64/decode
+### base64/decode
 
 Converts a base64 encoded string to its binary representation of any format 
 (UTF-8, binary, ...).

@@ -6,7 +6,9 @@
 
 Provides a way to format Janet code strings and files.
 
-## Strings
+## Examples
+
+### Strings
 
 @codeblock[janet]```
 (import spork/fmt)
@@ -14,7 +16,7 @@ Provides a way to format Janet code strings and files.
 (fmt/format "(def     a\n 3 )")  => @"(def a\n  3)\n"
 ```
 
-## Files
+### Files
 
 @codeblock[janet]```
 (import spork/fmt)

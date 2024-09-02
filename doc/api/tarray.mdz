@@ -4,3 +4,7 @@
 
 Typed array abstract type.
 
+## Reference
+
+@api-docs("../../spork" "tarray")
+

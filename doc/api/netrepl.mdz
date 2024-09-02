@@ -9,10 +9,11 @@ and the ability to repl into existing environments.
 ## Specifying the Environment
 
 Provide various ways to produce the environment to repl into.
-1. an environment factory function, called for each connection.
-2. an env (table value) - this means every connection will share the same environment
-3. default env, made via make-env with nice printing for each new connection.
-
+@ol{
+  @li{an environment factory function, called for each connection.}
+  @li{an env (table value) - this means every connection will share the same environment}
+  @li{default env, made via make-env with nice printing for each new connection.}
+}
 
 ## NETREPL Protocol
 
@@ -23,26 +24,26 @@ Any message received by the client that begins with 0xFF should result in printi
 
 Any message received by the client that begins with 0xFE will discard this first byte and continue processing as usual.
 
-1. server <- {connection settings, including client name} <- client
-  1a. If msg starts with 0xFF, parse message as (-> msg (slice 1) parse) and extract
-      the :name key as the name. Other connection settings can be stored here.
-  1b. If msg does not start with 0xFF, the message is treated as the client name.
-      Other options are considered nil.
-2. server -> {repl prompt (no newline)} -> client
-3. server <- {one chunk of input (msg)} <- client
-4. If (= (msg 0) 0xFF)
-  4a. (def result (-> msg (slice 1) parse eval protect))
-  4b. server -> result -> client
-  4c. goto 3.
-5. If (= (msg 0) 0xFE)
-  5a. Return msg as either:
-      i. a keyword if the msg contains a command (e.g. :cancel)
-      ii. an array if the msg contains a command and arguments (e.g. @code`@[:source "path/to/source"]`
-  5b. goto 6b.
-6. Otherwise
-  6a. Send chunk to repl input stream
-  6b. Unless auto-flush is enabled, server -> {(dyn :out) and (dyn :err) (empty at first)} -> client
-  6c. goto 2.
+@ol{
+  @li{server <- {connection settings, including client name@code[}] <- client
+      @ol{@li{If msg starts with 0xFF, parse message as (-> msg (slice 1) parse) and extract the :name key as the name. Other connection settings can be stored here.}
+          @li{If msg does not start with 0xFF, the message is treated as the client name. Other options are considered nil.}}}
+  @li{server -> {repl prompt (no newline)@code[}] -> client}
+  @li{server <- {one chunk of input (msg)@code[}] <- client}
+  @li{If (= (msg 0) 0xFF)
+      @ol{@li{(def result (-> msg (slice 1) parse eval protect))}
+          @li{server -> result -> client}
+          @li{goto 3.}}}
+  @li{If (= (msg 0) 0xFE)}
+  @ol{@li{Return msg as either:
+      @ol{@li{a keyword if the msg contains a command (e.g. :cancel)}
+          @li{an array if the msg contains a command and arguments (e.g. @code`@[:source "path/to/source"]`}}
+      @li{goto 6b.}}}
+  @li{Otherwise
+      @ol{@li{Send chunk to repl input stream}
+          @li{Unless auto-flush is enabled, server -> {(dyn :out) and (dyn :err) (empty at first)@code[}] -> client}
+          @li{goto 2.}}}
+}
 
 ## Examples
 

@@ -6,44 +6,6 @@
 
 This module contains PGP utils. For now only PGP words and hexs.
 
-## pgp/hex->word
-
-Returns pgp word for hex string <100 for a position in the number.
-
-@codeblock[janet]```
-(misc/pgp/hex->word "01" 0) 
-# => "absurd"
-```
-
-## pgp/hexs->words
-
-Returns an array of pgp words for arbitrary long string of hexs.
-
-Sanitizes out the white space from hex-string.
-
-@codeblock[janet]```
-(misc/pgp/hexs->words "01d1 02EE")
-# => @["absurd" "scavenger" "accrue" "universe"]
-```
-
-## pgp/word->hex
-
-Returns a hex number as string for the pgp word.
-
-@codeblock[janet]```
-(misc/pgp/word->hex "absurd")
-# => "01"
-```
-
-## pgp/words->hexs
-
-Returns an array of hexs from the string with pgp words.
-
-@codeblock[janet]```
-(misc/pgp/words->hexs "absurd-scavenger accrue_universe upshot.village")
-# => @["01" "D1" "02" "EE" "F4" "F6"]
-```
-
 ## Reference
 
 @api-docs("../../spork" "pgp")

@@ -10,7 +10,7 @@
 
 The @code`diff` function recursively compares the structure and contents of two data structures (struct, table, tuple, array) and returns an array with three elements:
 
-@codeblock`@[things-only-in-a things-only-in-b things-in-both]`
+@codeblock[janet]`@[things-only-in-a things-only-in-b things-in-both]`
 
 In the case of nested associative data structures (i.e., tables and structs), the comparison is recursive and the data structures are neatly partitioned into the same @code`@[things-only-in-a things-only-in-b things-in-both]` structure, but arbitrary levels deep in the two original associative data structures.
 

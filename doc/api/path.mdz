@@ -12,6 +12,8 @@ All functions have three forms, under @code`path`, @code`path/win`, and
 @code`path/posix`. The prefix indicates which type of path the function
 manipulates.
 
+## Example
+
 @codeblock[janet]```
 
 (import spork/path)
