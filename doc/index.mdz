@@ -18,7 +18,26 @@ think of spork as a sort of extended standard library for Janet.
 ## Install
 
 @codeblock```
-[sudo] jpm install spork
+$ [sudo] jpm install spork
 ```
 
+## Usage
+
+Every binding in the spork library will be imported if you @code`(import spork)` in either a Janet source file or at a Janet REPL:
+
+@codeblock```
+Janet 1.35.2-fda0a081 linux/x64/gcc - '(doc)' for help
+repl:1:> (import spork)
+@{_ @{:value <cycle 0>} spork/argparse/argparse @{:private true} spork/base64/decode @{:private true} spork/base64/encode @{:private true} spork/crc/make-variant @{:private true} spork/crc/named-variant @{:private true} spork/cron/check @{:private true} spork/cron/next-timestamp @{:private true} spork/cron/parse-cron @{:private true} ...}
+repl:2:>
+```
+
+However, it's usually more practical to only import the specific module you want using @code`(import spork/[module])`, replacing @code`[module]` as appropriate. For example:
+
+@codeblock```
+Janet 1.35.2-fda0a081 linux/x64/gcc - '(doc)' for help
+repl:1:> (import spork/netrepl)
+@{_ @{:value <cycle 0>} netrepl/client @{:private true} netrepl/default-host @{:private true} netrepl/default-port @{:private true} netrepl/server @{:private true} netrepl/server-single @{:private true}}
+repl:2:>
+```
 
