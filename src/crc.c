@@ -1,7 +1,7 @@
 /*
  * Generate CRC variants. Rather than compile separate variants,
  * we have code to generate the needed tables. Keeps build simple,
- * footprint small but with many variants accesible.
+ * footprint small but with many variants accessible.
  */
 
 #include <stdbool.h>

@@ -2,7 +2,7 @@
 ### cjanet.janet
 ###
 ### A DSL that compiles to C. Improved version of jpm/cgen
-### that is more ammenable to Janet integration, macros,
+### that is more amenable to Janet integration, macros,
 ### and meta-programming.
 ###
 ### The semantics of the language are basically the
