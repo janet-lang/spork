@@ -94,7 +94,7 @@
       :main (/ (any :entry) ,query-string-accum)}))
 
 (defn read-request
-  "Read an HTTP request header from a connection. Returns a table with the following keys:
+  ``Read an HTTP request header from a connection. Returns a table with the following keys:
   * `:headers` - table mapping header names to header values. Header names are lowercase.
   * `:connection` - the connection stream for the header.
   * `:buffer` - the buffer instance that may contain extra bytes.
@@ -109,7 +109,7 @@
      for every string key, and any query parameters that aren't given a value are mapped to true.
 
   Note that data is read in chunks and any data after the header terminator is
-  stored in `:buffer`."
+  stored in `:buffer`.``
   [conn buf &opt no-query]
   (def head (read-header conn buf request-peg :method :path))
   (if (= :error head) (break head))
@@ -129,7 +129,7 @@
   head)
 
 (defn read-response
-  "Read an HTTP response header from a connection. Returns a table with the following keys:
+  ``Read an HTTP response header from a connection. Returns a table with the following keys:
   * `:headers` - table mapping header names to header values. Header names are lowercase.
   * `:connection` - the connection stream for the header.
   * `:buffer` - the buffer instance that may contain extra bytes.
@@ -138,7 +138,7 @@
   * `:message` - the HTTP status message.
 
   Note that data is read in chunks and any data after the header terminator is
-  stored in `:buffer`."
+  stored in `:buffer`.``
   [conn buf]
   (read-header conn buf response-peg :status :message))
 
@@ -308,7 +308,7 @@
   nil)
 
 (defn send-response
-  "Send an HTTP response over a connection. Will automatically use chunked
+  ``Send an HTTP response over a connection. Will automatically use chunked
   encoding if body is not a byte sequence. `response` should be a table
   with the following keys:
 
@@ -316,7 +316,7 @@
   * `:status` - integer status code to write
   * `:body` - optional byte sequence or iterable (for chunked body)
      for returning contents. The iterable can be lazy, i.e. for streaming
-     data."
+     data.``
   [conn response &opt buf]
   (default buf @"")
   (def status (get response :status 200))
@@ -398,7 +398,7 @@
 ###
 
 (defn server-handler
-  "A simple connection handler for an HTTP server.
+  ``A simple connection handler for an HTTP server.
   When a connection is accepted. Call this with a handler
   function to handle the connect. The handler will be called
   with one argument, the request table, which will contain the
@@ -408,7 +408,7 @@
   * `:connection` - the connection stream for the header.
   * `:buffer` - the buffer instance that may contain extra bytes.
   * `:path` - HTTP path.
-  * `:method` - HTTP method, as a string."
+  * `:method` - HTTP method, as a string.``
   [conn handler]
   (def handler (middleware handler))
   (defer (ev/close conn)
@@ -461,7 +461,7 @@
   (peg/compile url-peg-source))
 
 (defn request
-  "Make an HTTP request to a server.
+  ``Make an HTTP request to a server.
   Returns a table containing response information.
   * `:head-size` - number of bytes in the http header
   * `:headers` - table mapping header names to header values. Header names are lowercase.
@@ -469,7 +469,7 @@
   * `:buffer` - the buffer instance that may contain extra bytes.
   * `:status` - HTTP status code as an integer.
   * `:message` - HTTP status message.
-  * `:body` - Bytes of the response body."
+  * `:body` - Bytes of the response body.``
   [method url &keys
    {:body body
     :headers headers}]
