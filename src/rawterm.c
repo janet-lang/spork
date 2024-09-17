@@ -222,6 +222,7 @@ static void rawterm_begin(void) {
 }
 
 static void rawterm_getch(JanetBuffer *buf) {
+    if (rawterm_stream == NULL) janet_panic("call rawterm/begin to initialize");
     janet_ev_read(rawterm_stream, buf, 1);
     janet_await();
 }

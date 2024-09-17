@@ -3,6 +3,8 @@
 
 (start-suite)
 
+(assert-error "issue #198" (rawterm/getch))
+
 # TODO: This tests the reduced set of codepoints based on the original set in
 # Bestline:
 # https://github.com/jart/bestline/blob/4a09bf4355c15c96526/bestline.c#L274-L287
