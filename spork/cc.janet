@@ -472,8 +472,8 @@
 (defn visit-execute-quiet
   "A function that can be provided as `(dyn *visit*)` that will execute commands quietly."
   [cmd inputs outputs message]
-  (def devnull (sh/devnull))
-  (os/execute cmd :px {:out devnull :err devnull}))
+  (with [devnull (sh/devnull)]
+    (os/execute cmd :px {:out devnull :err devnull})))
 
 ###
 ### Library discovery and self check
@@ -481,8 +481,9 @@
 
 (defn check-library-exists
   "Check if a library exists on the current POSIX system. Will run a test compilation
-  and return true if the compilation succeeds."
+  and return true if the compilation succeeds. Libname is passed directly to the compiler/linker, such as `-lm` on GNU/Linux."
   [libname &opt binding test-source-code]
+  (default binding *libs*)
   (default test-source-code "int main() { return 0; }")
   (def temp (string "_temp" (gensym)))
   (def src (string temp "/" (gensym) ".c"))
@@ -499,10 +500,11 @@
                     *libs* []]
           (setdyn binding [libname])
           (compile-and-link-executable executable src)
-          (def devnull (sh/devnull))
-          (os/execute [executable] :x {:out devnull :err devnull})
+          (with [devnull (sh/devnull)]
+            (os/execute [executable] :x {:out devnull :err devnull}))
           true)
-        ([e] false)))))
+        ([e]
+         false)))))
 
 (defn- search-libs-impl
   [dynb libs]
