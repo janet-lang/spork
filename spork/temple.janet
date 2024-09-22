@@ -130,7 +130,18 @@
       @{'render @{:doc "Main template function."
                   :value (fn render [&keys args] (tmpl args))}
         'render-dict @{:doc "Template function, but pass arguments as a dictionary."
-                       :value tmpl}})))
+                       :value tmpl}
+        'capture @{:doc "Template function that returns buffer of rendered template."
+                   :value (fn render [&keys args]
+                            (def b @"")
+                            (with-dyns [:out b] (tmpl args)
+                              b))}
+        'capture-dict @{:doc "Template function that returns buffer of rendered template,
+                              but pass arguments as a dictionary."
+                        :value (fn render [args]
+                                 (def b @"")
+                                 (with-dyns [:out b] (tmpl args)
+                                   b))}})))
 
 (defn add-loader
   "Adds the custom template loader to Janet's module/loaders and
