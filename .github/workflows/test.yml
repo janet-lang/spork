@@ -55,12 +55,12 @@ jobs:
       - name: Build Spork
         shell: cmd
         run: |
-          cl.exe /? & refreshenv & cl.exe /? cd spork & "C:\Program Files\Janet\bin\janet.exe" -l ./bundle -e "(do (setdyn :verbose true) (build))"
+          refreshenv & vcvars64.bat & cd spork & janet -l ./bundle -e "(do (setdyn :verbose true) (build))"
       - name: Test Install 
         shell: cmd
         run: |
-          refreshenv && "C:\Program Files\Janet\bin\janet.exe" -e "(bundle/install `spork`)"
+          refreshenv & vcvars64.bat & janet -e "(bundle/install `spork`)"
       - name: Run Tests
         shell: cmd
         run: |
-          refreshenv && cd spork && "C:\Program Files\Janet\bin\janet.exe" -l ./bundle -e "(test)"
+          refreshenv & vcvars64.bat & cd spork & janet -l ./bundle -e "(test)"
