@@ -53,7 +53,7 @@ jobs:
         run: curl -fSLo janet.msi https://github.com/janet-lang/janet/releases/download/v1.36.0/janet-1.36.0-windows-x64-installer.msi
       - name: Install Janet
         shell: cmd
-        run: msiexec /i janet.msi /passive ALLUSERS=1 && refreshenv
+        run: msiexec /i janet.msi /passive /quiet /norestart ALLUSERS=1 && refreshenv
       - name: Build Spork
         shell: cmd
         run: cd spork && janet -l ./bundle -e "(build)"
