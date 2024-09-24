@@ -42,12 +42,10 @@ jobs:
         os: [ windows-latest, windows-2019 ]
     runs-on: ${{ matrix.os }}
     steps:
-      - name: Checkout the repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           path: spork
-      - name: Setup MSVC
-        uses: ilammy/msvc-dev-cmd@v1
+      - uses: ilammy/msvc-dev-cmd@v1
       - name: Download Janet Latest Release
         shell: cmd
         run: curl -fSLo janet.msi https://github.com/janet-lang/janet/releases/download/v1.36.0/janet-1.36.0-windows-x64-installer.msi
@@ -57,7 +55,7 @@ jobs:
       - name: Build Spork
         shell: cmd
         run: |
-          cd spork && "C:\Program Files\Janet\bin\janet.exe" -l ./bundle -e "(build)"
+          cd spork && "C:\Program Files\Janet\bin\janet.exe" -l ./bundle -e "(do (setdyn :verbose true) (build))"
       - name: Test Install 
         shell: cmd
         run: |
