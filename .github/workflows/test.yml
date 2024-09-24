@@ -55,7 +55,10 @@ jobs:
       - name: Build Spork
         shell: cmd
         run: |
-          refreshenv && cd spork && "C:\Program Files\Janet\bin\janet.exe" -l ./bundle -e "(do (setdyn :verbose true) (build))"
+          cl.exe /?
+          refreshenv
+          cd spork
+          "C:\Program Files\Janet\bin\janet.exe" -l ./bundle -e "(do (setdyn :verbose true) (build))"
       - name: Test Install 
         shell: cmd
         run: |
