@@ -45,22 +45,22 @@ jobs:
       - uses: actions/checkout@v4
         with:
           path: spork
-      - uses: ilammy/msvc-dev-cmd@v1
       - name: Download Janet Latest Release
         shell: cmd
         run: curl -fSLo janet.msi https://github.com/janet-lang/janet/releases/download/v1.36.0/janet-1.36.0-windows-x64-installer.msi
       - name: Install Janet
         shell: cmd
         run: msiexec /quiet /i janet.msi ALLUSERS=1 /log install.log && type install.log
+      - uses: ilammy/msvc-dev-cmd@v1
       - name: Build Spork
         shell: cmd
         run: |
-          refreshenv & vcvarsall.bat x64 & cd spork & janet -l ./bundle -e "(do (setdyn :verbose true) (build))"
+          cd spork & janet -l ./bundle -e "(do (setdyn :verbose true) (build))"
       - name: Test Install 
         shell: cmd
         run: |
-          refreshenv & vcvarsall.bat x64 & janet -e "(bundle/install `spork`)"
+          janet -e "(bundle/install `spork`)"
       - name: Run Tests
         shell: cmd
         run: |
-          refreshenv & vcvarsall.bat x64 & cd spork & janet -l ./bundle -e "(test)"
+          cd spork & janet -l ./bundle -e "(test)"
