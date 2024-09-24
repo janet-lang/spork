@@ -50,11 +50,11 @@ jobs:
         run: curl -fSLo janet.msi https://github.com/janet-lang/janet/releases/download/v1.36.0/janet-1.36.0-windows-x64-installer.msi
       - name: Install Janet
         shell: cmd
-        run: msiexec /quiet /i janet.msi ALLUSERS=1 /log install.log && type install.log && set > %GITHUB_ENV%
+        run: msiexec /quiet /i janet.msi ALLUSERS=1 /log install.log && type install.log
       - name: Build Spork
         shell: cmd
         run: |
-          refreshenv & "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64 & cd spork & janet -l ./bundle -e "(do (setdyn :verbose true) (build))"
+          refreshenv & "C:\Program Files\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64 & cd spork & janet -l ./bundle -e "(do (setdyn :verbose true) (build))"
       - name: Test Install 
         shell: cmd
         run: |
