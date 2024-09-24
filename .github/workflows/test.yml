@@ -51,16 +51,15 @@ jobs:
       - name: Install Janet
         shell: cmd
         run: msiexec /quiet /i janet.msi ALLUSERS=1 /log install.log && type install.log && set > %GITHUB_ENV%
-      - uses: ilammy/msvc-dev-cmd@v1
       - name: Build Spork
         shell: cmd
         run: |
-          cd spork & janet -l ./bundle -e "(do (setdyn :verbose true) (build))"
+          refreshenv & "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64 & cd spork & janet -l ./bundle -e "(do (setdyn :verbose true) (build))"
       - name: Test Install 
         shell: cmd
         run: |
-          janet -e "(bundle/install `spork`)"
+          refreshenv & janet -e "(bundle/install `spork`)"
       - name: Run Tests
         shell: cmd
         run: |
-          cd spork & janet -l ./bundle -e "(test)"
+          refreshenv & cd spork & janet -l ./bundle -e "(test)"
