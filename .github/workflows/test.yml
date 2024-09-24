@@ -50,7 +50,7 @@ jobs:
         run: curl -fSLo janet.msi https://github.com/janet-lang/janet/releases/download/v1.36.0/janet-1.36.0-windows-x64-installer.msi
       - name: Install Janet
         shell: cmd
-        run: msiexec /quiet /i janet.msi ALLUSERS=1 /log install.log && type install.log
+        run: msiexec /quiet /i janet.msi ALLUSERS=1 /log install.log && type install.log && set > %GITHUB_ENV%
       - uses: ilammy/msvc-dev-cmd@v1
       - name: Build Spork
         shell: cmd
