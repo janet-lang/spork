@@ -56,10 +56,13 @@ jobs:
         run: msiexec /quiet /i janet.msi ALLUSERS=1
       - name: Build Spork
         shell: cmd
-        run: cd spork && "C:\\Program Files\\Janet\\bin\\janet.exe" -l ./bundle -e "(build)"
+        run: |
+          cd spork && "C:\Program Files\Janet\bin\janet.exe" -l ./bundle -e "(build)"
       - name: Test Install 
         shell: cmd
-        run: "C:\\Program Files\\Janet\\bin\\janet.exe" -e "(bundle/install `spork`)"
+        run: |
+          "C:\Program Files\Janet\bin\janet.exe" -e "(bundle/install `spork`)"
       - name: Run Tests
         shell: cmd
-        run: cd spork && "C:\\Program Files\\Janet\\bin\\janet.exe" -l ./bundle -e "(test)"
+        run: |
+          cd spork && "C:\Program Files\Janet\bin\janet.exe" -l ./bundle -e "(test)"
