@@ -17,7 +17,7 @@ jobs:
       - name: Checkout Janet
         uses: actions/checkout@v4
         with:
-          name: janet-lang/janet
+          repository: janet-lang/janet
           path: janet
           ref: refs/heads/master
       - name: Build + Install Janet
@@ -51,7 +51,7 @@ jobs:
         run: curl -fSLo janet.msi https://github.com/janet-lang/janet/releases/download/v1.36.0/janet-1.36.0-windows-x64-installer.msi
       - name: Install Janet
         shell: cmd
-        run: msiexec /i janet.msi /passive
+        run: msiexec /i janet.msi /passive & refreshenv
       - name: Build Spork
         run: cd spork && janet -l ./bundle -e "(build)"
       - name: Run Tests
