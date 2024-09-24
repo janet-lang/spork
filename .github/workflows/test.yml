@@ -7,10 +7,54 @@ on:
     branches: [ master ]
 
 jobs:
-  test:
-
-    runs-on: ubuntu-latest
-
+  test-posix:
+    name: Build and test on POSIX systems
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ ubuntu-latest, macos-latest, macos-13 ]
     steps:
-    - name: "Test project"
-      uses: pyrmont/action-janet-test@v2
+      - name: Checkout Janet
+        uses: actions/checkout@v4
+        with:
+          name: janet-lang/janet
+          path: janet
+          ref: refs/heads/master
+      - name: Build + Install Janet
+        run: cd janet && make clean && make && make install
+      - name: Checkout the repository
+        uses: actions/checkout@v4
+        with:
+          path: spork
+      - name: Build Spork
+        run: cd spork && janet -l ./bundle -e "(build)"
+      - name: Run Tests
+        run: cd spork && janet -l ./bundle -e "(test)"
+      - name: Test Install 
+        run: janet -e '(bundle/install "spork")'
+
+  test-windows:
+    name: Build and test on Windows
+    strategy:
+      matrix:
+        os: [ windows-latest, windows-2019 ]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout the repository
+        uses: actions/checkout@v4
+        with:
+          path: spork
+      - name: Setup MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+      - name: Download Janet Latest Release
+        shell: cmd
+        run: curl -fSLo janet.msi https://github.com/janet-lang/janet/releases/download/v1.36.0/janet-1.36.0-windows-x64-installer.msi
+      - name: Install Janet
+        shell: cmd
+        run: msiexec /i janet.msi /passive
+      - name: Build Spork
+        run: cd spork && janet -l ./bundle -e "(build)"
+      - name: Run Tests
+        run: cd spork && janet -l ./bundle -e "(test)"
+      - name: Test Install 
+        run: janet -e "(bundle/install `spork`)"

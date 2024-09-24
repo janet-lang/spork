@@ -106,6 +106,8 @@ int64_t _mulmod_impl(int64_t a, int64_t b, int64_t m) {
 Janet wrap_nan() {
 #ifdef NAN
     return janet_wrap_number(NAN);
+#elif defined(_MSC_VER)
+    return janet_wrap_nan(nan("nan"));
 #else
     return janet_wrap_number(0.0 / 0.0);
 #endif

@@ -43,7 +43,7 @@
 │   4│5│5│5│5│
 ╰────┴─┴─┴─┴─╯
   ```)
-(assert (= (-> output string/trim) (-> expected string/trim)))
+(assert (= (-> output string/trim) (->> expected (string/replace-all "\r" "") string/trim)))
 
 (def output2
   (misc/capout
@@ -57,7 +57,7 @@
 │  小苹果│    4│
 ╰────────┴─────╯
   ```)
-(assert (= (-> output2 string/trim) (-> expected2 string/trim)))
+(assert (= (-> output2 string/trim) (->> expected2 (string/replace-all "\r" "") string/trim)))
 
 (assert
   (deep= (misc/map-keys string {1 2 3 4}) @{"1" 2 "3" 4})

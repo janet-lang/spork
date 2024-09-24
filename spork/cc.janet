@@ -91,6 +91,11 @@
   (if (= "Library" (last parts))
     (path/abspath (string sp "\\..\\C\\"))))
 
+(defn msvc-janet-import-lib
+  "Get path to the installed Janet import lib. This import lib is needed when create dlls for natives."
+  []
+  (string (msvc-cpath) "\\janet.lib"))
+
 (defn- default-exec [&])
 (defn- exec
   "Call the (dyn *visit*) function on commands"

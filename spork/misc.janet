@@ -6,8 +6,6 @@
 
 (import spork/rawterm)
 
-(def- eol (if (= :windows (os/which)) "\r\n" "\n"))
-
 (defn dedent
   ```
   Remove indentation after concatenating the arguments. Works by removing
@@ -110,10 +108,10 @@
   (buffer/popn topbuf 3)
   (buffer/popn midbuf 3)
   (buffer/popn botbuf 3) # 3 bytes, 1 char
-  (buffer/push topbuf (string "╮" eol))
-  (buffer/push midbuf (string "╡" eol))
-  (buffer/push botbuf (string "╯" eol))
-  (buffer/push hbuf eol)
+  (buffer/push topbuf (string "╮\n"))
+  (buffer/push midbuf (string "╡\n"))
+  (buffer/push botbuf (string "╯\n"))
+  (buffer/push hbuf "\n")
 
   # build large buffer
   (buffer/push topbuf hbuf midbuf)
@@ -128,7 +126,7 @@
         (string/repeat " " (- width len))
         item
         "│"))
-    (buffer/push topbuf eol))
+    (buffer/push topbuf "\n"))
   (buffer/push topbuf botbuf)
   topbuf)
 
