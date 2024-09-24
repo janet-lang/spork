@@ -55,8 +55,11 @@ jobs:
         shell: cmd
         run: msiexec /i janet.msi /passive ALLUSERS=1 & refreshenv
       - name: Build Spork
+        shell: cmd
         run: cd spork && janet -l ./bundle -e "(build)"
       - name: Run Tests
+        shell: cmd
         run: cd spork && janet -l ./bundle -e "(test)"
       - name: Test Install 
+        shell: cmd
         run: janet -e "(bundle/install `spork`)"
