@@ -30,10 +30,10 @@ jobs:
           path: spork
       - name: Build Spork
         run: cd spork && janet -l ./bundle -e "(build)"
-      - name: Run Tests
-        run: cd spork && janet -l ./bundle -e "(test)"
       - name: Test Install 
         run: janet -e '(bundle/install "spork")'
+      - name: Run Tests
+        run: cd spork && janet -l ./bundle -e "(test)"
 
   test-windows:
     name: Build and test on Windows
@@ -53,7 +53,7 @@ jobs:
         run: curl -fSLo janet.msi https://github.com/janet-lang/janet/releases/download/v1.36.0/janet-1.36.0-windows-x64-installer.msi
       - name: Install Janet
         shell: cmd
-        run: msiexec /i janet.msi /passive ALLUSERS=1 & refreshenv
+        run: msiexec /i janet.msi /passive ALLUSERS=1 && refreshenv
       - name: Build Spork
         shell: cmd
         run: cd spork && janet -l ./bundle -e "(build)"
