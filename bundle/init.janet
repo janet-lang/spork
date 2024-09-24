@@ -15,6 +15,17 @@
 (defn clean [&]
   (sh/rm "build"))
 
+(defn test [&]
+  (var failure-count 0)
+  (each suite (sorted (os/dir "test"))
+    (when (string/has-prefix? "suite-" suite)
+      (eprint "Running suite " suite)
+      (def result (os/execute [(dyn *executable*) (string "test/" suite)] :p))
+      (if-not (zero? result) (++ failure-count))))
+  (if (zero? failure-count)
+    (eprint "All Passed.")
+    (do (eprintf "Failures: %v" failure-count) (os/exit 1))))
+
 (defn build [&]
   (os/mkdir "build")
   (os/mkdir "build/objects")
