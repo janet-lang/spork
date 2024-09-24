@@ -283,8 +283,8 @@
                    -2.19089)
         "two sample t-test")
 
-(assert (deep-not= (shuffle-in-place (range 10))
-                   (range 10))
+(assert (deep-not= (shuffle-in-place (range 100))
+                   (range 100))
         "shuffle in place")
 
 # this needs to be more precise I am affraid
