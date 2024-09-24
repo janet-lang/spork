@@ -33,6 +33,9 @@
                 </html>
                 ```)
 
+(assert (deep= (hi/capture-dict {:a 1 :b 2})
+               (hi/capture :a 1 :b 2)))
+
 (def str-template "<html>hello {{ (args :arg) }}</html>")
 (def render (temple/compile str-template))
 (def out (render :arg "world"))
