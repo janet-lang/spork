@@ -87,6 +87,7 @@ static int rawterm_begin(void) {
 }
 
 static void rawterm_getch(JanetBuffer *buffer) {
+    if (!in_raw_mode) janet_panic("call rawterm/begin to initialize");
     HANDLE h = GetStdHandle(STD_INPUT_HANDLE);
     char buf[1];
     DWORD bytes_read = 0;
