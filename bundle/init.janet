@@ -51,7 +51,7 @@
       cc/compile-and-make-archive))
 
   (when (= :windows (os/which))
-    (setdyn cc/*msvc-libs* @[(cc/msvc-janet-import-lib])))
+    (setdyn cc/*msvc-libs* @[(cc/msvc-janet-import-lib)]))
 
   (defn make1
     [name & other-srcs]
