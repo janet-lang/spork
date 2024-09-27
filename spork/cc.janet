@@ -330,12 +330,13 @@
   []
   (when (msvc-setup?) (break))
   (def arch (string (os/arch)))
-  (defn loc [y e]
-    (string `C:\Program Files\Microsoft Visual Studio\` y `\` e `\VC\Auxiliary\Build\vcvarsall.bat`))
+  (defn loc [pf y e]
+    (string `C:\` pf `\Microsoft Visual Studio\` y `\` e `\VC\Auxiliary\Build\vcvarsall.bat`))
   (var found-path nil)
-  (loop [y :in [2022 2019 2017]
+  (loop [pf :in ["Program Files" "Program Files (x86)"]
+         y :in [2022 2019 2017]
          e :in ["Enterprise" "Professional" "Community" "BuildTools"]]
-    (def path (loc y e))
+    (def path (loc pf y e))
     (when (os/stat path :mode) 
       (set found-path path)
       (break)))
