@@ -321,6 +321,13 @@
     (os/getenv "LIB")
     (os/getenv "LIBPATH")))
 
+(defn- dumb-escape
+  [x]
+  (->> x
+       (string/replace-all " " "^ ")
+       (string/replace-all "(" "^(")
+       (string/replace-all ")" "^)")))
+
 (defn msvc-find
   "Find vcvarsall.bat and run it to setup the current environment for building.
   Optionally pass in `year` and `edition` to help look for vcvars.
@@ -343,7 +350,7 @@
   (unless found-path (error "Could not find vcvarsall.bat"))
   (when (dyn :verbose)
     (print "found " found-path))
-  (def arg (string (string/replace-all " " "^ " found-path) ` ` arch ` && echo ` tag ` && set`))
+  (def arg (string (dumb-escape found-path) ` ` arch ` && echo ` tag ` && set`))
   (def output (sh/exec-slurp "cmd" "/s" "/c" arg))
   (def kvpairs (peg/match vcvars-grammar output))
   (assert kvpairs)
