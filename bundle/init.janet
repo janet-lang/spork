@@ -51,6 +51,8 @@
       cc/compile-and-make-archive))
 
   (when (= :windows (os/which))
+    (cc/msvc-find)
+    (assert (cc/msvc-setup?))
     (setdyn cc/*msvc-libs* @[(cc/msvc-janet-import-lib)]))
 
   (defn make1

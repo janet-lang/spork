@@ -305,6 +305,50 @@
 ### - more testing
 ### - libraries
 
+(def- tag "AAABBBAAABBBCCCAAABBBAAACCC")
+(def- vcvars-grammar
+  (peg/compile
+    ~{:main (* (thru ,tag) (any :line))
+      :line (group (* :key "=" :value :s*))
+      :key '(to "=")
+      :value '(to "\n")}))
+
+(defn msvc-setup?
+  "Check if MSVC environment is already setup."
+  []
+  (and
+    (os/getenv "INCLUDE")
+    (os/getenv "LIB")
+    (os/getenv "LIBPATH")))
+
+(defn msvc-find
+  "Find vcvarsall.bat and run it to setup the current environment for building.
+  Optionally pass in `year` and `edition` to help look for vcvars.
+  Only supports VS 2017, 2019, and 2022.
+  Will set environment variables such that invocations of cl.exe, link.exe, etc.
+  will work as expected."
+  []
+  (when (msvc-setup?) (break))
+  (def arch (string (os/arch)))
+  (defn loc [y e]
+    (string `C:\Program Files\Microsoft Visual Studio\` y `\` e `\VC\Auxiliary\Build\vcvarsall.bat`))
+  (var found-path nil)
+  (loop [y :in [2022 2019 2017]
+         e :in ["Enterprise" "Professional" "Community" "BuildTools"]]
+    (def path (loc y e))
+    (when (os/stat path :mode) 
+      (set found-path path)
+      (break)))
+  (unless found-path (error "Could not find vcvarsall.bat"))
+  (def arg (string `"` found-path `" ` arch ` && echo ` tag ` && set`))
+  (def output (sh/exec-slurp "cmd" "/s" "/c" arg))
+  (def parsed-block (last (string/split tag output)))
+  (def kvpairs (peg/match vcvars-grammar parsed-block))
+  (assert kvpairs)
+  (each [k v] kvpairs
+    (os/setenv (string/trim k) (string/trim v)))
+  nil)
+
 (defn- msvc-opt
   []
   (case (build-type)
