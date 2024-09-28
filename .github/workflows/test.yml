@@ -2,7 +2,7 @@ name: Test
 
 on:
   push:
-    branches: [ master, msvc-detect ]
+    branches: [ master ]
   pull_request_target:
     branches: [ master ]
 
@@ -13,14 +13,14 @@ jobs:
     strategy:
       matrix:
         os: [ ubuntu-latest, macos-latest, macos-13 ]
-        janet-version: [ master, v1.36.0 ]
+        janet-version: [ heads/master, tags/v1.36.0 ]
     steps:
       - name: Checkout Janet
         uses: actions/checkout@v4
         with:
           repository: janet-lang/janet
           path: janet
-          ref: refs/heads/${{ matrix.janet-version }}
+          ref: refs/${{ matrix.janet-version }}
       - name: Build Janet
         run: cd janet && make clean && make && make test
       - name: Install Janet
