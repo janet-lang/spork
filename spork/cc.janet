@@ -35,6 +35,7 @@
 (defdyn *libs* "List of libraries to use when compiling - can be static or dynamic depending on system.")
 (defdyn *dynamic-libs* "List of dynamic libraries to use when compiling")
 (defdyn *msvc-libs* "List of .lib libraries to use when compiling with msvc")
+(defdyn *msvc-vcvars* "Path to vcvarsall.bat to use initialize MSVC environment. If unset, `msvc-find` will try to guess using typical install locations.")
 (defdyn *lflags* "Extra linker flags")
 (defdyn *static-libs* "List of static libraries to use when compiling")
 (defdyn *target-os* "Operating system to assume is being used for target compiler toolchain")
@@ -305,7 +306,7 @@
 ### - more testing
 ### - libraries
 
-(def- tag "AAABBBAAABBBCCCAAABBBAAACCC")
+(def- tag "AAAAAAAAAAAAAAAAAAAAAAAAAAA")
 (def- vcvars-grammar
   (peg/compile
     ~{:main (* (thru ,tag) (any :line))
@@ -330,8 +331,9 @@
 
 (defn msvc-find
   "Find vcvarsall.bat and run it to setup the current environment for building.
-  Optionally pass in `year` and `edition` to help look for vcvars.
-  Only supports VS 2017, 2019, and 2022.
+  Uses `(dyn *msvc-vcvars*)` to find the location of the setup script, otherwise defaults
+  to checking typical install locations for Visual Studio.
+  Supports VS 2017, 2019, and 2022, any edition.
   Will set environment variables such that invocations of cl.exe, link.exe, etc.
   will work as expected."
   []
@@ -340,13 +342,16 @@
   (defn loc [pf y e]
     (string `C:\` pf `\Microsoft Visual Studio\` y `\` e `\VC\Auxiliary\Build\vcvarsall.bat`))
   (var found-path nil)
-  (loop [pf :in ["Program Files" "Program Files (x86)"]
-         y :in [2022 2019 2017]
-         e :in ["Enterprise" "Professional" "Community" "BuildTools"]]
-    (def path (loc pf y e))
-    (when (os/stat path :mode) 
-      (set found-path path)
-      (break)))
+  (if-let [vcv (dyn *msvc-vcvars*)]
+    (set found-path vcv)
+    (do
+      (loop [pf :in ["Program Files" "Program Files (x86)"]
+             y :in [2022 2019 2017]
+             e :in ["Enterprise" "Professional" "Community" "BuildTools"]]
+        (def path (loc pf y e))
+        (when (os/stat path :mode) 
+          (set found-path path)
+          (break)))))
   (unless found-path (error "Could not find vcvarsall.bat"))
   (when (dyn :verbose)
     (print "found " found-path))

@@ -62,10 +62,15 @@
   (default column-mapping {})
   (def pass-through (fn [x _] x))
 
+  # Get columns if not provided.
+  (unless colkeys
+    (def all-keys @{})
+    (each row data
+      (eachk k row (put all-keys k true)))
+    (set colkeys (sorted (keys all-keys))))
+
   # preprocess rows
   (each row data
-    (unless colkeys
-      (set colkeys (sorted (keys row))))
     (def newrow @[])
     (each key colkeys
       (def process (get column-mapping key pass-through))
