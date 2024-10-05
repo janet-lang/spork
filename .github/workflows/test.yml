@@ -34,7 +34,7 @@ jobs:
       - name: Test Install 
         run: sudo janet -e '(bundle/install "spork")'
       - name: Run Tests
-        run: cd spork && janet -l ./bundle -e "(test)"
+        run: cd spork && janet bundle/test.janet
 
   test-windows:
     name: Build and test on Windows
@@ -64,4 +64,4 @@ jobs:
       - name: Run Tests
         shell: cmd
         run: |
-          refreshenv & cd spork & janet -l ./bundle -e "(test)"
+          refreshenv & cd spork & janet bundle/test.janet

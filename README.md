@@ -9,11 +9,28 @@ To use all features mentioned below in one program you can do `(use spork)` to
 import them. When you need only part of the functionality, please use `import`
 as seen in the example for the part.
 
+## Build
+
+```
+janet bundle/build.janet
+```
+
+## Test
+
+```
+janet bundle/test.janet
+```
 
 ## Installation
 
 ```
 [sudo] jpm install spork
+```
+
+Alternatively,
+
+```
+[sudo] janet -e '(bundle/install ".")'
 ```
 
 ## Dependencies
