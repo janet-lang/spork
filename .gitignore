@@ -10,5 +10,9 @@ _debug
 /tmp
 temp.html
 temp.mdz
+*.a
+*.o
+*.lib
+*.obj
 
 jpm_tree

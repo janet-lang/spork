@@ -4,28 +4,32 @@
   [& argv]
   (os/mkdir "build")
   (os/mkdir "build/objects")
+  (os/mkdir "build/spork")
 
-  (def suffix
-    (case (os/which)
-      :windows ".dll"
-      ".so"))
+  # How should we do toolchain detection?
+  (def toolchain
+    (cond
+      (os/getenv "MSVC") :msvc
+      (os/getenv "GCC") :gcc
+      (os/getenv "CLANG") :clang
+      (os/getenv "CC") :cc # any posix compatible compiler accessed via `cc`
+      (= :windows (os/which)) :msvc
+      :cc))
 
-  (def asuffix
-    (case (os/which)
-      :windows ".lib"
-      ".a"))
+  (def suffix (case toolchain :msvc ".dll" ".so"))
+  (def asuffix (case toolchain :msvc ".lib" ".a"))
 
   (def cc
-    (case (os/which)
-      :windows cc/msvc-compile-and-link-shared
+    (case toolchain
+      :msvc cc/msvc-compile-and-link-shared
       cc/compile-and-link-shared))
 
   (def static-cc
-    (case (os/which)
-      :windows cc/msvc-compile-and-make-archive
+    (case toolchain
+      :msvc cc/msvc-compile-and-make-archive
       cc/compile-and-make-archive))
 
-  (when (= :windows (os/which))
+  (when (= :msvc toolchain)
     (cc/msvc-find)
     (assert (cc/msvc-setup?))
     (setdyn cc/*msvc-libs* @[(cc/msvc-janet-import-lib)]))
@@ -33,8 +37,8 @@
   (defn make1
     [name & other-srcs]
     (def from (string "src/" name ".c"))
-    (def to (string "build/" name suffix))
-    (def toa (string "build/" name asuffix))
+    (def to (string "build/spork/" name suffix))
+    (def toa (string "build/spork/" name asuffix))
     (cc to from ;other-srcs)
     (static-cc toa from ;other-srcs))
 
