@@ -256,12 +256,20 @@
   # In place content
   (when-let [cl (in headers "content-length")]
     (def {:buffer buf
-          :connection conn
-          :head-size head-size} req)
+          :connection conn} req)
     (def content-length (scan-number cl))
     (def remaining (- content-length (length buf)))
     (when (pos? remaining)
       (ev/chunk conn remaining buf))
+    (put req :body buf)
+    (break buf))
+
+  # event stream aka SSE
+  (when (-?>> (in headers "content-type")
+              (string/has-prefix? "text/event-stream"))
+    (def {:buffer buf
+          :connection conn} req)
+    (read-until conn buf "\n\n")
     (put req :body buf)
     (break buf))
 
@@ -385,13 +393,13 @@
   [nextmw]
   (fn cookie-mw [req]
     (-> req
-      (put :cookies
-           (or (-?>> [:headers "cookie"]
-                   (get-in req)
-                   (peg/match cookie-grammar)
-                   (apply table))
-               {}))
-     nextmw)))
+        (put :cookies
+             (or (-?>> [:headers "cookie"]
+                       (get-in req)
+                       (peg/match cookie-grammar)
+                       (apply table))
+                 {}))
+        nextmw)))
 
 ###
 ### Server boilerplate
@@ -493,4 +501,3 @@
 
     # TODO - handle redirects with Location header
     res))
-
