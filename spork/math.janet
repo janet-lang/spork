@@ -357,9 +357,10 @@
         (+= sy y)
         (+= sxx (* x x))
         (+= sxy (* x y)))
-      {:m (def m
-            (/ (- (* cl sxy) (* sx sy))
-               (- (* cl sxx) (* sx sx))))
+      (def m
+        (/ (- (* cl sxy) (* sx sy))
+           (- (* cl sxx) (* sx sx))))
+      {:m m
        :b (- (/ sy cl) (/ (* m sx) cl))})))
 
 (defn linear-regression-line
