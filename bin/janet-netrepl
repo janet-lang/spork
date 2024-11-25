@@ -8,7 +8,7 @@
 
   (def ap
    (argparse/argparse
-    "Start a networked REPL server"
+    "Start a networked REPL server or client"
 
     :default
     {:kind :accumulate
