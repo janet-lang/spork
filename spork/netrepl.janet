@@ -242,7 +242,7 @@
                (if auto-flush
                  (do
                    (set keep-flushing true)
-                   (def f (go-nursery nurse flusher))
+                   (go-nursery nurse flusher)
                    (edefer (set keep-flushing false)
                      (def result (x))
                      (set keep-flushing false)
