@@ -4,7 +4,7 @@
  :template "mdzdoc/main.html"}
 ---
 
-A @strong[generator] is an iterable data structure which yields individual values whenever called, potentially until its internal values are exhausted, at which point it's considered @i[dead].
+A @strong[generator] is an iterable data structure which yields individual values whenever called, potentially until its internal values are exhausted, at which point it's considered @em[dead].
 
 This operation makes them very useful for:
 
