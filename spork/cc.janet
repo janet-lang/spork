@@ -76,7 +76,8 @@
   (def sp (dyn *syspath* "."))
   (def parts (filter next (path/parts sp)))
   (if (= "janet" (last parts))
-    (path/abspath (string sp "/.."))))
+    (path/abspath (string sp "/.."))
+    (path/abspath ".")))
 
 (defn- include-path []
   "Guess a header path based on the current system path"
