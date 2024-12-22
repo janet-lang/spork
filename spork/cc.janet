@@ -196,37 +196,37 @@
 (defn compile-c
   "Compile a C program to an object file. Return the command arguments."
   [from to]
-  (exec [(cc) (ccstd) ;(opt) ;(extra-paths) "-fPIC" ;(cflags) ;(defines) "-c" from "-o" to "-pthread"]
+  (exec [(cc) (ccstd) ;(opt) ;(cflags) ;(extra-paths) "-fPIC" ;(defines) "-c" from "-o" to "-pthread"]
         [from] [to] (string "compiling " from "...")))
 
 (defn compile-c++
   "Compile a C++ program to an object file. Return the command arguments."
   [from to]
-  (exec [(c++) (c++std) ;(opt) ;(extra-paths) "-fPIC" ;(c++flags) ;(defines) "-c" from "-o" to "-pthread"]
+  (exec [(c++) (c++std) ;(opt) ;(cflags) ;(extra-paths) "-fPIC" ;(defines) "-c" from "-o" to "-pthread"]
         [from] [to] (string "compiling " from "...")))
 
 (defn link-shared-c
   "Link a C program to make a shared library. Return the command arguments."
   [objects to]
-  (exec [(cc) (ccstd) ;(opt) ;(extra-paths) ;(cflags) "-o" to ;objects "-pthread" ;(libs) "-shared"]
+  (exec [(cc) (ccstd) ;(opt) ;(cflags) ;(extra-paths) "-o" to ;objects "-pthread" ;(libs) "-shared"]
         objects [to] (string "linking " to "...")))
 
 (defn link-shared-c++
   "Link a C++ program to make a shared library. Return the command arguments."
   [objects to]
-  (exec [(c++) (c++std) ;(opt) ;(extra-paths) ;(c++flags) "-o" to ;objects "-pthread" ;(libs) "-shared"]
+  (exec [(c++) (c++std) ;(opt) ;(c++flags) ;(extra-paths) "-o" to ;objects "-pthread" ;(libs) "-shared"]
         objects [to] (string "linking " to "...")))
 
 (defn link-executable-c
   "Link a C program to make an executable. Return the command arguments."
   [objects to]
-  (exec [(cc) (ccstd) ;(opt) ;(extra-paths) ;(cflags) "-o" to ;objects ;(rdynamic) "-pthread" ;(libs)]
+  (exec [(cc) (ccstd) ;(opt) ;(cflags) ;(extra-paths) "-o" to ;objects ;(rdynamic) "-pthread" ;(libs)]
         objects [to] (string "linking " to "...")))
 
 (defn link-executable-c++
   "Link a C++ program to make an executable. Return the command arguments."
   [objects to]
-  (exec [(c++) (c++std) ;(opt) ;(extra-paths) ;(c++flags) "-o" to ;objects ;(rdynamic) "-pthread" ;(libs)]
+  (exec [(c++) (c++std) ;(opt) ;(c++flags) ;(extra-paths) "-o" to ;objects ;(rdynamic) "-pthread" ;(libs)]
         objects [to] (string "linking " to "...")))
 
 (defn make-archive
