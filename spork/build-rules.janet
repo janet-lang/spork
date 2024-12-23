@@ -157,8 +157,9 @@
     (cond
       (keyword? target) [(string target)]
       (string? target) [target]
-      (indexed? target) target))
-  (def target (first target))
+      (indexed? target) target
+      (errorf "bad target %v" target)))
+  (def target (first all-targets))
   (each d [;deps ;all-targets]
     (assert (string? d) "inputs and outputs must be strings"))
   (unless (get rules target)

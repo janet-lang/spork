@@ -23,6 +23,7 @@
 
 (import ./path)
 (import ./sh)
+(import ./build-rules)
 
 (defdyn *ar* "Archiver, defaults to `ar`.")
 (defdyn *build-dir* "If generating intermediate files, store them in this directory")
@@ -51,6 +52,7 @@
   Some linkers support this by default, but not at all. Defaults to true on linux and macos.``)
 (defdyn *c-std* "C standard to use as a 2 digit number, defaults to 99 on GCC-like compilers, 11 on msvc.")
 (defdyn *c++-std* "C++ standard to use as a 2 digit number, defaults to 11 on GCC-like compilers, 14 on msvc.")
+(defdyn *rules* "Rules to use with visit-add-rule")
 
 ###
 ### Universal helpers for all toolchains
@@ -202,7 +204,7 @@
 (defn compile-c++
   "Compile a C++ program to an object file. Return the command arguments."
   [from to]
-  (exec [(c++) (c++std) ;(opt) ;(cflags) ;(extra-paths) "-fPIC" ;(defines) "-c" from "-o" to "-pthread"]
+  (exec [(c++) (c++std) ;(opt) ;(c++flags) ;(extra-paths) "-fPIC" ;(defines) "-c" from "-o" to "-pthread"]
         [from] [to] (string "compiling " from "...")))
 
 (defn link-shared-c
@@ -538,6 +540,14 @@
   [cmd inputs outputs message]
   (with [devnull (sh/devnull)]
     (os/execute cmd :px {:out devnull :err devnull})))
+
+(defn visit-add-rule
+  "Used in conjuction with spork/build-rules. Adds rules to the (dyn *rules* (curenv))"
+  [cmd inputs outputs message]
+  (def rules (dyn *rules* (curenv)))
+  (build-rules/build-rule
+    rules outputs inputs
+    (visit-execute cmd inputs outputs message)))
 
 ###
 ### Library discovery and self check
