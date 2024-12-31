@@ -36,16 +36,16 @@
 
 (defn- compile-schema
   "Given a schema definition, compile to a predicate function to validate the schema."
-  [x could-match pattern]
+  [x pattern short-circuit break-val]
 
   # Fragment to check for early exit
-  (def breaker (if could-match ~(if ,could-match nil (break)) nil))
+  (def breaker (if (and short-circuit (not= nil break-val)) ~(if ,short-circuit (break ,break-val)) nil))
 
   (defn invalid
     "Create code fragment to mark ,x as invalid."
     [msg &opt modifier]
-    (if could-match
-      ~(set ,could-match false)
+    (if short-circuit
+      ~(set ,short-circuit true)
       ~(,errorf ,(string "failed clause %p, " msg) ',pattern ,(if modifier ~(,modifier ,x) x))))
 
   (case (type pattern)
@@ -73,17 +73,22 @@
       # Union
       [(a (= a 'or))]
       (let [rest (slice pattern 1)
-            ss (gensym)]
+            still-looking (gensym)
+            ss2 (gensym)]
         ~(do
-           (var ,ss false)
+           (var ,still-looking true)
            ,;(seq [pat :in rest]
-               ~(if ,ss nil (do (set ,ss true) ,(compile-schema x ss pat))))
-           (if ,ss nil ,(invalid "choice failed"))))
+               ~(if ,still-looking
+                  (do
+                    (var ,ss2 false)
+                    ,(compile-schema x pat ss2 nil)
+                    (if ,ss2 nil (set ,still-looking false)))))
+           (if ,still-looking ,(invalid "choice failed: %v"))))
 
       # Intersection
       [(a (= a 'and))]
       (let [rest (slice pattern 1)
-            part (partial compile-schema x could-match)]
+            part (fn [y] (compile-schema x y short-circuit break-val))]
         ~(do ,;(interpose breaker (map part rest))))
 
       # Assert for all values
@@ -91,14 +96,14 @@
       (with-syms [iterator]
         ~(each ,iterator ,x
            ,breaker
-           ,(compile-schema iterator could-match subpat)))
+           ,(compile-schema iterator subpat short-circuit break-val)))
 
       # Assert for all keys
       [(a (= a 'keys)) subpat]
       (with-syms [iterator]
         ~(eachk ,iterator ,x
            ,breaker
-           ,(compile-schema iterator could-match subpat)))
+           ,(compile-schema iterator subpat short-circuit break-val)))
 
       # Assert structure for tables and structs
       [(a (= a 'props))]
@@ -108,7 +113,7 @@
         ~(do
            ,;(seq [[k v] :in ps]
                (def tester (gensym))
-               ~(do ,breaker (def ,tester (,get ,x ,k)) ,(compile-schema tester could-match v)))))
+               ~(do ,breaker (def ,tester (,get ,x ,k)) ,(compile-schema tester v short-circuit break-val)))))
 
       # Assert length
       [(a (= a 'length)) minl maxl]
@@ -130,15 +135,15 @@
            (if (peg/match ,compiled-peg ,x) nil
              ,(invalid
                 (string "peg match failed against " peg " for value %v")))
-           ,(invalid "expected bytes")))
+           ,(invalid "expected bytes, got %v")))
 
       # Not
       [(a (= a 'not)) rule]
       (with-syms [ss]
         ~(do
-           (var ,ss true)
-           ,(compile-schema x ss rule)
-           (if ,ss ,(invalid "failed not clause: %v"))))
+           (var ,ss false)
+           ,(compile-schema x rule ss false) # TODO - early exits here
+           (if ,ss nil ,(invalid "failed not clause: %v"))))
 
       # Arbitrary predicates
       [(a (= a 'pred)) pred]
@@ -162,7 +167,9 @@
   A validation function will throw an error on validation failure, otherwise, it will return the argument."
   [pattern]
   (with-syms [arg]
-    ~(fn validate [,arg] ,(compile-schema arg nil pattern) ,arg)))
+    (def body (compile-schema arg pattern nil nil))
+    # (printf "%.99M" body)
+    ~(fn validate [,arg] ,body ,arg)))
 
 (defn make-validator
   "Generate a function that can be used to validate a data structure. This is the function
@@ -174,7 +181,9 @@
   "Make a validation predicate given a certain schema."
   [pattern]
   (with-syms [arg flag]
-    ~(fn check [,arg] (var ,flag true) ,(compile-schema arg flag pattern) ,flag)))
+    (def body (compile-schema arg pattern flag false))
+    # (printf "%.99M" body)
+    ~(fn check [,arg] (var ,flag false) ,body (,not ,flag))))
 
 (defn make-predicate
   "Generate a function that can be used to validate a data structure. This is the function

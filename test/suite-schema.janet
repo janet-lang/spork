@@ -33,4 +33,27 @@
 (assert-no-error "validator v2 1" (v2 {:a 1 :b 2}))
 (assert-no-error "validator v2 2" (v2 {:a 1 :b 2 :c "hello"}))
 
+(defn pos-string? [x] (if-let [y (scan-number x)] (pos? y)))
+(def v3
+  (schema/validator
+    (or
+      (and :number (pred pos?))
+      (and :string (pred pos-string?)))))
+(assert-no-error "validator v3 1" (v3 1))
+(assert-error "validator v3 2" (v3 -1))
+(assert-no-error "validator v3 3" (v3 "1"))
+(assert-error "validator v3 4" (v3 "-1"))
+(assert-error "validator v3 5" (v3 :-1))
+
+# switch "and" and "or" in the v3 validator
+(def v4
+  (schema/validator
+    (and
+      (or :number (pred pos?))
+      (or :string (pred pos-string?)))))
+(assert-error "validator v4 1" (v4 1))
+(assert-error "validator v4 2" (v4 -1))
+(assert-no-error "validator v4 3" (v4 "1")) # strings are considered "pos?"
+(assert-no-error "validator v4 4" (v4 "-1"))
+
 (end-suite)
