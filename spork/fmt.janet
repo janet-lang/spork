@@ -85,7 +85,7 @@
 (def- indent-2-forms
   "A list of forms that are control forms and should be indented two spaces."
   (invert ["fn" "match" "with" "with-dyns" "def" "def-" "var" "var-" "defn" "defn-"
-           "varfn" "defmacro" "defmacro-" "defer" "edefer" "loop" "seq" "tabseq" "generate" "coro"
+           "varfn" "defmacro" "defmacro-" "defer" "edefer" "loop" "seq" "tabseq" "catseq" "generate" "coro"
            "for" "each" "eachp" "eachk" "case" "cond" "do" "defglobal" "varglobal"
            "if" "when" "when-let" "when-with" "while" "with-syms" "with-vars"
            "if-let" "if-not" "if-with" "let" "short-fn" "try" "unless" "default" "forever" "upscope"
