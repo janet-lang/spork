@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2023 Calvin Rose
+* Copyright (c) 2025 Calvin Rose and contributors
 *
 * Permission is hereby granted, free of charge, to any person obtaining a copy
 * of this software and associated documentation files (the "Software"), to
@@ -82,6 +82,16 @@ int64_t _mulmod_impl(int64_t a, int64_t b, int64_t m) {
 
 #else
 
+int64_t _add_impl(int64_t a, int64_t b, int64_t c) {
+    int64_t room = (c - 1) - a;
+    if (b <= room) {
+        a += b;
+    } else {
+        a = b - room - 1;
+    }
+    return a;
+}
+
 int64_t _mulmod_impl(int64_t a, int64_t b, int64_t m) {
     int64_t res = 0;
     a = _mod_impl(a, m);
@@ -92,10 +102,11 @@ int64_t _mulmod_impl(int64_t a, int64_t b, int64_t m) {
         b = tmpa;
     }
     if (b < 0) b -= m;
+    int i = 0;
     while (b > 0) {
-        if ((b & 1) == 1)
-            res += (((m - res - a) ^ m) < 0) ? a - m : a;
-        a += (((m - a - a) ^ m) < 0) ? a - m : a;
+        if ((b & 1))
+            res = _add_impl(res, a, m);
+        a = _add_impl(a, a, m);
         b >>= 1;
     }
     return res;
@@ -106,8 +117,6 @@ int64_t _mulmod_impl(int64_t a, int64_t b, int64_t m) {
 Janet wrap_nan() {
 #ifdef NAN
     return janet_wrap_number(NAN);
-#elif defined(_MSC_VER)
-    return janet_wrap_nan(nan("nan"));
 #else
     return janet_wrap_number(0.0 / 0.0);
 #endif
