@@ -102,7 +102,6 @@ int64_t _mulmod_impl(int64_t a, int64_t b, int64_t m) {
         b = tmpa;
     }
     if (b < 0) b -= m;
-    int i = 0;
     while (b > 0) {
         if ((b & 1))
             res = _add_impl(res, a, m);
