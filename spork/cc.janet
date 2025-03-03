@@ -114,13 +114,16 @@
     x))
 
 (defn- classify-source
-  "Classify a source file as C or C++"
+  "Classify a source file as C or C++ (or object files)"
   [path]
   (cond
     (string/has-suffix? ".c" path) :c
     (string/has-suffix? ".cc" path) :c++
     (string/has-suffix? ".cpp" path) :c++
     (string/has-suffix? ".cxx" path) :c++
+    # object files
+    (string/has-suffix? ".o" path) :o
+    (string/has-suffix? ".obj" path) :o
     # else
     (errorf "unknown source file type for %v" path)))
 
@@ -196,13 +199,13 @@
     (string "-std=c++" std)))
 
 (defn compile-c
-  "Compile a C program to an object file. Return the command arguments."
+  "Compile a C source file to an object file. Return the command arguments."
   [from to]
   (exec [(cc) (ccstd) ;(opt) ;(cflags) ;(extra-paths) "-fPIC" ;(defines) "-c" from "-o" to "-pthread"]
         [from] [to] (string "compiling " from "...")))
 
 (defn compile-c++
-  "Compile a C++ program to an object file. Return the command arguments."
+  "Compile a C++ source file to an object file. Return the command arguments."
   [from to]
   (exec [(c++) (c++std) ;(opt) ;(c++flags) ;(extra-paths) "-fPIC" ;(defines) "-c" from "-o" to "-pthread"]
         [from] [to] (string "compiling " from "...")))
@@ -238,7 +241,7 @@
 
 # Compound commands
 
-(defn- out-path
+(defn out-path
   "Take a source file path and convert it to an output path."
   [path to-ext &opt sep]
   (default sep "/")
@@ -259,6 +262,8 @@
     (def o (out-path source ".o"))
     (def source-type (classify-source source))
     (case source-type
+      :o
+      (array/push objects source)
       :c
       (do
         (array/push cmds-into (compile-c source o))
@@ -408,14 +413,14 @@
 (defn- lib.exe [] "lib.exe")
 
 (defn msvc-compile-c
-  "Compile a C program with MSVC. Return the command arguments."
+  "Compile a C source file with MSVC to an object file. Return the command arguments."
   [from to]
   (exec [(cl.exe) "/c" (msvc-cstd) "/utf-8" "/nologo" ;(cflags) ;(msvc-compile-paths) ;(msvc-opt) ;(msvc-defines)
          "/I" (dyn *syspath* ".") from (string "/Fo" to)]
         [from] [to] (string "compiling " from "...")))
 
 (defn msvc-compile-c++
-  "Compile a C++ program with MSVC. Return the command arguments."
+  "Compile a C++ source file with MSVC to an object file. Return the command arguments."
   [from to]
   (exec [(cl.exe) "/c" (msvc-c++std) "/utf-8" "/nologo" "/EHsc" ;(c++flags) ;(msvc-compile-paths) ;(msvc-opt) ;(msvc-defines)
          "/I" (dyn *syspath* ".") from (string "/Fo" to)]
@@ -451,6 +456,8 @@
     (def o (out-path source ".o" "\\"))
     (def source-type (classify-source source))
     (case source-type
+      :o
+      (array/push objects source)
       :c
       (do
         (array/push cmds-into (msvc-compile-c source o))
@@ -507,6 +514,8 @@
   "A function that can be provided as `(dyn *visit*)` that will generate Makefile targets."
   [cmd inputs outputs message]
   (assert (one? (length outputs)) "only single outputs are supported for Makefile generation")
+  (print ".PHONY: _all")
+  (print "_all: " (string/join outputs " "))
   (print (first outputs) ": " (string/join inputs " "))
   (print "\t@echo " (describe message))
   (print "\t@'" (string/join cmd "' '") "'\n"))

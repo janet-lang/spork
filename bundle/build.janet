@@ -24,6 +24,11 @@
       :msvc cc/msvc-compile-and-link-shared
       cc/compile-and-link-shared))
 
+  (def compile-c
+    (case toolchain
+      :msvc cc/msvc-compile-c
+      :msvc cc/compile-c))
+
   (def static-cc
     (case toolchain
       :msvc cc/msvc-compile-and-make-archive

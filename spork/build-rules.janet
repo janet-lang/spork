@@ -70,7 +70,7 @@
   (set (utd-cache target) ret))
 
 (defn- run-rules
-  "Create execution graph from rules that will build targets."
+  "Execute the minimal set of rules needed to build all targets in `targets`."
   [rules targets &opt n-workers]
   (def utd-cache @{})
   (def all-targets @{})
