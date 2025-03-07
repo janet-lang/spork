@@ -106,8 +106,16 @@
   (each part (path/parts dir-path)
     (array/push dirs part)
     (let [path (path/join ;dirs)]
-         (if-not (os/lstat path)
-             (os/mkdir path)))))
+      (os/mkdir path))))
+
+(defn create-dirs-to
+  "Create all directories in path specified as string not including the final path segment."
+  [dir-path]
+  (def dirs @[])
+  (each part (slice (path/parts dir-path) 0 -2)
+    (array/push dirs part)
+    (let [path (path/join ;dirs)]
+      (os/mkdir path))))
 
 (defn make-new-file
   "Create and open a file, creating all the directories leading to the file if
