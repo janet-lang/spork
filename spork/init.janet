@@ -23,6 +23,7 @@
 (import ./netrepl :export true)
 (import ./path :export true)
 (import ./pgp :export true)
+(import ./pm :export true)
 (import ./randgen :export true)
 (import ./regex :export true)
 (import ./rpc :export true)
