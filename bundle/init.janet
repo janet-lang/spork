@@ -1,23 +1,23 @@
-(import ./test)
-(import ./build :as b)
-(import ./clean :as c)
+(use /spork/declare-cc)
+(use /spork/build-rules)
+(def e (curenv))
 
-(defn clean [&]
-  (c/main))
+(dofile "project.janet" :env e)
 
-(defn check [&]
-  (test/main))
+(defn install [manifest &]
+  (setdyn :verbose true)
+  (setdyn *install-manifest* manifest)
+  (build-run e "install"))
 
 (defn build [&]
-  (b/main))
+  (setdyn *install-manifest* @{})
+  (setdyn :verbose true)
+  (build-run e "build"))
 
-(defn install [m &]
-  (bundle/add-file m "src/tarray.h" "tarray.h")
-  (bundle/add m "spork")
-  (compwhen (dyn 'bundle/add-bin)
-    (bundle/add-bin m "bin/janet-format")
-    (bundle/add-bin m "bin/janet-netrepl"))
-  (each file (os/dir "build/spork")
-    (def f (string "build/spork/" file))
-    (when (= (os/stat f :mode) :file)
-      (bundle/add-file m f (string "spork/" file)))))
+(defn check [&]
+  (setdyn *install-manifest* @{})
+  (build-run e "test"))
+
+(defn clean [&]
+  (setdyn *install-manifest* @{})
+  (build-run e "clean"))

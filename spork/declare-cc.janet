@@ -9,13 +9,7 @@
 ###
 
 ### TODO
-# declare-project
-# declare-binscript
-# declare-bin
-# declare-archive
 # declare-executable
-# declare-native
-# custom build dir
 
 (import ./build-rules)
 (import ./cc)
@@ -68,7 +62,7 @@
   (build-rules/build-rule
     rules :install [src]
     (def manifest (assert (dyn *install-manifest*)))
-    (bundle/add src dest))
+    (bundle/add manifest src dest))
   nil)
 
 (defn- install-buffer
@@ -183,6 +177,8 @@
     (print "removing directort " bd)
     (sh/rm bd))
   (build-rules/build-rule
+    rules :install ["build"])
+  (build-rules/build-rule
     rules :build ["pre-build"])
   (build-rules/build-rule
     rules :test ["build"]
@@ -197,19 +193,19 @@
   array of files and directores to copy into JANET_MODPATH or JANET_PATH.
   :prefix can optionally be given to modify the destination path to be
   (string JANET_PATH prefix source)."
-  [&named sources prefix]
-  (if (bytes? sources)
-    (install-rule sources prefix)
-    (each s sources
+  [&named source prefix]
+  (if (bytes? source)
+    (install-rule source prefix)
+    (each s source
       (install-rule s prefix))))
 
 (defn declare-headers
   "Declare headers for a library installation. Installed headers can be used by other native
   libraries."
-  [&named sources prefix]
-  (if (bytes? sources)
-    (install-rule sources (if prefix prefix))
-    (each s sources
+  [&named headers prefix]
+  (if (bytes? headers)
+    (install-rule headers (if prefix prefix))
+    (each s headers
       (def bn (path/basename s))
       (def dest (if prefix (path/join prefix bn) bn))
       (install-rule s dest))))
@@ -279,6 +275,7 @@
   (default embedded @[])
   (default nostatic false)
   (default defines @{})
+  (default smart-libs false)
 
   # Create build environment table
   (def benv @{cc/*build-dir* (build-dir)
@@ -321,16 +318,16 @@
       :msvc cc/msvc-compile-and-make-archive
       cc/compile-and-make-archive))
 
-  (def to (string "build/" name suffix))
-  (def toa (string "build/" name asuffix))
-
-  # TODO - static library metadata
+  # TODO - handle cpp
+  (def has-cpp false)
 
   (with-env benv
+    (def to (cc/out-path name suffix))
+    (install-rule to (string name suffix))
     (def objects @[])
     (loop [src :in embedded]
       (def c-src (cc/out-path src ".c"))
-      (def o-src (cc/out-path src ".c.o"))
+      (def o-src (cc/out-path src ".o"))
       (array/push objects o-src)
       (build-rules/build-rule rules c-src [src]
                               (create-buffer-c (slurp src) c-src (embed-name src)))
@@ -338,16 +335,35 @@
     (cc to ;source ;objects)
     (build-rules/build-rule rules :build [to])
     (unless nostatic
+      (def toa (cc/out-path name asuffix))
+      (install-rule toa (string name asuffix))
       (with-dyns [cc/*build-dir* "build/static"]
         (def sobjects @[])
         (loop [src :in embedded]
           (def c-src (cc/out-path src ".c"))
-          (def o-src (cc/out-path src ".c.o"))
+          (def o-src (cc/out-path src ".o"))
           (array/push sobjects o-src)
           (build-rules/build-rule rules c-src [src]
                                   (create-buffer-c (slurp src) c-src (embed-name src)))
           (compile-c c-src o-src))
         (static-cc toa ;source ;sobjects)
         (build-rules/build-rule rules :build [toa]))))
+
+  (unless nostatic
+    (def metaname (string name ".meta.janet"))
+    (def ename (entry-name name))
+    (defn contents []
+      (string/format
+        "# Metadata for static library %s\n\n%.20p"
+        (string name asuffix)
+        {:static-entry ename
+         :cpp has-cpp
+         :ldflags libs
+         :lflags lflags
+         :static-libs static-libs
+         :smart-libs smart-libs
+         :use-rdynamic use-rdynamic
+         :use-rpath use-rpath}))
+    (install-buffer contents metaname))
 
   rules)
