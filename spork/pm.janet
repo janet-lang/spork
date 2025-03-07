@@ -142,6 +142,61 @@
     (errorf "unknown bundle type %v" bundle-type))
   bundle-dir)
 
+(defn- load-project-meta
+  "Load the metadata from a project.janet file without doing a full evaluation
+  of the project.janet file. Returns a struct with the project metadata. Raises
+  an error if no metadata found."
+  [&opt path]
+  (default path "./project.janet")
+  (def src (slurp path))
+  (def p (parser/new))
+  (parser/consume p src)
+  (parser/eof p)
+  (var ret nil)
+  (while (parser/has-more p)
+    (if ret (break))
+    (def item (parser/produce p))
+    (match item
+      ['declare-project & rest] (set ret (struct ;rest))))
+  (unless ret
+    (errorf "no metadata found in %s" path))
+  ret)
+
+(def- shimcode
+````
+(use spork/declare-cc)
+(use spork/build-rules)
+(def e (curenv))
+(put e 'default-cflags @{:value @[]})
+(put e 'default-lflags @{:value @[]})
+(put e 'default-ldflags @{:value @[]})
+(put e 'default-cppflags @{:value @[]})
+(dofile "project.janet" :env e)
+(defn install [manifest &]
+  (setdyn *install-manifest* manifest)
+  (build-run e "install"))
+(defn build [&] (build-run e "build"))
+(defn check [&] (build-run e "test"))
+(defn clean [&] (build-run e "clean"))
+````)
+
+(defn project-janet-shim
+  "Add a bundle/ directory to a legacy jpm project directory to allow installation with janet --install"
+  [dir]
+  (def project (path/join dir "project.janet"))
+  (def bundle-hook-dir (path/join dir "bundle"))
+  (def bundle-janet-path (path/join dir "bundle.janet"))
+  (def bundle-init (path/join dir "bundle" "init.janet"))
+  (def bundle-info (path/join dir "bundle" "info.jdn"))
+  (if (os/stat bundle-hook-dir :mode) (break))
+  (if (os/stat bundle-janet-path :mode) (break))
+  (assert (os/stat project :mode) "did not find bundle directory, bundle.janet or project.janet")
+  (def meta (load-project-meta project))
+  (os/mkdir bundle-hook-dir)
+  (spit bundle-init shimcode)
+  (spit bundle-info (string/format "%j" meta))
+  nil)
+
 (defn pm-install
   "Install a bundle given a url, short name, or full 'bundle code'."
   [bundle-code &opt force-update]
@@ -160,7 +215,8 @@
         (break)))
     (if installed (break)))
   (def bdir (download-bundle url bundle-type tag shallow))
-  (when-with [f (file/open (path/join bdir "bundle" "info.jdn"))]
+  (project-janet-shim bdir)
+  '(when-with [f (file/open (path/join bdir "bundle" "info.jdn"))]
     (def info (parse (:read f :all)))
     (each dep (get info :dependencies @[])
       (pm-install dep)))
