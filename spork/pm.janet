@@ -189,7 +189,8 @@
   (if (os/stat bundle-janet-path :mode) (break))
   (assert (os/stat project :mode) "did not find bundle directory, bundle.janet or project.janet")
   (def meta (load-project-meta project))
-  (def deps (get meta :dependencies @[]))
+  # (def deps (array/slice (get meta :dependencies @[])))
+  (def deps @[]) # TODO - resolve deps from URLs to bundle names
   (unless (index-of "spork" deps) (array/push deps "spork"))
   (put meta :dependencies deps)
   (os/mkdir bundle-hook-dir)
@@ -217,10 +218,12 @@
     (if installed (break)))
   (def bdir (download-bundle url bundle-type tag shallow))
   (project-janet-shim bdir)
-  '(when-with [f (file/open (path/join bdir "bundle" "info.jdn"))]
-    (def info (parse (:read f :all)))
-    (each dep (get info :dependencies @[])
-      (pm-install dep)))
+  (def infopath (path/join bdir "bundle" "info.jdn"))
+  (def info (parse (slurp infopath)))
+  (if-let [name (get info :name)]
+    (if (bundle/installed? name) (break)))
+  (each dep (get info :dependencies @[])
+    (pm-install dep))
   (def config @{:pm-identifier bundle-code :url url :tag tag :type bundle-type :installed-with "spork/pm"})
   (bundle/install bdir :config config ;(kvs config)))
 

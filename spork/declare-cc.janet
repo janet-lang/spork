@@ -9,11 +9,12 @@
 ###
 
 ### TODO
-# declare-executable
+# - declare-executable
+# - lock-files
 
 (import ./build-rules)
-(import ./cc)
-(import ./path)
+(def cc (import ./cc))
+(def path (import ./path))
 (def sh (import ./sh))
 (def cjanet (import ./cjanet))
 
@@ -186,7 +187,7 @@
   (build-rules/build-rule
     rules :install ["build"])
   (build-rules/build-rule
-    rules :build ["pre-build" "dep-check"])
+    rules :build ["pre-build"])
   (build-rules/build-rule
     rules :test ["build"]
     (run-tests))
@@ -418,6 +419,14 @@
   [target deps & body]
   ~(,rule-impl ,target ,deps (fn ,(keyword target) [] (,sh/exec (,string ,;body))) true))
 
+(defmacro post-deps
+  "Run code at the top level if jpm dependencies are installed. Build
+  code that imports dependencies should be wrapped with this macro, as project.janet
+  needs to be able to run successfully even without dependencies installed."
+  [& body]
+  (unless (dyn :jpm-no-deps)
+    ~',(reduce |(eval $1) nil body)))
+
 (def- declare-cc (curenv))
 
 (defn jpm-shim-env
@@ -428,10 +437,11 @@
   (merge-module e sh)
   (merge-module e cjanet)
   (merge-module e declare-cc)
+  (merge-module e cc)
+  (merge-module e path)
   # TODO - fake some other functions a bit better as well
   (put e 'default-cflags @{:value @[]})
   (put e 'default-lflags @{:value @[]})
   (put e 'default-ldflags @{:value @[]})
   (put e 'default-cppflags @{:value @[]})
-  (put e 'phony @{:value comment :macro true})
   e)
