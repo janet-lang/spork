@@ -166,20 +166,26 @@
   [&named name description url version repo tag dependencies]
   (assert name)
   (assert description)
+  (default dependencies @[])
   (def rules (get-rules))
-  (def bd (build-dir))
   (build-rules/build-rule
     rules :pre-build []
+    (def bd (build-dir))
     (os/mkdir bd)
     (os/mkdir (path/join bd "static")))
   (build-rules/build-rule
     rules :clean []
-    (print "removing directort " bd)
+    (def bd (build-dir))
+    (print "removing directory " bd)
     (sh/rm bd))
+  (build-rules/build-rule
+    rules :dep-check []
+    (each d dependencies
+      (assertf (bundle/installed? d) "dependency %v not installed" d)))
   (build-rules/build-rule
     rules :install ["build"])
   (build-rules/build-rule
-    rules :build ["pre-build"])
+    rules :build ["pre-build" "dep-check"])
   (build-rules/build-rule
     rules :test ["build"]
     (run-tests))
