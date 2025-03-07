@@ -1,7 +1,8 @@
 ###
-### Package management functionality
+### Package management functionality. Augments janet's bundle/* module with git, tar, and
+### curl support. Connects to a package registry as well, and provides some dependency management.
 ###
-### Port of jpm/pm
+### Port of parts of jpm/pm.janet
 ###
 
 (import ./sh)
@@ -140,3 +141,30 @@
     :tar (download-tar-bundle bundle-dir url)
     (errorf "unknown bundle type %v" bundle-type))
   bundle-dir)
+
+(defn pm-install
+  "Install a bundle given a url, short name, or full 'bundle code'."
+  [bundle-code &opt force-update]
+  (def bundle (resolve-bundle bundle-code))
+  (def {:url url
+        :tag tag
+        :type bundle-type
+        :shallow shallow}
+    bundle)
+  (unless force-update
+    (var installed false)
+    (each b (bundle/list)
+      (def id (get (get (bundle/manifest b) :config {}) :url))
+      (when (= id url)
+        (set installed true)
+        (break)))
+    (if installed (break)))
+  (def bdir (download-bundle url bundle-type tag shallow))
+  (when-with [f (file/open (path/join bdir "bundle" "info.jdn"))]
+    (def info (parse (:read f :all)))
+    (each dep (get info :dependencies @[])
+      (pm-install dep)))
+  (def config @{:pm-identifier bundle-code :url url :tag tag :type bundle-type :installed-with "spork/pm"})
+  (bundle/install bdir :config config ;(kvs config)))
+
+(set bundle-install-recursive pm-install)
