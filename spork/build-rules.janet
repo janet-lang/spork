@@ -18,17 +18,6 @@
           (cancel-all fibers "sibling canceled")
           (propagate (fiber/last-value fiber) fiber))))))
 
-(defn- executor
-  "How to execute a rule at runtime - extract the recipe thunk(s) and call them."
-  [rule]
-  (def r (assert (get rule :recipe)))
-  (edefer
-    (each o (get rule :outputs [])
-      (protect (os/rm o)))
-    (if (indexed? r)
-      (each rr r (rr))
-      (r))))
-
 (defn- target-not-found
   "Creates an error message."
   [target]
@@ -109,6 +98,7 @@
       (++ work-count))
     needs-build)
   (each target targets (needs-build? target))
+  (default n-workers 1)
 
   (defn worker
     [n]
@@ -118,7 +108,15 @@
       (-- work-count)
       (def rule (get all-targets target))
       (def dependent-set (get dependents target ()))
-      (executor rule)
+      (def r (assert (get rule :recipe)))
+      (edefer
+        (do
+          (each o (get rule :outputs [])
+            (protect (os/rm o)))
+          (repeat n-workers (ev/give q nil)))
+        (if (indexed? r)
+          (each rr r (rr))
+          (r)))
       (array/push targets-built target)
       (eachk next-target dependent-set
         (-- (dep-counts next-target))
@@ -127,7 +125,6 @@
     (ev/give q nil))
 
   (def fibers @{})
-  (default n-workers 1)
   (def super (ev/chan))
   (forv i 0 n-workers
         (def fib (ev/go worker i super))

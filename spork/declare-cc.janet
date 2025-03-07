@@ -8,6 +8,15 @@
 ### is less flexible than raw spork/cc.
 ###
 
+### TODO
+# declare-project
+# declare-binscript
+# declare-bin
+# declare-archive
+# declare-executable
+# declare-native
+# custom build dir
+
 (import ./build-rules :as build-rules)
 (import ./cc :as cc)
 
