@@ -181,6 +181,16 @@
   [rules target deps & body]
   ~(,rule-impl ,rules ,target ,deps (fn [] nil ,;body)))
 
+(defn build-thunk
+  ```
+  Add a rule to the rule graph. `rules` should be a table, `target`
+  a string or tuple of strings, and `deps` a tuple of strings. `body`
+  is code that will be executed to create all of the targets by the rules.
+  If target is a keyword, the rule will always be considered out of date.
+  ```
+  [rules target deps thunk]
+  (rule-impl rules target deps thunk))
+
 (defn build-run
   "Build a list of targets, as specified by rules. Return an array of all recursively updated targets."
   [rules targets &opt n-workers]

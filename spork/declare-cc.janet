@@ -14,7 +14,8 @@
 (import ./build-rules)
 (import ./cc)
 (import ./path)
-(import ./sh)
+(def sh (import ./sh))
+(def cjanet (import ./cjanet))
 
 (defdyn *install-manifest* "Bound to the bundle manifest during a bundle/install.")
 (defdyn *toolchain* "Force a given toolchain. If unset, will auto-detect.")
@@ -373,3 +374,64 @@
     (install-buffer contents metaname))
 
   rules)
+
+###
+### Create an environment that emulates jpm's project.janet environment
+###
+
+(defn- rule-impl
+  [target deps thunk &opt phony]
+  (def all-targets (if (indexed? target) target [target]))
+  (def target (if (indexed? target) (first target) target))
+  (def target (if phony (keyword target) target))
+  (def rules (get-rules))
+  (build-rules/build-thunk rules target deps thunk))
+
+(defmacro rule
+  "Add a rule to the rule graph."
+  [target deps & body]
+  ~(,rule-impl ,target ,deps (fn ,(keyword target) [] nil ,;body)))
+
+(defmacro task
+  "Add a task rule to the rule graph. A task rule will always run if invoked
+  (it is always considered out of date)."
+  [target deps & body]
+  ~(,rule-impl ,target ,deps (fn ,(keyword target) [] nil ,;body) true))
+
+(defmacro phony
+  "Alias for `task`."
+  [target deps & body]
+  ~(,rule-impl ,target ,deps (fn ,(keyword target) [] nil ,;body) true))
+
+(defmacro sh-rule
+  "Add a rule that invokes a shell command, and fails if the command returns non-zero."
+  [target deps & body]
+  ~(,rule-impl ,target ,deps (fn ,(keyword target) [] (,sh/exec (,string ,;body)))))
+
+(defmacro sh-task
+  "Add a task that invokes a shell command, and fails if the command returns non-zero."
+  [target deps & body]
+  ~(,rule-impl ,target ,deps (fn ,(keyword target) [] (,sh/exec (,string ,;body))) true))
+
+(defmacro sh-phony
+  "Alias for `sh-task`."
+  [target deps & body]
+  ~(,rule-impl ,target ,deps (fn ,(keyword target) [] (,sh/exec (,string ,;body))) true))
+
+(def- declare-cc (curenv))
+
+(defn jpm-shim-env
+  "Create an environment table that can evaluate project.janet files"
+  []
+  (def e (make-env))
+  # TODO - one for one naming with jpm
+  (merge-module e sh)
+  (merge-module e cjanet)
+  (merge-module e declare-cc)
+  # TODO - fake some other functions a bit better as well
+  (put e 'default-cflags @{:value @[]})
+  (put e 'default-lflags @{:value @[]})
+  (put e 'default-ldflags @{:value @[]})
+  (put e 'default-cppflags @{:value @[]})
+  (put e 'phony @{:value comment :macro true})
+  e)

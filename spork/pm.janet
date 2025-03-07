@@ -157,7 +157,7 @@
     (if ret (break))
     (def item (parser/produce p))
     (match item
-      ['declare-project & rest] (set ret (struct ;rest))))
+      ['declare-project & rest] (set ret (table ;rest))))
   (unless ret
     (errorf "no metadata found in %s" path))
   ret)
@@ -166,22 +166,19 @@
 ````
 (use spork/declare-cc)
 (use spork/build-rules)
-(def e (curenv))
-(put e 'default-cflags @{:value @[]})
-(put e 'default-lflags @{:value @[]})
-(put e 'default-ldflags @{:value @[]})
-(put e 'default-cppflags @{:value @[]})
+(def e (jpm-shim-env))
 (dofile "project.janet" :env e)
 (defn install [manifest &]
-  (setdyn *install-manifest* manifest)
-  (build-run e "install"))
+  (with-dyns [*install-manifest* manifest]
+    (build-run e "install")))
 (defn build [&] (build-run e "build"))
 (defn check [&] (build-run e "test"))
 (defn clean [&] (build-run e "clean"))
 ````)
 
 (defn project-janet-shim
-  "Add a bundle/ directory to a legacy jpm project directory to allow installation with janet --install"
+  "Add a bundle/ directory to a legacy jpm project directory to allow installation with janet --install. Adds spork
+  as a dependency."
   [dir]
   (def project (path/join dir "project.janet"))
   (def bundle-hook-dir (path/join dir "bundle"))
@@ -192,13 +189,17 @@
   (if (os/stat bundle-janet-path :mode) (break))
   (assert (os/stat project :mode) "did not find bundle directory, bundle.janet or project.janet")
   (def meta (load-project-meta project))
+  (def deps (get meta :dependencies @[]))
+  (unless (index-of "spork" deps) (array/push deps "spork"))
+  (put meta :dependencies deps)
   (os/mkdir bundle-hook-dir)
   (spit bundle-init shimcode)
   (spit bundle-info (string/format "%j" meta))
   nil)
 
 (defn pm-install
-  "Install a bundle given a url, short name, or full 'bundle code'."
+  "Install a bundle given a url, short name, or full 'bundle code'. The bundle source code will be fetched from
+  git or a url, then installed with `bundle/install`."
   [bundle-code &opt force-update]
   (def bundle (resolve-bundle bundle-code))
   (def {:url url
