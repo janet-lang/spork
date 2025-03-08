@@ -13,11 +13,10 @@
 # - lock-files
 
 (import ./build-rules)
-(def cc (import ./cc))
-(def path (import ./path))
-(def sh (import ./sh))
-(import ./pm)
-(def cjanet (import ./cjanet))
+(def- cc (import ./cc))
+(def- path (import ./path))
+(def- sh (import ./sh))
+(def- cjanet (import ./cjanet))
 
 (defdyn *install-manifest* "Bound to the bundle manifest during a bundle/install.")
 (defdyn *toolchain* "Force a given toolchain. If unset, will auto-detect.")
@@ -25,6 +24,7 @@
 (defn- build-dir [] (dyn cc/*build-dir* "build"))
 (defn- get-rules [] (dyn cc/*rules* (curenv)))
 (defn- mkbin [] (os/mkdir (path/join (dyn *syspath*) "bin")))
+(defn- mkman [] (os/mkdir (path/join (dyn *syspath*) "man")))
 
 (defn- is-win-or-mingw
   []
@@ -61,13 +61,13 @@
   toolchain)
 
 (defn- install-rule
-  [src dest &opt thunk]
+  [src dest &opt chmod-mode thunk]
   (def rules (get-rules))
   (build-rules/build-rule
     rules :install [src]
     (def manifest (assert (dyn *install-manifest*)))
     (when thunk (thunk))
-    (bundle/add manifest src dest))
+    (bundle/add manifest src dest chmod-mode))
   nil)
 
 (defn- install-buffer
@@ -95,12 +95,12 @@
   "Convert url with potential bad characters into an entry-name"
   (peg/compile ~(% (any (+ '(range "AZ" "az" "09" "__") (/ '1 ,|(string "_" ($ 0) "_")))))))
 
-(defn entry-replace
+(defn- entry-replace
   "Escape special characters in the entry-name"
   [name]
   (get (peg/match entry-replacer name) 0))
 
-(defn embed-name
+(defn- embed-name
   "Rename a janet symbol for embedding."
   [path]
   (->> path
@@ -108,7 +108,7 @@
        (string/replace-all "/" "___")
        (string/replace-all ".janet" "")))
 
-(defn entry-name
+(defn- entry-name
   "Name of symbol that enters static compilation of a module."
   [name]
   (string "janet_module_entry_" (entry-replace name)))
@@ -185,13 +185,9 @@
     (print "removing directory " bd)
     (sh/rm bd))
   (build-rules/build-rule
-    rules :dep-check []
-    (each d dependencies
-      (assertf (bundle/installed? (pm/jpm-dep-to-bundle-dep d)) "dependency %v not installed" d)))
-  (build-rules/build-rule
     rules :install ["build"])
   (build-rules/build-rule
-    rules :build ["pre-build" "dep-check"])
+    rules :build ["pre-build"])
   (build-rules/build-rule
     rules :test ["build"]
     (run-tests))
@@ -225,7 +221,7 @@
 (defn declare-bin
   "Declare a generic file to be installed as an executable."
   [&named main]
-  (install-rule main "bin" mkbin))
+  (install-rule main "bin" 8r755 mkbin))
 
 (defn declare-binscript
   ``Declare a janet file to be installed as an executable script. Creates
@@ -244,11 +240,11 @@
       (string (if auto-shebang
                 (string "#!/usr/bin/env janet\n"))
               first-line (if hardcode-syspath second-line) rest)))
-  (install-buffer contents (path/join "bin" (path/basename main)) nil mkbin)
+  (install-buffer contents (path/join "bin" (path/basename main)) 8r755 mkbin)
   (when (is-win-or-mingw)
     (def bat (string "@echo off\r\ngoto #_undefined_# 2>NUL || title %COMSPEC% & janet \"" main "\" %*"))
     (def newname (string main ".bat"))
-    (install-buffer bat (path/basename newname) mkbin)))
+    (install-buffer bat (path/basename newname) nil mkbin)))
 
 (defn declare-archive
   "Build a janet archive. This is a file that bundles together many janet
@@ -270,7 +266,7 @@
 (defn declare-manpage
   "Mark a manpage for installation"
   [page]
-  (install-rule page "man"))
+  (install-rule page "man" nil mkman))
 
 (defn declare-native
   "Declare a native module. This is a shared library that can be loaded

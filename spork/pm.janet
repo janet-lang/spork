@@ -12,13 +12,17 @@
 (defdyn *gitpath* "What git command to use to fetch dependencies")
 (defdyn *tarpath* "What tar command to use to fetch dependencies")
 (defdyn *curlpath* "What curl command to use to fetch dependencies")
-(defdyn *pkglist* "Override the default package listing")
+(defdyn *pkglist* "Override the default package listing if a `pkgs` bundle is not currently installed.")
+
+(def default-pkglist
+  "The default package listing for resolving short bundle names."
+   "https://github.com/janet-lang/pkgs.git")
 
 (def- filepath-replacer
   "Convert url with potential bad characters into a file path element."
   (peg/compile ~(% (any (+ (/ '(set "<>:\"/\\|?*") "_") '1)))))
 
-(defn filepath-replace
+(defn- filepath-replace
   "Remove special characters from a string or path
   to make it into a path segment."
   [repo]
@@ -40,7 +44,7 @@
   (sh/exec (dyn *curlpath* "curl") ;args))
 
 (defn- getpkglist []
-  (dyn *pkglist* "https://github.com/janet-lang/pkgs.git"))
+  (dyn *pkglist* default-pkglist))
 
 (var- bundle-install-recursive nil)
 
@@ -60,7 +64,21 @@
     bname))
 
 (defn resolve-bundle
-  "Convert any bundle string/table to the normalized table form."
+  ```
+  Convert any bundle string/table to the normalized table form. `bundle` can be any of the following forms:
+ 
+  * A short name that indicates a package from the package listing.
+  * A URL or path to a git repository
+  * A URL or path to a .tar.gz archive
+  * A string of 2 parts separated by "::" - {type}::{path-or-url}
+  * A string of 3 parts separated by "::" - {type}::{path-or-url}::{tag}
+  * A table or struct with the following keys:
+
+  * `:url` or `:repo` - the URL or path of the git repository or of the .tar.gz file. Required.
+  * `:tag`, `:sha`, `:commit`, or `:ref` - The revision to checkout from version control. Optional.
+  * `:type` - The dependency type, either `:git` or `:tar`. The default is `:git`. Optional.
+  * `:shallow` - If using a git dependency, clone the repository with `--depth=1`. Optional.
+  ```
   [bundle]
   (var repo nil)
   (var tag nil)
@@ -97,7 +115,7 @@
   (git "-C" bundle-dir "reset" "--hard" "FETCH_HEAD"))
 
 (defn download-git-bundle
-  "Download a git bundle from a remote respository"
+  "Download a git bundle from a remote respository."
   [bundle-dir url tag shallow]
   (var fresh false)
   (if (dyn :offline)
@@ -146,12 +164,24 @@
     (errorf "unknown bundle type %v" bundle-type))
   bundle-dir)
 
-(defn- load-project-meta
+(defn- slurp-maybe
+  [path]
+  (when-with [f (file/open path)]
+    (def data (file/read f :all))
+    data))
+
+(defn load-project-meta
   "Load the metadata from a project.janet file without doing a full evaluation
   of the project.janet file. Returns a struct with the project metadata. Raises
   an error if no metadata found."
-  [&opt path]
-  (default path "./project.janet")
+  [dir]
+  # Check bundle paths first
+  (def infopath (path/join dir "bundle" "info.jdn"))
+  (def infopath2 (path/join dir "info.jdn"))
+  (when-let [d (slurp-maybe infopath)] (break (parse d)))
+  (when-let [d (slurp-maybe infopath2)] (break (parse d)))
+  # Then check project.janet for declare-project
+  (def path (path/join dir "project.janet"))
   (def src (slurp path))
   (def p (parser/new))
   (parser/consume p src)
@@ -181,7 +211,8 @@
 ````)
 
 (defn jpm-dep-to-bundle-dep
-  "Convert a jpm dependency name to a bundle dependency name"
+  "Convert a remote dependency identifier to a bundle dependency name. `dep-name` is any value that can be passed to `pm-install`.
+  Will return a string than can be passed to `bundle/reinstall`, `bundle/uninstall`, etc."
   [dep-name]
   (def {:url url
         :tag tag
@@ -198,18 +229,21 @@
   result)
 
 (defn bundle-dep-to-jpm-dep
-  "Convert a bundle name to a jpm dependency name"
+  "Convert a bundle dependency name for an installed bundle to a remote dependency identifier than can be passed to `resolve-bundle`.
+  Will raise an error if `bundle-name` is not installed, or if `bundle-name` was no installed via a remote identifier.
+  Will return a string than can be passed to `bundle/reinstall`, `bundle/uninstall`, etc."
   [bundle-name]
   (def m (bundle/manifest bundle-name))
+  (assertf (get m :url) "bundle %v was not installed with pm-install" bundle-name)
   (def code {:url (get m :url)
              :tag (get m :tag)
              :type (get m :type)
              :shallow true})
   code)
 
-(defn project-janet-shim
-  "Add a bundle/ directory to a legacy jpm project directory to allow installation with janet --install. Adds spork
-  as a dependency."
+(defn- project-janet-shim
+  ``If not already present, add a bundle/ directory to a legacy jpm project directory to allow installation with janet --install. Adds "spork"
+  as a dependency.``
   [dir]
   (def project (path/join dir "project.janet"))
   (def bundle-hook-dir (path/join dir "bundle"))
@@ -219,10 +253,10 @@
   (if (os/stat bundle-hook-dir :mode) (break))
   (if (os/stat bundle-janet-path :mode) (break))
   (assert (os/stat project :mode) "did not find bundle directory, bundle.janet or project.janet")
-  (def meta (load-project-meta project))
-  (def deps (seq [d :in (get meta :dependencies @[])] (jpm-dep-to-bundle-dep d)))
-  (unless (index-of "spork" deps) (array/push deps "spork"))
-  (put meta :dependencies deps)
+  (def meta (load-project-meta dir))
+  (def deps (seq [d :in (get meta :dependencies @[])] d))
+  (put meta :jpm-dependencies deps)
+  (put meta :dependencies @["spork"])
   (os/mkdir bundle-hook-dir)
   (spit bundle-init shimcode)
   (spit bundle-info (string/format "%j" meta))
@@ -231,7 +265,7 @@
 (defn pm-install
   "Install a bundle given a url, short name, or full 'bundle code'. The bundle source code will be fetched from
   git or a url, then installed with `bundle/install`."
-  [bundle-code &opt force-update]
+  [bundle-code &opt no-deps force-update]
   (def bundle (resolve-bundle bundle-code))
   (def {:url url
         :tag tag
@@ -248,13 +282,23 @@
     (if installed (break)))
   (def bdir (download-bundle url bundle-type tag shallow))
   (project-janet-shim bdir)
-  (def infopath (path/join bdir "bundle" "info.jdn"))
-  (def info (parse (slurp infopath)))
+  (def info (load-project-meta bdir))
   (if-let [name (get info :name)]
     (if (bundle/installed? name) (break)))
-  (each dep (get info :dependencies @[])
-    (pm-install dep))
+  (unless no-deps
+    (each dep (get info :jpm-dependencies @[])
+      (pm-install dep)))
   (def config @{:pm-identifier bundle-code :url url :tag tag :type bundle-type :installed-with "spork/pm"})
   (bundle/install bdir :config config ;(kvs config)))
+
+(defn local-hook
+  "Run a bundle hook on the local project."
+  [hook & args]
+  (project-janet-shim ".")
+  (def [ok module] (protect (require "/bundle")))
+  (unless ok (break))
+  (def hookf (module/value module (symbol hook)))
+  (unless hookf (break))
+  (hookf ;args))
 
 (set bundle-install-recursive pm-install)

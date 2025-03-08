@@ -22,6 +22,11 @@
   :hardcode-syspath true
   :is-janet true)
 
+(declare-binscript
+  :main "bin/janet-pm"
+  :hardcode-syspath true
+  :is-janet true)
+
 # Natives
 
 (declare-native

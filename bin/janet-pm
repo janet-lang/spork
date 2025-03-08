@@ -1,0 +1,163 @@
+#!/usr/bin/env janet
+
+# Version 2 of JPM
+
+(import spork/pm)
+(import spork/declare-cc)
+(import spork/argparse)
+
+(trace pm/resolve-bundle)
+(trace pm/pm-install)
+
+(def help-text
+    ```
+    usage: janet-pm [--key=value, --flag] ... [subcommand] [args] ...
+
+    Run from a directory containing a project.janet file to perform
+    operations on a project, or from anywhere to do operations on the
+    global module cache (modpath).  Commands that need write permission to
+    the modpath are considered privileged commands - in some environments
+    they may require super user privileges.  Other project-level commands
+    need to have a ./project.janet file in the current directory.
+
+    GLOBAL COMMANDS:
+
+    help
+        Show this help text.
+
+    install (repo or name)...
+        Install remote bundles, and any required dependencies.
+
+    clear-cache
+        Clear the git cache. Useful for updating dependencies.
+
+    list-pkgs (search)
+        List packages in the remote package listing that the contain the
+        string search. If no search pattern is given, prints the
+        entire package listing.
+
+    PER PROJECT COMMANDS:
+
+    deps
+        Install dependencies for the current project.
+
+    install
+        Install artifacts of the current project. Shorthand for `janet --install .`
+
+    uninstall
+        Uninstall the current project's artifacts. Shorthand for `janet --uninstall {current-project-name}`
+
+    build
+        Build all artifacts in the build/ directory, or the value specified in --buildpath.
+
+    clean
+        Remove any generated files or artifacts.
+
+    test
+        Run tests. Tests should be .janet files in the test/ directory
+        relative to project.janet. Will patch the module paths to load
+        built native code without installing it.
+
+    run rule
+        Run a rule. Can also run custom rules added via `(phony "task"
+        [deps...] ...)` or `(rule "ouput.file" [deps...] ...)`.
+
+    rules
+        List rules available with run.
+
+    rule-tree (root rule) (depth)
+        Print a nice tree to see what rules depend on other rules.
+        Optionally provide a root rule to start printing from, and a
+        max depth to print. Without these options, all rules will
+        print their full dependency tree.
+    ```)
+
+(defn help
+  []
+  (print help-text))
+
+(defn build
+  []
+  (pm/local-hook "build"))
+
+(defn clean
+  []
+  (pm/local-hook "clean"))
+
+(defn install
+  [& repo]
+  (if (empty? repo)
+    (let [m (pm/load-project-meta ".")]
+      (if (bundle/installed? (get m :name))
+        (bundle/reinstall (get m :name))
+        (bundle/install ".")))
+    (each rep repo (pm/pm-install rep))))
+
+(defn test
+  []
+  (pm/local-hook "check"))
+
+(defn- uninstall-cmd
+  [& what]
+  (print "NYI")
+  (os/exit 1))
+
+(defn deps
+  []
+  (print "NYI")
+  (os/exit 1))
+
+(defn clear-cache
+  []
+  (print "NYI")
+  (os/exit 1))
+
+(defn list-pkgs
+  [&opt search]
+  (def [ok _] (module/find "pkgs"))
+  (unless ok
+    (eprint "no local package listing found. Run `jpm update-pkgs` to get listing.")
+    (os/exit 1))
+  (def pkgs-mod (require "pkgs"))
+  (def ps
+    (seq [p :keys (get-in pkgs-mod ['packages :value] [])
+          :when (if search (string/find search p) true)]
+      p))
+  (sort ps)
+  (each p ps (print p)))
+
+(defn update-pkgs
+  []
+  (pm/pm-install (dyn pm/*pkglist* pm/default-pkglist)))
+
+(def subcommands
+  {"build" build
+   "clean" clean
+   "help" help
+   "install" install
+   "test" test
+   "help" help
+   "deps" deps
+   "clear-cache" clear-cache
+   "update-pkgs" update-pkgs
+   "uninstall" uninstall-cmd})
+
+(defn main
+  [&]
+
+  (def ap
+    (argparse/argparse
+      help-text
+
+      :default
+      {:kind :accumulate
+       :help "Commands to run"}))
+
+  # Break on help text
+  (unless ap (break))
+  (unless (ap :default) (break (help)))
+
+  (def [sub-command & command-args] (ap :default))
+  (def cmd (get subcommands sub-command))
+  (assertf cmd "unknown command %v, --help for help" sub-command)
+  (cmd ;command-args))
