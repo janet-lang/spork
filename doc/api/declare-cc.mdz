@@ -1,0 +1,12 @@
+{:title "declare-cc"
+ :author "Calvin Rose"
+ :license "MIT"
+ :template "mdzdoc/main.html"}
+---
+
+The declare-cc module provides a DSL to the @code`cc` module for compiling C and C++ projects that
+eliminates boilerplate, provides incremental builds, and re-implements support for building @code`project.janet` projects outside of JPM. 
+
+## Reference
+
+@api-docs("../../spork" "declare-cc")
