@@ -128,14 +128,18 @@
   (def tar-flags (if has-gz "-xzf" "-xf"))
   (tar tar-flags dest-archive "--strip-components=1" "-C" bundle-dir))
 
+(defn- get-cachedir
+  [url bundle-type tag]
+  (def cache (path/join (dyn *syspath*) ".cache"))
+  (os/mkdir cache)
+  (def id (filepath-replace (string bundle-type "_" tag "_" url)))
+  (path/join cache id))
+
 (defn download-bundle
   "Download the package source (using git) to the local cache. Return the
   path to the downloaded or cached soure code."
   [url bundle-type &opt tag shallow]
-  (def cache (path/join (dyn *syspath*) ".cache"))
-  (os/mkdir cache)
-  (def id (filepath-replace (string bundle-type "_" tag "_" url)))
-  (def bundle-dir (string cache "/" id))
+  (def bundle-dir (get-cachedir url bundle-type tag))
   (case bundle-type
     :git (download-git-bundle bundle-dir url tag shallow)
     :tar (download-tar-bundle bundle-dir url)
@@ -176,6 +180,33 @@
 (defn clean [&] (build-run e "clean"))
 ````)
 
+(defn jpm-dep-to-bundle-dep
+  "Convert a jpm dependency name to a bundle dependency name"
+  [dep-name]
+  (def {:url url
+        :tag tag
+        :type bundle-type}
+    (resolve-bundle dep-name))
+  (def key [url tag bundle-type])
+  (var result nil)
+  (each d (bundle/list)
+    (def m (bundle/manifest d))
+    (def check [(get m :url) (get m :tag) (get m :type)])
+    (when (= check key)
+      (set result (get m :name))
+      (break)))
+  result)
+
+(defn bundle-dep-to-jpm-dep
+  "Convert a bundle name to a jpm dependency name"
+  [bundle-name]
+  (def m (bundle/manifest bundle-name))
+  (def code {:url (get m :url)
+             :tag (get m :tag)
+             :type (get m :type)
+             :shallow true})
+  code)
+
 (defn project-janet-shim
   "Add a bundle/ directory to a legacy jpm project directory to allow installation with janet --install. Adds spork
   as a dependency."
@@ -189,8 +220,7 @@
   (if (os/stat bundle-janet-path :mode) (break))
   (assert (os/stat project :mode) "did not find bundle directory, bundle.janet or project.janet")
   (def meta (load-project-meta project))
-  # (def deps (array/slice (get meta :dependencies @[])))
-  (def deps @[]) # TODO - resolve deps from URLs to bundle names
+  (def deps (seq [d :in (get meta :dependencies @[])] (jpm-dep-to-bundle-dep d)))
   (unless (index-of "spork" deps) (array/push deps "spork"))
   (put meta :dependencies deps)
   (os/mkdir bundle-hook-dir)

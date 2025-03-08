@@ -16,6 +16,7 @@
 (def cc (import ./cc))
 (def path (import ./path))
 (def sh (import ./sh))
+(import ./pm)
 (def cjanet (import ./cjanet))
 
 (defdyn *install-manifest* "Bound to the bundle manifest during a bundle/install.")
@@ -23,6 +24,7 @@
 
 (defn- build-dir [] (dyn cc/*build-dir* "build"))
 (defn- get-rules [] (dyn cc/*rules* (curenv)))
+(defn- mkbin [] (os/mkdir (path/join (dyn *syspath*) "bin")))
 
 (defn- is-win-or-mingw
   []
@@ -59,16 +61,17 @@
   toolchain)
 
 (defn- install-rule
-  [src dest]
+  [src dest &opt thunk]
   (def rules (get-rules))
   (build-rules/build-rule
     rules :install [src]
     (def manifest (assert (dyn *install-manifest*)))
+    (when thunk (thunk))
     (bundle/add manifest src dest))
   nil)
 
 (defn- install-buffer
-  [contents dest &opt chmod-mode]
+  [contents dest &opt chmod-mode thunk]
   (def rules (get-rules))
   (def contents (if (function? contents) (contents) contents))
   (build-rules/build-rule
@@ -79,6 +82,7 @@
     (def absdest (path/join (dyn *syspath*) dest))
     (when (os/stat absdest :mode)
       (errorf "collision at %s, file already exists" absdest))
+    (when thunk (thunk))
     (spit absdest contents)
     (def absdest (os/realpath absdest))
     (array/push files absdest)
@@ -183,11 +187,11 @@
   (build-rules/build-rule
     rules :dep-check []
     (each d dependencies
-      (assertf (bundle/installed? d) "dependency %v not installed" d)))
+      (assertf (bundle/installed? (pm/jpm-dep-to-bundle-dep d)) "dependency %v not installed" d)))
   (build-rules/build-rule
     rules :install ["build"])
   (build-rules/build-rule
-    rules :build ["pre-build"])
+    rules :build ["pre-build" "dep-check"])
   (build-rules/build-rule
     rules :test ["build"]
     (run-tests))
@@ -221,7 +225,7 @@
 (defn declare-bin
   "Declare a generic file to be installed as an executable."
   [&named main]
-  (install-rule main "bin"))
+  (install-rule main "bin" mkbin))
 
 (defn declare-binscript
   ``Declare a janet file to be installed as an executable script. Creates
@@ -240,11 +244,11 @@
       (string (if auto-shebang
                 (string "#!/usr/bin/env janet\n"))
               first-line (if hardcode-syspath second-line) rest)))
-  (install-buffer contents (path/join "bin" (path/basename main)))
+  (install-buffer contents (path/join "bin" (path/basename main)) nil mkbin)
   (when (is-win-or-mingw)
     (def bat (string "@echo off\r\ngoto #_undefined_# 2>NUL || title %COMSPEC% & janet \"" main "\" %*"))
     (def newname (string main ".bat"))
-    (install-buffer bat (path/basename newname))))
+    (install-buffer bat (path/basename newname) mkbin)))
 
 (defn declare-archive
   "Build a janet archive. This is a file that bundles together many janet
