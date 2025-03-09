@@ -68,7 +68,7 @@ int64_t _mulmod_impl(int64_t a, int64_t b, int64_t m) {
     return (((a ^ b ^ m) < 0) && (x != 0)) ? x + m : x;
 }
 
-#elif defined(_WIN64) && defined(_MSC_VER)
+#elif defined(_WIN64) && defined(_MSC_VER) && !defined(_M_ARM64)
 
 #include <intrin.h>
 int64_t _mulmod_impl(int64_t a, int64_t b, int64_t m) {
@@ -116,6 +116,8 @@ int64_t _mulmod_impl(int64_t a, int64_t b, int64_t m) {
 Janet wrap_nan() {
 #ifdef NAN
     return janet_wrap_number(NAN);
+#elif defined(_MSC_VER)
+    return janet_wrap_number(nan("nan"));
 #else
     return janet_wrap_number(0.0 / 0.0);
 #endif
