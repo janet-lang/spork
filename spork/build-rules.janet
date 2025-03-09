@@ -179,7 +179,7 @@
   If target is a keyword, the rule will always be considered out of date.
   ```
   [rules target deps & body]
-  ~(,rule-impl ,rules ,target ,deps (fn [] nil ,;body)))
+  ~(,rule-impl ,rules ,target ,deps (fn :build-rule [] nil ,;body)))
 
 (defn build-thunk
   ```

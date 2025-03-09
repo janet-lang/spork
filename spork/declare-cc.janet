@@ -13,10 +13,10 @@
 # - lock-files
 
 (import ./build-rules)
-(def- cc (import ./cc))
-(def- path (import ./path))
-(def- sh (import ./sh))
-(def- cjanet (import ./cjanet))
+(import ./cc)
+(import ./path)
+(import ./sh)
+(import ./cjanet)
 
 (defdyn *install-manifest* "Bound to the bundle manifest during a bundle/install.")
 (defdyn *toolchain* "Force a given toolchain. If unset, will auto-detect.")
@@ -90,6 +90,51 @@
       (os/chmod absdest chmod-mode))
     (print "add " absdest)
     absdest))
+
+###
+### Rule shorthand
+###
+
+(defn- rule-impl
+  [target deps thunk &opt phony]
+  (def target (if phony (keyword target) target))
+  (def rules (get-rules))
+  (build-rules/build-thunk rules target deps thunk))
+
+(defmacro rule
+  "Add a rule to the rule graph."
+  [target deps & body]
+  ~(,rule-impl ,target ,deps (fn ,(keyword target) [] nil ,;body)))
+
+(defmacro task
+  "Add a task rule to the rule graph. A task rule will always run if invoked
+  (it is always considered out of date)."
+  [target deps & body]
+  ~(,rule-impl ,target ,deps (fn ,(keyword target) [] nil ,;body) true))
+
+(defmacro phony
+  "Alias for `task`."
+  [target deps & body]
+  ~(,rule-impl ,target ,deps (fn ,(keyword target) [] nil ,;body) true))
+
+(defmacro sh-rule
+  "Add a rule that invokes a shell command, and fails if the command returns non-zero."
+  [target deps & body]
+  ~(,rule-impl ,target ,deps (fn ,(keyword target) [] (,sh/exec (,string ,;body)))))
+
+(defmacro sh-task
+  "Add a task that invokes a shell command, and fails if the command returns non-zero."
+  [target deps & body]
+  ~(,rule-impl ,target ,deps (fn ,(keyword target) [] (,sh/exec (,string ,;body))) true))
+
+(defmacro sh-phony
+  "Alias for `sh-task`."
+  [target deps & body]
+  ~(,rule-impl ,target ,deps (fn ,(keyword target) [] (,sh/exec (,string ,;body))) true))
+
+###
+### Misc. utilities
+###
 
 (def- entry-replacer
   "Convert url with potential bad characters into an entry-name"
@@ -171,7 +216,6 @@
   Also sets up basic task targets like clean, build, test, etc."
   [&named name description url version repo tag dependencies]
   (assert name)
-  (assert description)
   (default dependencies @[])
   (def rules (get-rules))
   (build-rules/build-rule
@@ -202,21 +246,19 @@
   :prefix can optionally be given to modify the destination path to be
   (string JANET_PATH prefix source)."
   [&named source prefix]
-  (if (bytes? source)
-    (install-rule source prefix)
-    (each s source
-      (install-rule s prefix))))
+  (defn dest [s] (if prefix (path/join prefix s) (path/basename s)))
+  (def sources (if (bytes? source) [source] source))
+  (each s source
+    (install-rule s (dest s))))
 
 (defn declare-headers
   "Declare headers for a library installation. Installed headers can be used by other native
   libraries."
   [&named headers prefix]
-  (if (bytes? headers)
-    (install-rule headers (if prefix prefix))
-    (each s headers
-      (def bn (path/basename s))
-      (def dest (if prefix (path/join prefix bn) bn))
-      (install-rule s dest))))
+  (defn dest [s] (if prefix (path/join prefix s) (path/basename s)))
+  (def headers (if (bytes? headers) [headers] headers))
+  (each s headers
+    (install-rule s (dest s))))
 
 (defn declare-bin
   "Declare a generic file to be installed as an executable."
@@ -274,7 +316,7 @@
   can be used to bundle janet code and native into a single executable."
   [&named name source embedded lflags libs cflags
    c++flags defines install nostatic static-libs
-   use-rpath use-rdynamic pkg-config-flags
+   use-rpath use-rdynamic pkg-config-flags dynamic-libs msvc-libs
    pkg-config-libs smart-libs c-std c++-std target-os]
 
   (def rules (get-rules))
@@ -289,10 +331,12 @@
   (def benv @{cc/*build-dir* (build-dir)
               cc/*defines* defines
               cc/*libs* libs
+              cc/*msvc-libs* msvc-libs
               cc/*lflags* lflags
               cc/*cflags* cflags
               cc/*c++flags* c++flags
               cc/*static-libs* static-libs
+              cc/*dynamic-libs* dynamic-libs
               cc/*smart-libs* smart-libs
               cc/*use-rdynamic* use-rdynamic
               cc/*use-rpath* use-rpath
@@ -305,7 +349,8 @@
               cc/*rules* rules
               })
   (table/setproto benv (curenv)) # configurable?
-  (when pkg-config-libs (with-env benv (cc/pkg-config ;pkg-config-libs))) # Add package config flags
+  (when (and pkg-config-libs (next pkg-config-libs))
+    (with-env benv (cc/pkg-config ;pkg-config-libs))) # Add package config flags
 
   (def toolchain (get-toolchain))
   (def suffix (case toolchain :msvc ".dll" ".so"))
@@ -377,47 +422,272 @@
   rules)
 
 ###
-### Create an environment that emulates jpm's project.janet environment
+### Quickbin functionality and declare-executable
 ###
 
-(defn- rule-impl
-  [target deps thunk &opt phony]
-  (def all-targets (if (indexed? target) target [target]))
-  (def target (if (indexed? target) (first target) target))
-  (def target (if phony (keyword target) target))
-  (def rules (get-rules))
-  (build-rules/build-thunk rules target deps thunk))
+(defn modpath-to-meta
+  "Get the meta file path (.meta.janet) corresponding to a native module path (.so)."
+  [toolchain path]
+  (def suffix (case toolchain :msvc ".dll" ".so"))
+  (string (string/slice path 0 (- (length suffix))) "meta.janet"))
 
-(defmacro rule
-  "Add a rule to the rule graph."
-  [target deps & body]
-  ~(,rule-impl ,target ,deps (fn ,(keyword target) [] nil ,;body)))
+(defn modpath-to-static
+  "Get the static library (.a) path corresponding to a native module path (.so)."
+  [toolchain path]
+  (def suffix (case toolchain :msvc ".dll" ".so"))
+  (def asuffix (case toolchain :msvc ".lib" ".a"))
+  (string (string/slice path 0 (- -1 (length suffix))) asuffix))
 
-(defmacro task
-  "Add a task rule to the rule graph. A task rule will always run if invoked
-  (it is always considered out of date)."
-  [target deps & body]
-  ~(,rule-impl ,target ,deps (fn ,(keyword target) [] nil ,;body) true))
+(defn- make-bin-source
+  [declarations lookup-into-invocations no-core]
+  (string
+    declarations
+    ```
+#include <janet.h>
 
-(defmacro phony
-  "Alias for `task`."
-  [target deps & body]
-  ~(,rule-impl ,target ,deps (fn ,(keyword target) [] nil ,;body) true))
+int main(int argc, const char **argv) {
 
-(defmacro sh-rule
-  "Add a rule that invokes a shell command, and fails if the command returns non-zero."
-  [target deps & body]
-  ~(,rule-impl ,target ,deps (fn ,(keyword target) [] (,sh/exec (,string ,;body)))))
+#if defined(JANET_PRF)
+    uint8_t hash_key[JANET_HASH_KEY_SIZE + 1];
+#ifdef JANET_REDUCED_OS
+    char *envvar = NULL;
+#else
+    char *envvar = getenv("JANET_HASHSEED");
+#endif
+    if (NULL != envvar) {
+        strncpy((char *) hash_key, envvar, sizeof(hash_key) - 1);
+    } else if (janet_cryptorand(hash_key, JANET_HASH_KEY_SIZE) != 0) {
+        fputs("unable to initialize janet PRF hash function.\n", stderr);
+        return 1;
+    }
+    janet_init_hash_key(hash_key);
+#endif
 
-(defmacro sh-task
-  "Add a task that invokes a shell command, and fails if the command returns non-zero."
-  [target deps & body]
-  ~(,rule-impl ,target ,deps (fn ,(keyword target) [] (,sh/exec (,string ,;body))) true))
+    janet_init();
 
-(defmacro sh-phony
-  "Alias for `sh-task`."
-  [target deps & body]
-  ~(,rule-impl ,target ,deps (fn ,(keyword target) [] (,sh/exec (,string ,;body))) true))
+    ```
+    (if no-core
+    ```
+    /* Get core env */
+    JanetTable *env = janet_table(8);
+    JanetTable *lookup = janet_core_lookup_table(NULL);
+    JanetTable *temptab;
+    int handle = janet_gclock();
+    ```
+    ```
+    /* Get core env */
+    JanetTable *env = janet_core_env(NULL);
+    JanetTable *lookup = janet_env_lookup(env);
+    JanetTable *temptab;
+    int handle = janet_gclock();
+    ```)
+    lookup-into-invocations
+    ```
+    /* Unmarshal bytecode */
+    Janet marsh_out = janet_unmarshal(
+      janet_payload_image_embed,
+      janet_payload_image_embed_size,
+      0,
+      lookup,
+      NULL);
+
+    /* Verify the marshalled object is a function */
+    if (!janet_checktype(marsh_out, JANET_FUNCTION)) {
+        fprintf(stderr, "invalid bytecode image - expected function.");
+        return 1;
+    }
+    JanetFunction *jfunc = janet_unwrap_function(marsh_out);
+
+    /* Check arity */
+    janet_arity(argc, jfunc->def->min_arity, jfunc->def->max_arity);
+
+    /* Collect command line arguments */
+    JanetArray *args = janet_array(argc);
+    for (int i = 0; i < argc; i++) {
+        janet_array_push(args, janet_cstringv(argv[i]));
+    }
+
+    /* Create enviornment */
+    temptab = env;
+    janet_table_put(temptab, janet_ckeywordv("args"), janet_wrap_array(args));
+    janet_table_put(temptab, janet_ckeywordv("executable"), janet_cstringv(argv[0]));
+    janet_gcroot(janet_wrap_table(temptab));
+
+    /* Unlock GC */
+    janet_gcunlock(handle);
+
+    /* Run everything */
+    JanetFiber *fiber = janet_fiber(jfunc, 64, argc, argc ? args->data : NULL);
+    fiber->env = temptab;
+#ifdef JANET_EV
+    janet_gcroot(janet_wrap_fiber(fiber));
+    janet_schedule(fiber, janet_wrap_nil());
+    janet_loop();
+    int status = janet_fiber_status(fiber);
+    janet_deinit();
+    return status;
+#else
+    Janet out;
+    JanetSignal result = janet_continue(fiber, janet_wrap_nil(), &out);
+    if (result != JANET_SIGNAL_OK && result != JANET_SIGNAL_EVENT) {
+      janet_stacktrace(fiber, out);
+      janet_deinit();
+      return result;
+    }
+    janet_deinit();
+    return 0;
+#endif
+}
+
+```))
+
+(defn declare-executable
+  "Declare a janet file to be the entry of a standalone executable program. The entry
+  file is evaluated and a main function is looked for in the entry file. This function
+  is marshalled into bytecode which is then embedded in a final executable for distribution.\n\n
+  This executable can be installed as well to the --binpath given."
+  [&named name entry install headers no-compile no-core defines
+   pkg-config-flags target-os
+   pkg-config-libs smart-libs c-std c++-std msvc-libs
+   cflags c++flags lflags libs static-libs dynamic-libs use-rpath use-rdynamic]
+
+  (default libs @[])
+  (default cflags @[])
+  (default lflags @[])
+  (default static-libs @[])
+  (default dynamic-libs @[])
+  (default headers @[])
+  (default c++flags @[])
+  (default defines @{})
+  (default pkg-config-libs @[])
+  (default pkg-config-flags @[])
+
+  (assert (string? entry))
+  (assert (string? name))
+
+  (def name (if (is-win-or-mingw) (string name ".exe") name))
+  (def bd (build-dir))
+  (def dest (path/join bd name))
+  (def cimage-dest (string dest ".c"))
+  (when install (install-rule dest (path/join "bin" name) nil mkbin))
+  (rule :build [(if no-compile cimage-dest dest)])
+  (rule (if no-compile cimage-dest dest) [entry ;headers]
+    (print "generating executable c source " cimage-dest " from " entry "...")
+    (sh/create-dirs-to dest)
+    (flush)
+    # Get compiler
+    (def toolchain (get-toolchain))
+    # Do entry
+    (def module-cache @{})
+    (def env (make-env))
+    (put env *module-make-env* (fn :make-env1 [&opt e] (default e env) (make-env e)))
+    (put env *module-cache* module-cache)
+    (dofile entry :env env)
+    (def main (module/value env 'main))
+    (def dep-lflags @[])
+    (def dep-libs @[])
+
+    # Create marshalling dictionary
+    (def mdict1 (invert (env-lookup root-env)))
+    (def mdict
+      (if no-core
+        (let [temp @{}]
+          (eachp [k v] mdict1
+            (if (or (cfunction? k) (abstract? k))
+              (put temp k v)))
+          temp)
+        mdict1))
+
+    # Load all native modules
+    (def prefixes @{})
+    (def static-libs @[])
+    (loop [[name m] :pairs module-cache
+           :let [n (m :native)]
+           :when n
+           :let [prefix (gensym)]]
+      (print "found native " n "...")
+      (flush)
+      (put prefixes prefix n)
+      (array/push static-libs (modpath-to-static toolchain n))
+      (def oldproto (table/getproto m))
+      (table/setproto m nil)
+      (loop [[sym value] :pairs (env-lookup m)]
+        (put mdict value (symbol prefix sym)))
+      (table/setproto m oldproto))
+
+      # Find static modules
+      (var has-cpp false)
+      (def declarations @"")
+      (def lookup-into-invocations @"")
+      (loop [[prefix name] :pairs prefixes]
+        (def meta (eval-string (slurp (modpath-to-meta toolchain name))))
+        (if (meta :cpp) (set has-cpp true))
+        (buffer/push-string lookup-into-invocations
+                            "    temptab = janet_table(0);\n"
+                            "    temptab->proto = env;\n"
+                            "    " (meta :static-entry) "(temptab);\n"
+                            "    janet_env_lookup_into(lookup, temptab, \""
+                            prefix
+                            "\", 0);\n\n")
+        (when-let [lfs (meta :lflags)]
+          (array/concat dep-lflags lfs))
+        (when-let [lfs (or (meta :libs) (meta :ldflags))]
+          (array/concat dep-libs lfs))
+        (buffer/push-string declarations
+                            "extern void "
+                            (meta :static-entry)
+                            "(JanetTable *);\n"))
+
+      # Build image
+      (def image (marshal main mdict))
+      (create-buffer-c image cimage-dest "janet_payload_image")
+      (spit cimage-dest (make-bin-source declarations lookup-into-invocations no-core) :ab)
+      (def oimage-dest (cc/out-path cimage-dest ".o"))
+
+      # TODO
+      (def libjanet "/usr/local/lib/libjanet.a")
+      (def other-cflags ["-I/usr/local/include/" "-L/usr/local/lib"])
+      (def benv @{cc/*build-dir* (build-dir)
+                  cc/*defines* defines
+                  cc/*libs* libs
+                  cc/*msvc-libs* msvc-libs
+                  cc/*lflags* [libjanet ;lflags ;dep-lflags]
+                  cc/*cflags* [;other-cflags ;cflags]
+                  cc/*c++flags* [;other-cflags ;c++flags]
+                  cc/*static-libs* [;dep-libs ;static-libs]
+                  cc/*smart-libs* smart-libs
+                  cc/*use-rdynamic* use-rdynamic
+                  cc/*use-rpath* use-rpath
+                  cc/*pkg-config-flags* pkg-config-flags
+                  cc/*c-std* c-std
+                  cc/*c++-std* c++-std
+                  cc/*target-os* target-os
+                  cc/*visit* cc/visit-execute-if-stale
+                  cc/*rules* (get-rules)})
+      (table/setproto benv (curenv)) # configurable?
+      (when (and pkg-config-libs (next pkg-config-libs))
+        (with-env benv (cc/pkg-config ;pkg-config-libs))) # Add package config flags
+      (def compile-c
+        (case toolchain
+          :msvc cc/msvc-compile-c
+          cc/compile-c))
+      (def link
+          (case toolchain
+            :msvc cc/msvc-link-executable
+            (if has-cpp cc/link-executable-c++ cc/link-executable-c)))
+      (unless no-compile
+        (with-env benv
+          (cc/search-libraries "m" "rt" "dl")
+          (print "compiling " cimage-dest " to " oimage-dest "...")
+          (flush)
+          (compile-c cimage-dest oimage-dest)
+          (print "linking " dest "...")
+          (flush)
+          (link [oimage-dest] dest)))))
+
+###
+### Create an environment that emulates jpm's project.janet environment
+###
 
 (defmacro post-deps
   "Run code at the top level if jpm dependencies are installed. Build
@@ -428,7 +698,10 @@
     ~',(reduce |(eval $1) nil body)))
 
 (def- declare-cc (curenv))
-
+(def- sh (require "./sh"))
+(def- cjanet (require "./cjanet"))
+(def- cc (require "./cc"))
+(def- path (require "./path"))
 (defn jpm-shim-env
   "Create an environment table that can evaluate project.janet files"
   []

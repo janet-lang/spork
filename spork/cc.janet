@@ -213,25 +213,25 @@
 (defn link-shared-c
   "Link a C program to make a shared library. Return the command arguments."
   [objects to]
-  (exec [(cc) (ccstd) ;(opt) ;(cflags) ;(extra-paths) "-o" to ;objects "-pthread" ;(libs) "-shared"]
+  (exec [(cc) (ccstd) ;(opt) ;(cflags) ;(extra-paths) "-o" to ;objects "-pthread" ;(libs) ;(dynamic-libs) "-shared"]
         objects [to] (string "linking " to "...")))
 
 (defn link-shared-c++
   "Link a C++ program to make a shared library. Return the command arguments."
   [objects to]
-  (exec [(c++) (c++std) ;(opt) ;(c++flags) ;(extra-paths) "-o" to ;objects "-pthread" ;(libs) "-shared"]
+  (exec [(c++) (c++std) ;(opt) ;(c++flags) ;(extra-paths) "-o" to ;objects "-pthread" ;(libs) ;(dynamic-libs) "-shared"]
         objects [to] (string "linking " to "...")))
 
 (defn link-executable-c
   "Link a C program to make an executable. Return the command arguments."
   [objects to]
-  (exec [(cc) (ccstd) ;(opt) ;(cflags) ;(extra-paths) "-o" to ;objects ;(rdynamic) "-pthread" ;(libs)]
+  (exec [(cc) (ccstd) ;(opt) ;(cflags) ;(extra-paths) "-o" to ;objects ;(rdynamic) "-pthread" ;(static-libs) ;(libs)]
         objects [to] (string "linking " to "...")))
 
 (defn link-executable-c++
   "Link a C++ program to make an executable. Return the command arguments."
   [objects to]
-  (exec [(c++) (c++std) ;(opt) ;(c++flags) ;(extra-paths) "-o" to ;objects ;(rdynamic) "-pthread" ;(libs)]
+  (exec [(c++) (c++std) ;(opt) ;(c++flags) ;(extra-paths) "-o" to ;objects ;(rdynamic) "-pthread" ;(static-libs) ;(libs)]
         objects [to] (string "linking " to "...")))
 
 (defn make-archive

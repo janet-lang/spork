@@ -243,16 +243,17 @@
 
 (defn- project-janet-shim
   ``If not already present, add a bundle/ directory to a legacy jpm project directory to allow installation with janet --install. Adds "spork"
-  as a dependency.``
+  as a dependency. Return true if a default bundle/ directory was generated, false otherwise.``
   [dir]
   (def project (path/join dir "project.janet"))
   (def bundle-hook-dir (path/join dir "bundle"))
   (def bundle-janet-path (path/join dir "bundle.janet"))
   (def bundle-init (path/join dir "bundle" "init.janet"))
   (def bundle-info (path/join dir "bundle" "info.jdn"))
-  (if (os/stat bundle-hook-dir :mode) (break))
-  (if (os/stat bundle-janet-path :mode) (break))
+  (if (os/stat bundle-hook-dir :mode) (break false))
+  (if (os/stat bundle-janet-path :mode) (break false))
   (assert (os/stat project :mode) "did not find bundle directory, bundle.janet or project.janet")
+  (print "generating bundle/")
   (def meta (load-project-meta dir))
   (def deps (seq [d :in (get meta :dependencies @[])] d))
   (put meta :jpm-dependencies deps)
@@ -260,7 +261,7 @@
   (os/mkdir bundle-hook-dir)
   (spit bundle-init shimcode)
   (spit bundle-info (string/format "%j" meta))
-  nil)
+  true)
 
 (defn pm-install
   "Install a bundle given a url, short name, or full 'bundle code'. The bundle source code will be fetched from
@@ -281,15 +282,22 @@
         (break)))
     (if installed (break)))
   (def bdir (download-bundle url bundle-type tag shallow))
-  (project-janet-shim bdir)
+  (def did-shim (project-janet-shim bdir))
   (def info (load-project-meta bdir))
+  (def jpm-deps (get info :jpm-dependencies @[]))
   (if-let [name (get info :name)]
     (if (bundle/installed? name) (break)))
   (unless no-deps
-    (each dep (get info :jpm-dependencies @[])
+    (each dep jpm-deps
       (pm-install dep)))
+  (when did-shim
+    (def deps (seq [d :in jpm-deps] (jpm-dep-to-bundle-dep d)))
+    (unless (index-of "spork" deps) (array/push deps "spork"))
+    (put info :dependencies deps)
+    (spit (path/join bdir "bundle" "info.jdn") (string/format "%j" info)))
   (def config @{:pm-identifier bundle-code :url url :tag tag :type bundle-type :installed-with "spork/pm"})
-  (bundle/install bdir :config config ;(kvs config)))
+  (with-env root-env # work around for janet issue
+    (bundle/install bdir :config config ;(kvs config))))
 
 (defn local-hook
   "Run a bundle hook on the local project."

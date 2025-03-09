@@ -6,9 +6,6 @@
 (import spork/declare-cc)
 (import spork/argparse)
 
-(trace pm/resolve-bundle)
-(trace pm/pm-install)
-
 (def help-text
     ```
     usage: janet-pm [--key=value, --flag] ... [subcommand] [args] ...
@@ -156,6 +153,11 @@
   # Break on help text
   (unless ap (break))
   (unless (ap :default) (break (help)))
+
+  (when (get
+          {"t" true "true" true "1" true "yes" true "on" true}
+          (string/ascii-lower (string/trim (os/getenv "VERBOSE" "false"))))
+    (setdyn :verbose true))
 
   (def [sub-command & command-args] (ap :default))
   (def cmd (get subcommands sub-command))
