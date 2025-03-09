@@ -18,6 +18,7 @@
 (import ./sh)
 (import ./cjanet)
 
+(defdyn *prefix* "Path prefix used to detect where to find libjanet, janet.h, etc.")
 (defdyn *install-manifest* "Bound to the bundle manifest during a bundle/install.")
 (defdyn *toolchain* "Force a given toolchain. If unset, will auto-detect.")
 
@@ -25,6 +26,24 @@
 (defn- get-rules [] (dyn cc/*rules* (curenv)))
 (defn- mkbin [] (os/mkdir (path/join (dyn *syspath*) "bin")))
 (defn- mkman [] (os/mkdir (path/join (dyn *syspath*) "man")))
+
+(defn- get-prefix
+  "Auto-detect what prefix to use for finding libjanet.so, headers, etc."
+  []
+  (if-let [p (dyn *prefix*)] (break p))
+  (def prefix (os/getenv "JANET_PREFIX"))
+  (when prefix (break prefix))
+  (def prefix (os/getenv "PREFIX"))
+  (when prefix (break prefix))
+  (var result nil)
+  (each test ["/usr/" "/usr/local" (path/join (dyn *syspath*) "..")]
+    (def headercheck (path/join test "include" "janet.h"))
+    (when (os/stat headercheck :mode)
+      (set result test)
+      (break)))
+  (assert result "no prefix discovered for janet headers!")
+  (setdyn *prefix* result)
+  result)
 
 (defn- is-win-or-mingw
   []
@@ -68,7 +87,7 @@
     (def manifest (assert (dyn *install-manifest*)))
     (when thunk (thunk))
     (bundle/add manifest src dest chmod-mode))
-  nil)
+  dest)
 
 (defn- install-buffer
   [contents dest &opt chmod-mode thunk]
@@ -95,6 +114,7 @@
 ### Rule shorthand
 ###
 
+(defn- firstt [target] (if (indexed? target) (in target 0) target))
 (defn- rule-impl
   [target deps thunk &opt phony]
   (def target (if phony (keyword target) target))
@@ -104,33 +124,33 @@
 (defmacro rule
   "Add a rule to the rule graph."
   [target deps & body]
-  ~(,rule-impl ,target ,deps (fn ,(keyword target) [] nil ,;body)))
+  ~(,rule-impl ,target ,deps (fn ,(keyword (firstt target)) [] nil ,;body)))
 
 (defmacro task
   "Add a task rule to the rule graph. A task rule will always run if invoked
   (it is always considered out of date)."
   [target deps & body]
-  ~(,rule-impl ,target ,deps (fn ,(keyword target) [] nil ,;body) true))
+  ~(,rule-impl ,target ,deps (fn ,(keyword (firstt target)) [] nil ,;body) true))
 
 (defmacro phony
   "Alias for `task`."
   [target deps & body]
-  ~(,rule-impl ,target ,deps (fn ,(keyword target) [] nil ,;body) true))
+  ~(,rule-impl ,target ,deps (fn ,(keyword (firstt target)) [] nil ,;body) true))
 
 (defmacro sh-rule
   "Add a rule that invokes a shell command, and fails if the command returns non-zero."
   [target deps & body]
-  ~(,rule-impl ,target ,deps (fn ,(keyword target) [] (,sh/exec (,string ,;body)))))
+  ~(,rule-impl ,target ,deps (fn ,(keyword (firstt target)) [] (,sh/exec (,string ,;body)))))
 
 (defmacro sh-task
   "Add a task that invokes a shell command, and fails if the command returns non-zero."
   [target deps & body]
-  ~(,rule-impl ,target ,deps (fn ,(keyword target) [] (,sh/exec (,string ,;body))) true))
+  ~(,rule-impl ,target ,deps (fn ,(keyword (firstt target)) [] (,sh/exec (,string ,;body))) true))
 
 (defmacro sh-phony
   "Alias for `sh-task`."
   [target deps & body]
-  ~(,rule-impl ,target ,deps (fn ,(keyword target) [] (,sh/exec (,string ,;body))) true))
+  ~(,rule-impl ,target ,deps (fn ,(keyword (firstt target)) [] (,sh/exec (,string ,;body))) true))
 
 (defn install-file-rule
   "Add install and uninstall rule for moving file from src into destdir."
@@ -287,6 +307,7 @@
   [&named main hardcode-syspath is-janet]
   (def auto-shebang is-janet)
   (def main (path/abspath main))
+  (def dest (path/join "bin" (path/basename main)))
   (defn contents []
     (with [f (file/open main :rbn)]
       (def first-line (:read f :line))
@@ -295,11 +316,12 @@
       (string (if auto-shebang
                 (string "#!/usr/bin/env janet\n"))
               first-line (if hardcode-syspath second-line) rest)))
-  (install-buffer contents (path/join "bin" (path/basename main)) 8r755 mkbin)
+  (install-buffer contents dest 8r755 mkbin)
   (when (is-win-or-mingw)
     (def bat (string "@echo off\r\ngoto #_undefined_# 2>NUL || title %COMSPEC% & janet \"" main "\" %*"))
     (def newname (string main ".bat"))
-    (install-buffer bat (path/basename newname) nil mkbin)))
+    (install-buffer bat (path/basename newname) nil mkbin))
+  dest)
 
 (defn declare-archive
   "Build a janet archive. This is a file that bundles together many janet
@@ -316,7 +338,8 @@
     (spit iname (make-image (require entry))))
   (build-rules/build-rule
     rules :build [ipath])
-  (install-rule ipath iname))
+  (install-rule ipath iname)
+  ipath)
 
 (defn declare-manpage
   "Mark a manpage for installation"
@@ -386,9 +409,11 @@
 
   # TODO - handle cpp
   (def has-cpp false)
-
+  
+  (def targets @{})
   (with-env benv
     (def to (cc/out-path name suffix))
+    (put targets :native to)
     (install-rule to (string name suffix))
     (def objects @[])
     (loop [src :in embedded]
@@ -402,6 +427,7 @@
     (build-rules/build-rule rules :build [to])
     (unless nostatic
       (def toa (cc/out-path name asuffix))
+      (put targets :static toa)
       (install-rule toa (string name asuffix))
       (with-dyns [cc/*build-dir* "build/static"]
         (def sobjects @[])
@@ -432,7 +458,7 @@
          :use-rpath use-rpath}))
     (install-buffer contents metaname))
 
-  rules)
+  targets)
 
 ###
 ### Quickbin functionality and declare-executable
@@ -593,7 +619,7 @@ int main(int argc, const char **argv) {
     # Do entry
     (def module-cache @{})
     (def env (make-env))
-    (put env *module-make-env* (fn :make-env1 [&opt e] (default e env) (make-env e)))
+    (put env *module-make-env* (fn [&opt e] (default e env) (make-env e)))
     (put env *module-cache* module-cache)
     (dofile entry :env env)
     (def main (module/value env 'main))
@@ -657,8 +683,7 @@ int main(int argc, const char **argv) {
       (spit cimage-dest (make-bin-source declarations lookup-into-invocations no-core) :ab)
       (def oimage-dest (cc/out-path cimage-dest ".o"))
 
-      # TODO
-      (def prefix "/usr/local")
+      (def prefix (get-prefix))
       (def asuffix (case toolchain :msvc ".lib" ".a"))
       (def libjanet (path/join prefix "lib" (string "libjanet" asuffix)))
       (def other-cflags [(string "-I" (path/join prefix "include")) (string "-L" (path/join prefix "lib"))])

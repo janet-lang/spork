@@ -51,17 +51,17 @@
 (defn- resolve-bundle-name
   "Convert short bundle names to full tables."
   [bname]
-  (if-not (string/find ":" bname)
-    (let [pkgs (try
-                 (require "pkgs")
-                 ([err]
-                   (bundle-install-recursive (getpkglist))
-                   (require "pkgs")))
-          url (get-in pkgs ['packages :value (symbol bname)])]
-      (unless url
-        (error (string "bundle " bname " not found.")))
-      url)
-    bname))
+  (if (or (string/has-prefix? "." bname) (string/find ":" bname))
+    (break bname))
+  (let [pkgs (try
+               (require "pkgs")
+               ([err]
+                (bundle-install-recursive (getpkglist))
+                (require "pkgs")))
+        url (get-in pkgs ['packages :value (symbol bname)])]
+    (unless url
+      (error (string "bundle " bname " not found.")))
+    url))
 
 (defn resolve-bundle
   ```
@@ -76,7 +76,7 @@
 
   * `:url` or `:repo` - the URL or path of the git repository or of the .tar.gz file. Required.
   * `:tag`, `:sha`, `:commit`, or `:ref` - The revision to checkout from version control. Optional.
-  * `:type` - The dependency type, either `:git` or `:tar`. The default is `:git`. Optional.
+  * `:type` - The dependency type, either `:git`, `:tar`, or `:file`. The default is `:git`. Optional.
   * `:shallow` - If using a git dependency, clone the repository with `--depth=1`. Optional.
   ```
   [bundle]
@@ -154,13 +154,14 @@
   (path/join cache id))
 
 (defn download-bundle
-  "Download the package source (using git) to the local cache. Return the
+  "Download the package source (using git, curl+tar, or a file copy) to the local cache. Return the
   path to the downloaded or cached soure code."
   [url bundle-type &opt tag shallow]
   (def bundle-dir (get-cachedir url bundle-type tag))
   (case bundle-type
     :git (download-git-bundle bundle-dir url tag shallow)
     :tar (download-tar-bundle bundle-dir url)
+    :file (sh/copy url bundle-dir)
     (errorf "unknown bundle type %v" bundle-type))
   bundle-dir)
 
