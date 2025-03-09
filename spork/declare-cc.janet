@@ -132,6 +132,11 @@
   [target deps & body]
   ~(,rule-impl ,target ,deps (fn ,(keyword target) [] (,sh/exec (,string ,;body))) true))
 
+(defn install-file-rule
+  "Add install and uninstall rule for moving file from src into destdir."
+  [src dest]
+  (install-rule src dest))
+
 ###
 ### Misc. utilities
 ###
@@ -248,6 +253,10 @@
   [&named source prefix]
   (defn dest [s] (if prefix (path/join prefix s) (path/basename s)))
   (def sources (if (bytes? source) [source] source))
+  (when prefix
+    (rule :install []
+          (def manifest (assert (dyn *install-manifest*)))
+          (bundle/add-directory manifest prefix)))
   (each s source
     (install-rule s (dest s))))
 
@@ -257,6 +266,10 @@
   [&named headers prefix]
   (defn dest [s] (if prefix (path/join prefix s) (path/basename s)))
   (def headers (if (bytes? headers) [headers] headers))
+  (when prefix
+    (rule :install []
+          (def manifest (assert (dyn *install-manifest*)))
+          (bundle/add-directory manifest prefix)))
   (each s headers
     (install-rule s (dest s))))
 
@@ -645,8 +658,10 @@ int main(int argc, const char **argv) {
       (def oimage-dest (cc/out-path cimage-dest ".o"))
 
       # TODO
-      (def libjanet "/usr/local/lib/libjanet.a")
-      (def other-cflags ["-I/usr/local/include/" "-L/usr/local/lib"])
+      (def prefix "/usr/local")
+      (def asuffix (case toolchain :msvc ".lib" ".a"))
+      (def libjanet (path/join prefix "lib" (string "libjanet" asuffix)))
+      (def other-cflags [(string "-I" (path/join prefix "include")) (string "-L" (path/join prefix "lib"))])
       (def benv @{cc/*build-dir* (build-dir)
                   cc/*defines* defines
                   cc/*libs* libs

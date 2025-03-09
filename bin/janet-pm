@@ -75,7 +75,7 @@
 
 (defn build
   [&opt target]
-  (pm/local-hook "build" target))
+  (pm/local-hook "build" @{} target))
 
 (defn clean
   []
