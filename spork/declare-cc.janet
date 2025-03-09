@@ -9,7 +9,6 @@
 ###
 
 ### TODO
-# - declare-executable
 # - lock-files
 
 (import ./build-rules)
@@ -586,7 +585,7 @@ int main(int argc, const char **argv) {
   is marshalled into bytecode which is then embedded in a final executable for distribution.\n\n
   This executable can be installed as well to the --binpath given."
   [&named name entry install headers no-compile no-core defines
-   pkg-config-flags target-os
+   pkg-config-flags target-os deps
    pkg-config-libs smart-libs c-std c++-std msvc-libs
    cflags c++flags lflags libs static-libs dynamic-libs use-rpath use-rdynamic]
 
@@ -598,6 +597,7 @@ int main(int argc, const char **argv) {
   (default headers @[])
   (default c++flags @[])
   (default defines @{})
+  (default deps @[])
   (default pkg-config-libs @[])
   (default pkg-config-flags @[])
 
@@ -610,7 +610,7 @@ int main(int argc, const char **argv) {
   (def cimage-dest (string dest ".c"))
   (when install (install-rule dest (path/join "bin" name) nil mkbin))
   (rule :build [(if no-compile cimage-dest dest)])
-  (rule (if no-compile cimage-dest dest) [entry ;headers]
+  (rule (if no-compile cimage-dest dest) [entry ;headers ;deps]
     (print "generating executable c source " cimage-dest " from " entry "...")
     (sh/create-dirs-to dest)
     (flush)

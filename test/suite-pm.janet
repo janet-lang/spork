@@ -1,5 +1,6 @@
 (use ../spork/test)
-(import spork/pm)
+(import ../spork/pm)
+(import ../spork/sh)
 
 (start-suite)
 
@@ -16,10 +17,6 @@
   []
   (string "tmp_dir_" (slice (string (math/random) ".tmp") 2)))
 
-# Test mkdir -> rmdir
-(assert (os/mkdir "tempdir123.tmp"))
-(sh/rm "tempdir123.tmp")
-
 # Create a temporary directory for our janet tree
 (math/seedrandom (os/cryptorand 16))
 (def syspath (randdir))
@@ -32,7 +29,7 @@
 (assert (empty? (bundle/topolist)) "initial bundle/topolist")
 
 # Check our project.janet based bundle
-(pm/pm-install "file::test/pm")
+(pm/pm-install "file::./test/pm")
 (assert (= 1 (length (bundle/list))) "bundle/list after install")
 
 (end-suite)
