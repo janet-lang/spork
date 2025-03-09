@@ -74,8 +74,8 @@
   (print help-text))
 
 (defn build
-  []
-  (pm/local-hook "build"))
+  [&opt target]
+  (pm/local-hook "build" target))
 
 (defn clean
   []

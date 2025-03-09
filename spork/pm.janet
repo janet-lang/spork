@@ -205,7 +205,7 @@
 (defn install [manifest &]
   (with-dyns [*install-manifest* manifest]
     (build-run e "install")))
-(defn build [&] (build-run e "build"))
+(defn build [&opt target &] (default target "build") (build-run e target))
 (defn check [&] (build-run e "test"))
 (defn clean [&] (build-run e "clean"))
 ````)
