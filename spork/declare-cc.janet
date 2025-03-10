@@ -230,6 +230,27 @@
       (os/exit 1)))
   (flush))
 
+(defn- print-rule-tree
+  "Show dependencies for a given rule recursively in a nice tree."
+  [rules root depth prefix prefix-part]
+  (print prefix root)
+  (when-let [{:inputs root-deps} (rules root)]
+    (when (pos? depth)
+      (def l (-> root-deps length dec))
+      (eachp [i d] (sorted root-deps)
+        (print-rule-tree
+          rules d (dec depth)
+          (string prefix-part (if (= i l) " └─" " ├─"))
+          (string prefix-part (if (= i l) "   " " │ ")))))))
+
+(defn- show-rule-tree
+  [rules &opt root depth]
+  (def max-depth (if depth (scan-number depth) math/inf))
+  (if root
+    (print-rule-tree rules root max-depth "" "")
+    (let [ks (sort (seq [k :keys rules :when (string? k)] k))]
+      (each k ks (print-rule-tree rules k max-depth "" "")))))
+
 ###
 ### Declare stubs
 ###
@@ -243,6 +264,9 @@
   (default dependencies @[])
   (def rules (get-rules))
   (build-rules/build-rule
+    # pre-build will run before any other dependency of build due to
+    # implementation details. We really should pre-build as a dependency of every
+    # target that generates artifacts under build/.
     rules :pre-build []
     (def bd (build-dir))
     (os/mkdir bd)
@@ -263,6 +287,9 @@
     rules :list-rules []
     (each k (sorted (filter string? (keys rules)))
       (print k)))
+  (build-rules/build-rule
+    rules :rule-tree []
+    (show-rule-tree rules))
   (build-rules/build-rule
     rules :check ["build"]
     (run-tests)))

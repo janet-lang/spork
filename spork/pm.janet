@@ -51,8 +51,7 @@
 (defn- resolve-bundle-name
   "Convert short bundle names to full tables."
   [bname]
-  (if (or (string/has-prefix? "." bname) (string/find ":" bname))
-    (break bname))
+  (if (string/find ":" bname) (break bname))
   (let [pkgs (try
                (require "pkgs")
                ([err]
@@ -294,12 +293,14 @@
     (each dep jpm-deps
       (pm-install dep)))
   (when did-shim
+    # patch deps after installing all jpm dependencies. This allows the bundle/* module to track dependencies, and
+    # prevent things like uninstalling a dependency, breaking another installed package.
     (def deps (seq [d :in jpm-deps] (jpm-dep-to-bundle-dep d)))
     (unless (index-of "spork" deps) (array/push deps "spork"))
     (put info :dependencies deps)
     (spit (path/join bdir "bundle" "info.jdn") (string/format "%j" info)))
   (def config @{:pm-identifier bundle-code :url url :tag tag :type bundle-type :installed-with "spork/pm"})
-  (with-env root-env # work around for janet issue
+  (with-env (make-env) # work around for janet issue with executing hooks
     (bundle/install bdir :config config ;(kvs config))))
 
 (defn local-hook

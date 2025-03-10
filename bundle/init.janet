@@ -5,6 +5,6 @@
 (defn install [manifest &]
   (setdyn *install-manifest* manifest)
   (build-run e "install"))
-(defn build [&opt m & targets] (default targets "build") (build-run e targets))
+(defn build [&opt m targets] (default targets "build") (build-run e targets))
 (defn check [&] (build-run e "test"))
 (defn clean [&] (build-run e "clean"))
