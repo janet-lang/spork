@@ -379,10 +379,8 @@
               cc/*c-std* c-std
               cc/*c++-std* c++-std
               cc/*target-os* target-os
-              # TODO
               cc/*visit* cc/visit-add-rule
-              cc/*rules* rules
-              })
+              cc/*rules* rules})
   (table/setproto benv (curenv)) # configurable?
   (when (and pkg-config-libs (next pkg-config-libs))
     (with-env benv (cc/pkg-config ;pkg-config-libs))) # Add package config flags
@@ -406,8 +404,12 @@
       :msvc cc/msvc-compile-and-make-archive
       cc/compile-and-make-archive))
 
-  # TODO - handle cpp
-  (def has-cpp false)
+  (var has-cpp false)
+  (each s source
+    (case (path/ext s)
+      ".cc" (set has-cpp true)
+      ".cxx" (set has-cpp true)
+      ".cpp" (set has-cpp true)))
   
   (def targets @{})
   (with-env benv
@@ -423,12 +425,16 @@
                               (create-buffer-c (slurp src) c-src (embed-name src)))
       (compile-c c-src o-src))
     (cc to ;source ;objects)
+    (def ename (entry-name name))
     (build-rules/build-rule rules :build [to])
     (unless nostatic
       (def toa (cc/out-path name asuffix))
+      (def tometa (cc/out-path name ".meta.janet"))
       (put targets :static toa)
       (install-rule toa (string name asuffix))
-      (with-dyns [cc/*build-dir* "build/static"]
+      (install-rule tometa (string name ".meta.janet"))
+      (with-dyns [cc/*build-dir* "build/static"
+                  cc/*defines* (merge-into @{"JANET_ENTRY_NAME" ename} defines)]
         (def sobjects @[])
         (loop [src :in embedded]
           (def c-src (cc/out-path src ".c"))
@@ -438,24 +444,22 @@
                                   (create-buffer-c (slurp src) c-src (embed-name src)))
           (compile-c c-src o-src))
         (static-cc toa ;source ;sobjects)
-        (build-rules/build-rule rules :build [toa]))))
-
-  (unless nostatic
-    (def metaname (string name ".meta.janet"))
-    (def ename (entry-name name))
-    (defn contents []
-      (string/format
-        "# Metadata for static library %s\n\n%.20p"
-        (string name asuffix)
-        {:static-entry ename
-         :cpp has-cpp
-         :ldflags libs
-         :lflags lflags
-         :static-libs static-libs
-         :smart-libs smart-libs
-         :use-rdynamic use-rdynamic
-         :use-rpath use-rpath}))
-    (install-buffer contents metaname))
+        (build-rules/build-rule
+          rules tometa []
+          (spit
+            tometa
+            (string/format
+              "# Metadata for static library %s\n\n%.20p"
+              (string name asuffix)
+              {:static-entry ename
+               :cpp has-cpp
+               :ldflags libs
+               :lflags lflags
+               :static-libs static-libs
+               :smart-libs smart-libs
+               :use-rdynamic use-rdynamic
+               :use-rpath use-rpath})))
+        (build-rules/build-rule rules :build [toa tometa]))))
 
   targets)
 
@@ -481,8 +485,6 @@
   (string
     declarations
     ```
-#include <janet.h>
-
 int main(int argc, const char **argv) {
 
 #if defined(JANET_PRF)
@@ -656,7 +658,7 @@ int main(int argc, const char **argv) {
 
       # Find static modules
       (var has-cpp false)
-      (def declarations @"")
+      (def declarations @"#include <janet.h>\n")
       (def lookup-into-invocations @"")
       (loop [[prefix name] :pairs prefixes]
         (def meta (eval-string (slurp (modpath-to-meta toolchain name))))
@@ -718,10 +720,8 @@ int main(int argc, const char **argv) {
       (unless no-compile
         (with-env benv
           (cc/search-libraries "m" "rt" "dl")
-          (print "compiling " cimage-dest " to " oimage-dest "...")
           (flush)
           (compile-c cimage-dest oimage-dest)
-          (print "linking " dest "...")
           (flush)
           (link [oimage-dest] dest)))))
 

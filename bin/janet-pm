@@ -1,7 +1,5 @@
 #!/usr/bin/env janet
 
-# Version 2 of JPM
-
 (import spork/pm)
 (import spork/declare-cc)
 (import spork/argparse)

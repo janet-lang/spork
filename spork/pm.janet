@@ -99,7 +99,8 @@
             (set repo (get parts 1))
             (set tag (get parts 2)))
         (errorf "unable to parse bundle string %v" bundle))))
-  {:url (resolve-bundle-name repo) :tag tag :type btype :shallow shallow})
+  {:url (if (= btype :file) (os/realpath repo) (resolve-bundle-name repo))
+   :tag tag :type btype :shallow shallow})
 
 (defn update-git-bundle
   "Fetch latest tag version from remote repository"
@@ -148,6 +149,7 @@
 
 (defn- get-cachedir
   [url bundle-type tag]
+  (def url (if (= tag :file) (os/realpath url) url)) # use absolute paths for file caches
   (def cache (path/join (dyn *syspath*) ".cache"))
   (os/mkdir cache)
   (def id (filepath-replace (string bundle-type "_" tag "_" url)))

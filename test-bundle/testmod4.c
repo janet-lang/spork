@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2021 Calvin Rose and contributors
+* Copyright (c) 2025 Calvin Rose and contributors
 *
 * Permission is hereby granted, free of charge, to any person obtaining a copy
 * of this software and associated documentation files (the "Software"), to
@@ -23,17 +23,15 @@
 /* A very simple native module */
 
 #include <janet.h>
-#include <iostream>
 
-static Janet cfun_get_nine(int32_t argc, Janet *argv) {
+static Janet cfun_get_eight(int32_t argc, Janet *argv) {
     (void) argv;
     janet_fixarity(argc, 0);
-    std::cout << "Hello!" << std::endl;
-    return janet_wrap_number(9.0);
+    return janet_wrap_number(8.0);
 }
 
 static const JanetReg array_cfuns[] = {
-    {"get9", cfun_get_nine, NULL},
+    {"get8", cfun_get_eight, NULL},
     {NULL, NULL, NULL}
 };
 

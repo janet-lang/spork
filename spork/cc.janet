@@ -225,13 +225,13 @@
 (defn link-executable-c
   "Link a C program to make an executable. Return the command arguments."
   [objects to]
-  (exec [(cc) (ccstd) ;(opt) ;(cflags) ;(extra-paths) "-o" to ;objects ;(rdynamic) "-pthread" ;(static-libs) ;(libs)]
+  (exec [(cc) (ccstd) ;(opt) ;(cflags) ;(extra-paths) "-o" to ;objects ;(rdynamic) "-pthread" ;(libs)]
         objects [to] (string "linking " to "...")))
 
 (defn link-executable-c++
   "Link a C++ program to make an executable. Return the command arguments."
   [objects to]
-  (exec [(c++) (c++std) ;(opt) ;(c++flags) ;(extra-paths) "-o" to ;objects ;(rdynamic) "-pthread" ;(static-libs) ;(libs)]
+  (exec [(c++) (c++std) ;(opt) ;(c++flags) ;(extra-paths) "-o" to ;objects ;(rdynamic) "-pthread" ;(libs)]
         objects [to] (string "linking " to "...")))
 
 (defn make-archive
