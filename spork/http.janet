@@ -43,6 +43,20 @@
                        {:main ~(* :response-status :headers)}
                        http-grammar))))
 
+(defn- accum-key-values
+  "Accumulate key-value pairs based on arg index (even = key, odd = value) into a table and combine 
+  duplicate keys into arrays of values (rather than overwriting). Used for both query strings and headers."
+  [& args]
+  (def tab @{})
+  (loop [i :range [0 (length args) 2]
+         :let [k (get args i) v (get args (+ 1 i))]]
+    (if-let [item (in tab k)]
+      (if (array? item)
+        (array/push item v)
+        (put tab k @[item v]))
+      (put tab k v)))
+  tab)
+
 (defn- read-header
   "Read an HTTP header from a stream."
   [conn buf peg key1 key2]
@@ -53,7 +67,7 @@
       (set head
            (if-let [matches (peg/match peg buf)]
              (let [[a b] matches
-                   headers (table ;(array/remove matches 0 2))]
+                   headers (accum-key-values ;(array/remove matches 0 2))]
                @{:headers headers
                  :connection conn
                  :buffer (pre-pop buf (+ 4 end))
@@ -68,19 +82,6 @@
       (break)))
   head)
 
-(defn- query-string-accum
-  "Accumulate into a table and combine duplicate keys into arrays
-  of values (rather than overwriting)."
-  [& args]
-  (def tab @{})
-  (loop [i :range [0 (length args) 2]
-         :let [k (get args i) v (get args (+ 1 i))]]
-    (if-let [item (in tab k)]
-      (if (array? item)
-        (array/push item v)
-        (put tab k @[item v]))
-      (put tab k v)))
-  tab)
 
 (def query-string-grammar
   "Grammar that parses a query string (sans url path and ? character) and returns a table."
@@ -91,7 +92,7 @@
       :key (accumulate (some :kchar))
       :value (accumulate (any :vchar))
       :entry (* :key (+ (* "=" :value) (constant true)) (+ (set ";&") -1))
-      :main (/ (any :entry) ,query-string-accum)}))
+      :main (/ (any :entry) ,accum-key-values)}))
 
 (defn read-request
   ``Read an HTTP request header from a connection. Returns a table with the following keys:
@@ -331,8 +332,13 @@
   (def message (in status-messages status))
   (buffer/format buf "HTTP/1.1 %d %s\r\n" status message)
   (def headers (get response :headers {}))
+
   (eachp [k v] headers
-    (buffer/format buf "%V: %V\r\n" k v))
+    # Values can be lists when representing duplicate headers (e.g.: multiple "Set-Cookie" entries)
+    (if (or (tuple? v) (array? v))
+      (each ve v (buffer/format buf "%V: %V\r\n" k ve))
+      (buffer/format buf "%V: %V\r\n" k v)))
+
   (write-body conn buf (in response :body)))
 
 ###

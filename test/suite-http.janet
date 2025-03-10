@@ -36,6 +36,7 @@
 (test-http-parse http/read-request @"GET /abc.janet HTTP/1.0\r\na:b\r\n\r\n" "GET" "/abc.janet" nil {"a" "b"})
 (test-http-parse http/read-request @"POST /abc.janet HTTP/1.0\r\na:b\r\n\r\nextraextra" "POST" "/abc.janet" nil {"a" "b"})
 (test-http-parse http/read-response @"HTTP/1.0 200 OK\r\na:b\r\n\r\nextraextra" nil nil 200 {"a" "b"})
+(test-http-parse http/read-response @"HTTP/1.0 200 OK\r\nh:eta\r\nh:heta\r\nt:theta\r\n\r\nextraextra" nil nil 200 {"h" ["eta" "heta"] "t" "theta"})
 
 (defn- close-both
   [[r w]]
@@ -86,6 +87,16 @@
 (with [server (http/server body-server "127.0.0.1" 9816)]
   (def res (http/request "POST" "http://127.0.0.1:9816" :body (string/repeat "a" 4194304)))
   (test-http-item res nil nil 200 {"content-length" "4194304"}))
+
+(with [[r w] (os/pipe) close-both]
+  (http/send-response w {:status 200
+                         :headers {"Set-Cookie" ["type=biscotti" "flavor=chocolate"]}
+                         :body "Hello!"})
+  (:close w)
+  (assert
+    (deep= (:read r :all)
+      (buffer "HTTP/1.1 200 OK\r\nSet-Cookie: type=biscotti\r\nSet-Cookie: flavor=chocolate\r\nContent-Length: 6\r\n\r\nHello!"))
+    "write-head: duplicate headers"))
 
 (defn- chunk
   [data]
