@@ -260,6 +260,10 @@
     rules :test ["build"]
     (run-tests))
   (build-rules/build-rule
+    rules :list-rules []
+    (each k (sorted (filter string? (keys rules)))
+      (print k)))
+  (build-rules/build-rule
     rules :check ["build"]
     (run-tests)))
 

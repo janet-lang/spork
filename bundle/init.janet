@@ -3,9 +3,8 @@
 (def e (curenv))
 (dofile "project.janet" :env e)
 (defn install [manifest &]
-  (setdyn :verbose true)
   (setdyn *install-manifest* manifest)
   (build-run e "install"))
-(defn build [&] (build-run e "build"))
+(defn build [&opt m & targets] (default targets "build") (build-run e targets))
 (defn check [&] (build-run e "test"))
 (defn clean [&] (build-run e "clean"))

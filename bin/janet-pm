@@ -43,19 +43,21 @@
         Uninstall the current project's artifacts. Shorthand for `janet --uninstall {current-project-name}`
 
     build
-        Build all artifacts in the build/ directory, or the value specified in --buildpath.
+        Build all artifacts in the build/ directory. Shorthand for `run build`.
+
+    rules
+        List the available rules. Shorthand for `run list-rules`.
+
+    run rules...
+        Run a specific rule in the project. Calls the project `(build manifest ;rules)` hook.
 
     clean
-        Remove any generated files or artifacts.
+        Remove any generated files or artifacts. Calls the `(clean)` hook.
 
     test
         Run tests. Tests should be .janet files in the test/ directory
         relative to project.janet. Will patch the module paths to load
-        built native code without installing it.
-
-    run rule
-        Run a rule. Can also run custom rules added via `(phony "task"
-        [deps...] ...)` or `(rule "ouput.file" [deps...] ...)`.
+        built native code without installing it. Shorthand for `run check`.
 
     rules
         List rules available with run.
@@ -72,8 +74,16 @@
   (print help-text))
 
 (defn build
-  [&opt target]
-  (pm/local-hook "build" @{} target))
+  []
+  (pm/local-hook "build" @{}))
+
+(defn run
+  [& targets]
+  (pm/local-hook "build" @{} targets))
+
+(defn rules
+  []
+  (pm/local-hook "build" @{} "list-rules"))
 
 (defn clean
   []
@@ -90,7 +100,7 @@
 
 (defn test
   []
-  (pm/local-hook "check"))
+  (pm/local-hook "check" @{}))
 
 (defn- uninstall-cmd
   [& what]
@@ -127,12 +137,15 @@
 
 (def subcommands
   {"build" build
+   "run" run
+   "rules" rules
    "clean" clean
    "help" help
    "install" install
    "test" test
    "help" help
    "deps" deps
+   "list-pkgs" list-pkgs
    "clear-cache" clear-cache
    "update-pkgs" update-pkgs
    "uninstall" uninstall-cmd})
