@@ -22,7 +22,7 @@
 (defdyn *install-manifest* "Bound to the bundle manifest during a bundle/install.")
 (defdyn *toolchain* "Force a given toolchain. If unset, will auto-detect.")
 
-(defn- build-dir [] (dyn cc/*build-dir* "build"))
+(defn- build-dir [] (dyn cc/*build-dir* "_build"))
 (defn- get-rules [] (dyn cc/*rules* (curenv)))
 (defn- mkbin [] (os/mkdir (path/join (dyn *syspath*) "bin")))
 (defn- mkman [] (os/mkdir (path/join (dyn *syspath*) "man")))
@@ -265,10 +265,7 @@
   (default dependencies @[])
   (def rules (get-rules))
   (build-rules/build-rule
-    # pre-build will run before any other dependency of build due to
-    # implementation details. We really should pre-build as a dependency of every
-    # target that generates artifacts under build/.
-    rules :pre-build []
+    rules "_build" []
     (def bd (build-dir))
     (os/mkdir bd)
     (os/mkdir (path/join bd "static")))
@@ -280,7 +277,7 @@
   (build-rules/build-rule
     rules :install ["build"])
   (build-rules/build-rule
-    rules :build ["pre-build"])
+    rules :build [])
   (build-rules/build-rule
     rules :test ["build"]
     (run-tests))
@@ -362,6 +359,7 @@
   (def iname (string name ".jimage"))
   (def ipath (path/join (build-dir) iname))
   (default deps @[])
+  (def deps @[;deps "_build"])
   (def rules (get-rules))
   (build-rules/build-rule
     rules ipath deps
@@ -412,6 +410,8 @@
               cc/*c++-std* c++-std
               cc/*target-os* target-os
               cc/*visit* cc/visit-add-rule
+              cc/*visit-implicit-deps* ["_build"]
+              :verbose true
               cc/*rules* rules})
   (table/setproto benv (curenv)) # configurable?
   (when (and pkg-config-libs (next pkg-config-libs))
@@ -465,7 +465,7 @@
       (put targets :static toa)
       (install-rule toa (string name asuffix))
       (install-rule tometa (string name ".meta.janet"))
-      (with-dyns [cc/*build-dir* "build/static"
+      (with-dyns [cc/*build-dir* "_build/static"
                   cc/*defines* (merge-into @{"JANET_ENTRY_NAME" ename} defines)]
         (def sobjects @[])
         (loop [src :in embedded]
@@ -644,7 +644,7 @@ int main(int argc, const char **argv) {
   (def cimage-dest (string dest ".c"))
   (when install (install-rule dest (path/join "bin" name) nil mkbin))
   (rule :build [(if no-compile cimage-dest dest)])
-  (rule (if no-compile cimage-dest dest) [entry ;headers ;deps]
+  (rule (if no-compile cimage-dest dest) ["_build" entry ;headers ;deps]
     (print "generating executable c source " cimage-dest " from " entry "...")
     (sh/create-dirs-to dest)
     (flush)

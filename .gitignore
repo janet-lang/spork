@@ -15,5 +15,5 @@ temp.mdz
 *.o
 *.lib
 *.obj
-
+/_build
 jpm_tree

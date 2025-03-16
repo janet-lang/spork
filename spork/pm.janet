@@ -396,8 +396,8 @@
   ````
   (declare-project
     :name "$name"
-    :description ```$description```
-    :author ```$author```
+    :description ```$description ```
+    :author ```$author ```
     :dependencies @["spork"]
     :version "0.0.0")
 
@@ -409,8 +409,8 @@
   ````
   (declare-project
     :name "$name"
-    :description ```$description```
-    :author ```$author```
+    :description ```$description ```
+    :author ```$author ```
     :dependencies @["spork"]
     :version "0.0.0")
 
@@ -456,7 +456,7 @@
   (declare-project
     :name "$name"
     :description ```$description ```
-    :author ```$author```
+    :author ```$author ```
     :dependencies @["spork"]
     :version "0.0.0")
 
