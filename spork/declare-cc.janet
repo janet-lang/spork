@@ -10,6 +10,7 @@
 
 ### TODO
 # - lock-files
+# - quickbin
 
 (import ./build-rules)
 (import ./cc)

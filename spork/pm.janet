@@ -108,7 +108,7 @@
     (git "-C" bundle-dir "fetch" "--depth" "1" "origin" (or tag "HEAD"))
     (do
       # Tag can be a hash, e.g. in lockfile. Some Git servers don't allow
-      # fetching arbitrary objects by hash. First fetch ensures, that we have
+      # fetching arbitrary objects by hash. First fetch ensures that we have
       # all objects locally.
       (git "-C" bundle-dir "fetch" "--tags" "origin")
       (git "-C" bundle-dir "fetch" "origin" (or tag "HEAD"))))
@@ -228,6 +228,8 @@
     (when (= check key)
       (set result (get m :name))
       (break)))
+  (unless result
+    (eprintf "unable to resolve jpm style dependency %v to a local bundle" dep-name))
   result)
 
 (defn bundle-dep-to-jpm-dep
@@ -268,27 +270,28 @@
 (defn pm-install
   "Install a bundle given a url, short name, or full 'bundle code'. The bundle source code will be fetched from
   git or a url, then installed with `bundle/install`."
-  [bundle-code &opt no-deps force-update]
+  [bundle-code &named no-deps force-update no-install]
   (def bundle (resolve-bundle bundle-code))
   (def {:url url
         :tag tag
         :type bundle-type
         :shallow shallow}
     bundle)
-  (unless force-update
-    (var installed false)
-    (each b (bundle/list)
-      (def id (get (get (bundle/manifest b) :config {}) :url))
-      (when (= id url)
-        (set installed true)
-        (break)))
-    (if installed (break)))
+  (var installed false)
+  (each b (bundle/list) # check by cache id before checking bundle name
+    (def id (get (get (bundle/manifest b) :config {}) :url))
+    (when (= id url)
+      (set installed true)
+      (break)))
+  (if (and installed (not force-update)) (break))
   (def bdir (download-bundle url bundle-type tag shallow))
   (def did-shim (project-janet-shim bdir))
   (def info (load-project-meta bdir))
   (def jpm-deps (get info :jpm-dependencies @[]))
-  (if-let [name (get info :name)]
-    (if (bundle/installed? name) (break)))
+  (def name (get info :name))
+  (def binstalled (bundle/installed? name))
+  (if (and name (not force-update) binstalled) (break))
+  #(def binstalled true)
   (unless no-deps
     (each dep jpm-deps
       (pm-install dep)))
@@ -296,12 +299,15 @@
     # patch deps after installing all jpm dependencies. This allows the bundle/* module to track dependencies, and
     # prevent things like uninstalling a dependency, breaking another installed package.
     (def deps (seq [d :in jpm-deps] (jpm-dep-to-bundle-dep d)))
+    (def deps (filter identity deps))
     (unless (index-of "spork" deps) (array/push deps "spork"))
     (put info :dependencies deps)
     (spit (path/join bdir "bundle" "info.jdn") (string/format "%j" info)))
-  (def config @{:pm-identifier bundle-code :url url :tag tag :type bundle-type :installed-with "spork/pm"})
-  (with-env (make-env) # work around for janet issue with executing hooks
-    (bundle/install bdir :config config ;(kvs config))))
+  (def config @{:pm bundle :installed-with "spork/pm"})
+  (unless no-install
+    (if binstalled
+      (bundle/reinstall name :config config ;(kvs config))
+      (bundle/install bdir :config config ;(kvs config)))))
 
 (defn local-hook
   "Run a bundle hook on the local project."
@@ -312,5 +318,35 @@
   (def hookf (module/value module (symbol hook)))
   (unless hookf (break))
   (hookf ;args))
+
+###
+### Lock files
+###
+
+(defn save-lockfile
+  "Create a lockfile that can be used to reinstall all currently installed bundles at a later date."
+  [lock-dest &opt allow-local]
+  (def lock @[])
+  (each b (bundle/topolist)
+    (def manifest (bundle/manifest b))
+    (def config (get manifest :config))
+    (def pm (get manifest :pm (get config :pm {:type :file :url (get manifest :local-source)})))
+    (def name (get manifest :name))
+    (array/push lock {:name name :pm pm :config config}))
+  (def buf @"[\n")
+  (each d lock
+    (buffer/format buf "  %j\n" d))
+  (buffer/push buf "]\n")
+  (spit lock-dest buf)
+  lock)
+
+(defn load-lockfile
+  "Install all saved dependencies in a lockfile."
+  [lock-src]
+  (def lock (-> lock-src slurp parse))
+  (each d lock
+    (def {:pm pm :name name} d)
+    (pm-install pm true true)
+    (assert (bundle/installed? name))))
 
 (set bundle-install-recursive pm-install)

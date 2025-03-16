@@ -1,8 +1,9 @@
 #!/usr/bin/env janet
 
-(import spork/pm)
-(import spork/declare-cc)
 (import spork/argparse)
+(import spork/path)
+(import spork/pm)
+(import spork/sh)
 
 (def help-text
     ```
@@ -67,6 +68,12 @@
         Optionally provide a root rule to start printing from, and a
         max depth to print. Without these options, all rules will
         print their full dependency tree.
+    
+    save-lockfile dest
+        Save all currently installed bundles to a lockfile
+
+    load-lockfile src
+        Install all bundles in the given lockfile.
     ```)
 
 (defn help
@@ -92,11 +99,8 @@
 (defn install
   [& repo]
   (if (empty? repo)
-    (let [m (pm/load-project-meta ".")]
-      (if (bundle/installed? (get m :name))
-        (bundle/reinstall (get m :name))
-        (bundle/install ".")))
-    (each rep repo (pm/pm-install rep))))
+    (pm/pm-install "file::." :force-update true :no-deps true)
+    (each rep repo (pm/pm-install rep :force-update true))))
 
 (defn test
   []
@@ -109,13 +113,13 @@
 
 (defn deps
   []
-  (print "NYI")
-  (os/exit 1))
+  # TODO - no copy
+  (pm/pm-install "file::." :no-install true))
 
 (defn clear-cache
   []
-  (print "NYI")
-  (os/exit 1))
+  (def cache (path/join (dyn *syspath*) ".cache"))
+  (sh/rm cache))
 
 (defn list-pkgs
   [&opt search]
@@ -135,6 +139,16 @@
   []
   (pm/pm-install (dyn pm/*pkglist* pm/default-pkglist)))
 
+(defn load-lockfile
+  [&opt path]
+  (default path "lockfile.jdn")
+  (pm/load-lockfile path))
+
+(defn save-lockfile
+  [&opt path]
+  (default path "lockfile.jdn")
+  (pm/save-lockfile path))
+
 (def subcommands
   {"build" build
    "run" run
@@ -145,6 +159,8 @@
    "test" test
    "help" help
    "deps" deps
+   "load-lockfile" load-lockfile
+   "save-lockfile" save-lockfile
    "list-pkgs" list-pkgs
    "clear-cache" clear-cache
    "update-pkgs" update-pkgs
@@ -157,6 +173,17 @@
     (argparse/argparse
       help-text
 
+      "verbose"
+      {:short "v"
+       :kind :flag
+       :help "Show more output"
+       :default false}
+
+      "syspath"
+      {:short "m"
+       :kind :option
+       :help "Set the syspath"}
+
       :default
       {:kind :accumulate
        :help "Commands to run"}))
@@ -164,6 +191,8 @@
   # Break on help text
   (unless ap (break))
   (unless (ap :default) (break (help)))
+  (when (ap :verbose) (setdyn :verbose true))
+  (when-let [sp (get ap :syspath)] (put root-env *syspath* sp))
 
   (when (get
           {"t" true "true" true "1" true "yes" true "on" true}
