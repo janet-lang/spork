@@ -4,6 +4,7 @@
 (import spork/path)
 (import spork/pm)
 (import spork/sh)
+(import spork/build-rules)
 
 (def help-text
     ```

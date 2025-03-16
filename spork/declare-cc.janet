@@ -265,7 +265,7 @@
   (default dependencies @[])
   (def rules (get-rules))
   (build-rules/build-rule
-    rules "_build" []
+    rules :pre-build []
     (def bd (build-dir))
     (os/mkdir bd)
     (os/mkdir (path/join bd "static")))
@@ -275,11 +275,11 @@
     (print "removing directory " bd)
     (sh/rm bd))
   (build-rules/build-rule
-    rules :install ["build"])
+    rules :install ["pre-build" "build"])
   (build-rules/build-rule
-    rules :build [])
+    rules :build ["pre-build"])
   (build-rules/build-rule
-    rules :test ["build"]
+    rules :test ["pre-build" "build"]
     (run-tests))
   (build-rules/build-rule
     rules :list-rules []
@@ -359,7 +359,6 @@
   (def iname (string name ".jimage"))
   (def ipath (path/join (build-dir) iname))
   (default deps @[])
-  (def deps @[;deps "_build"])
   (def rules (get-rules))
   (build-rules/build-rule
     rules ipath deps
@@ -410,7 +409,6 @@
               cc/*c++-std* c++-std
               cc/*target-os* target-os
               cc/*visit* cc/visit-add-rule
-              cc/*visit-implicit-deps* ["_build"]
               :verbose true
               cc/*rules* rules})
   (table/setproto benv (curenv)) # configurable?
@@ -465,7 +463,7 @@
       (put targets :static toa)
       (install-rule toa (string name asuffix))
       (install-rule tometa (string name ".meta.janet"))
-      (with-dyns [cc/*build-dir* "_build/static"
+      (with-dyns [cc/*build-dir* (path/join (build-dir) "static")
                   cc/*defines* (merge-into @{"JANET_ENTRY_NAME" ename} defines)]
         (def sobjects @[])
         (loop [src :in embedded]
@@ -644,7 +642,7 @@ int main(int argc, const char **argv) {
   (def cimage-dest (string dest ".c"))
   (when install (install-rule dest (path/join "bin" name) nil mkbin))
   (rule :build [(if no-compile cimage-dest dest)])
-  (rule (if no-compile cimage-dest dest) ["_build" entry ;headers ;deps]
+  (rule (if no-compile cimage-dest dest) [entry ;headers ;deps]
     (print "generating executable c source " cimage-dest " from " entry "...")
     (sh/create-dirs-to dest)
     (flush)

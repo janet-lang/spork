@@ -162,7 +162,11 @@
   (case bundle-type
     :git (download-git-bundle bundle-dir url tag shallow)
     :tar (download-tar-bundle bundle-dir url)
-    :file (sh/copy url bundle-dir)
+    :file (if (= :windows (os/which))
+            (sh/copy url bundle-dir)
+            (do
+              (protect (os/rm bundle-dir))
+              (os/symlink url bundle-dir)))
     (errorf "unknown bundle type %v" bundle-type))
   bundle-dir)
 
@@ -267,6 +271,19 @@
   (spit bundle-info (string/format "%j" meta))
   true)
 
+(defn- dyn-env
+  []
+  (def e (make-env))
+  (defn- add1
+    [x]
+    (eachp [k v] x
+      (if (keyword? k)
+        (put e k v)))
+    (if-let [p (getproto x)]
+      (add1 p)))
+  (add1 (curenv))
+  e)
+
 (defn pm-install
   "Install a bundle given a url, short name, or full 'bundle code'. The bundle source code will be fetched from
   git or a url, then installed with `bundle/install`."
@@ -304,10 +321,11 @@
     (put info :dependencies deps)
     (spit (path/join bdir "bundle" "info.jdn") (string/format "%j" info)))
   (def config @{:pm bundle :installed-with "spork/pm"})
-  (unless no-install
-    (if binstalled
-      (bundle/reinstall name :config config ;(kvs config))
-      (bundle/install bdir :config config ;(kvs config)))))
+  (with-env (dyn-env) # work around bundle/* quirk with accidentally injecting hooks.
+    (unless no-install
+      (if binstalled
+        (bundle/reinstall name :config config ;(kvs config))
+        (bundle/install bdir :config config ;(kvs config))))))
 
 (defn local-hook
   "Run a bundle hook on the local project."
