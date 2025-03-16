@@ -9,3 +9,4 @@ circlet.*
 argparse.*
 sqlite3.*
 path.*
+/_build

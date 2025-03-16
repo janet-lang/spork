@@ -1,10 +1,2 @@
 (use /spork/declare-cc)
-(use /spork/build-rules)
-(def e (curenv))
-(dofile "project.janet" :env e)
-(defn install [manifest &]
-  (setdyn *install-manifest* manifest)
-  (build-run e "install"))
-(defn build [&opt m targets] (default targets "build") (build-run e targets))
-(defn check [&] (build-run e "test"))
-(defn clean [&] (build-run e "clean"))
+(dofile "project.janet" :env (jpm-shim-env (curenv)))

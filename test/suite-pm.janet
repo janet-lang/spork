@@ -28,6 +28,7 @@
     (setdyn *out* @""))
   (assert (empty? (bundle/list)) "initial bundle/list")
   (assert (empty? (bundle/topolist)) "initial bundle/topolist")
+  (sh/rm "./test-bundle/bundle")
 
   # Check our project.janet based bundle
   (pm/pm-install "file::.") # install spork

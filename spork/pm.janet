@@ -6,7 +6,6 @@
 ###
 
 (import ./sh)
-(import ./build-rules)
 (import ./path)
 
 (defdyn *gitpath* "What git command to use to fetch dependencies")
@@ -205,15 +204,7 @@
 (def- shimcode
 ````
 (use spork/declare-cc)
-(use spork/build-rules)
-(def e (jpm-shim-env))
-(dofile "project.janet" :env e)
-(defn install [manifest &]
-  (with-dyns [*install-manifest* manifest]
-    (build-run e "install")))
-(defn build [&opt man target] (default target "build") (build-run e target))
-(defn check [&] (build-run e "test"))
-(defn clean [&] (build-run e "clean"))
+(dofile "project.janet" :env (jpm-shim-env (curenv)))
 ````)
 
 (defn jpm-dep-to-bundle-dep

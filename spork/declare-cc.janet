@@ -257,40 +257,58 @@
 ###
 
 (defn declare-project
-  "Define your project metadata. This should
+  ```
+  Define your project metadata. This should
   be the first declaration in a project.janet file.
-  Also sets up basic task targets like clean, build, test, etc."
+  Sets up the JPM-style build rule system as well as
+  creates a number of default bundle hooks including:
+  - build
+  - clean
+  - check
+  - install
+  - list-rules
+  - rule-tree
+  ```
   [&named name description url version repo tag dependencies]
   (assert name)
   (default dependencies @[])
   (def rules (get-rules))
-  (build-rules/build-rule
-    rules :pre-build []
+  # Initialize build rules
+  (build-rules/build-rule rules :install ["build"])
+  (build-rules/build-rule rules :build [])
+  # Add hooks
+  (def e (curenv))
+  (defn- prebuild
+    []
     (def bd (build-dir))
     (os/mkdir bd)
     (os/mkdir (path/join bd "static")))
-  (build-rules/build-rule
-    rules :clean []
+  (defn build [&opt man target]
+    (prebuild)
+    (default target "build")
+    (build-rules/build-run e target))
+  (defn install [manifest &]
+    (build)
+    (with-dyns [*install-manifest* manifest]
+      (build-rules/build-run e "install")))
+  (defn check [&]
+    (build)
+    (run-tests))
+  (defn list-rules [&]
+    (each k (sorted (filter string? (keys rules)))
+      (print k)))
+  (defn rule-tree [&]
+    (show-rule-tree rules))
+  (defn clean [&]
     (def bd (build-dir))
     (print "removing directory " bd)
     (sh/rm bd))
-  (build-rules/build-rule
-    rules :install ["pre-build" "build"])
-  (build-rules/build-rule
-    rules :build ["pre-build"])
-  (build-rules/build-rule
-    rules :test ["pre-build" "build"]
-    (run-tests))
-  (build-rules/build-rule
-    rules :list-rules []
-    (each k (sorted (filter string? (keys rules)))
-      (print k)))
-  (build-rules/build-rule
-    rules :rule-tree []
-    (show-rule-tree rules))
-  (build-rules/build-rule
-    rules :check ["build"]
-    (run-tests)))
+  (defglobal 'install install)
+  (defglobal 'build build)
+  (defglobal 'check check)
+  (defglobal 'rule-tree rule-tree)
+  (defglobal 'list-rules list-rules)
+  (defglobal 'clean clean))
 
 (defn declare-source
   "Create Janet modules. This does not actually build the module(s),
@@ -774,8 +792,8 @@ int main(int argc, const char **argv) {
 (def- path (require "./path"))
 (defn jpm-shim-env
   "Create an environment table that can evaluate project.janet files"
-  []
-  (def e (make-env))
+  [&opt base]
+  (def e (or base (make-env)))
   # TODO - one for one naming with jpm
   (merge-module e sh)
   (merge-module e cjanet)

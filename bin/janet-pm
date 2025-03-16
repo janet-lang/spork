@@ -70,9 +70,6 @@
         relative to project.janet. Will patch the module paths to load
         built native code without installing it. Shorthand for `run check`.
 
-    rules
-        List rules available with run.
-
     rule-tree (root rule) (depth)
         Print a nice tree to see what rules depend on other rules.
         Optionally provide a root rule to start printing from, and a
@@ -90,6 +87,10 @@
   []
   (print help-text))
 
+(defn do-hook
+  [hook & args]
+  (pm/local-hook hook @{} ;args))
+
 (defn build
   []
   (pm/local-hook "build" @{}))
@@ -100,7 +101,7 @@
 
 (defn rules
   []
-  (pm/local-hook "build" @{} "list-rules"))
+  (pm/local-hook "list-rules"))
 
 (defn clean
   []
@@ -184,6 +185,7 @@
    "test" test
    "help" help
    "deps" deps
+   "hook" do-hook
    "new-project" new-project
    "new-c-project" new-c-project
    "new-exe-project" new-exe-project
