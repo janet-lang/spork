@@ -32,6 +32,15 @@
         string search. If no search pattern is given, prints the
         entire package listing.
 
+    new-project name
+        Create a new Janet project in a directory `name`.
+
+    new-c-project name
+        Create a new C+Janet project in a directory `name`.
+
+    new-exe-project name
+        Create a new project for an executable in a directory `name`.
+
     PER PROJECT COMMANDS:
 
     deps
@@ -94,7 +103,7 @@
 
 (defn clean
   []
-  (pm/local-hook "clean"))
+  (pm/local-hook "clean" @{}))
 
 (defn install
   [& repo]
@@ -149,6 +158,21 @@
   (default path "lockfile.jdn")
   (pm/save-lockfile path))
 
+(defn new-project
+  "Create a new project"
+  [name]
+  (pm/scaffold-project name {:c false}))
+
+(defn new-c-project
+  "Create a new C project"
+  [name]
+  (pm/scaffold-project name {:c true}))
+
+(defn new-exe-project
+  "Create a new executable project"
+  [name]
+  (pm/scaffold-project name {:c false :exe true}))
+
 (def subcommands
   {"build" build
    "run" run
@@ -159,6 +183,9 @@
    "test" test
    "help" help
    "deps" deps
+   "new-project" new-project
+   "new-c-project" new-c-project
+   "new-exe-project" new-exe-project
    "load-lockfile" load-lockfile
    "save-lockfile" save-lockfile
    "list-pkgs" list-pkgs
