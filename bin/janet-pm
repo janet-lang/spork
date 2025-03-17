@@ -83,6 +83,10 @@
   []
   (pm/local-hook "build" @{}))
 
+(defn run
+  [task]
+  (pm/local-hook "run" task))
+
 (defn clean
   []
   (pm/local-hook "clean" @{}))
@@ -175,6 +179,7 @@
    "save-lockfile" save-lockfile
    "list-pkgs" list-pkgs
    "clear-cache" clear-cache
+   "run" run
    "update-pkgs" update-pkgs
    "uninstall" uninstall-cmd})
 

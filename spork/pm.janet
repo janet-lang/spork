@@ -75,19 +75,16 @@
   * `:url` or `:repo` - the URL or path of the git repository or of the .tar.gz file. Required.
   * `:tag`, `:sha`, `:commit`, or `:ref` - The revision to checkout from version control. Optional.
   * `:type` - The dependency type, either `:git`, `:tar`, or `:file`. The default is `:git`. Optional.
-  * `:shallow` - If using a git dependency, clone the repository with `--depth=1`. Optional.
   ```
   [bundle]
   (var repo nil)
   (var tag nil)
   (var btype :git)
-  (var shallow false)
   (if (dictionary? bundle)
     (do
       (set repo (or (get bundle :url) (get bundle :repo)))
       (set tag (or (get bundle :tag) (get bundle :sha) (get bundle :commit) (get bundle :ref)))
-      (set btype (get bundle :type :git))
-      (set shallow (get bundle :shallow false)))
+      (set btype (get bundle :type :git)))
     (let [parts (string/split "::" bundle)]
       (case (length parts)
         1 (set repo (get parts 0))
@@ -97,25 +94,25 @@
             (set repo (get parts 1))
             (set tag (get parts 2)))
         (errorf "unable to parse bundle string %v" bundle))))
-  {:url (if (= btype :file) (os/realpath repo) (resolve-bundle-name repo))
-   :tag tag :type btype :shallow shallow})
+  (set repo (if (= btype :file) (os/realpath repo) (resolve-bundle-name repo)))
+  (when (string/has-prefix? "git+" repo)
+    (set repo (string/slice repo 4 -1))
+    (assert (= :git btype)))
+  {:url repo :tag tag :type btype})
 
 (defn update-git-bundle
   "Fetch latest tag version from remote repository"
-  [bundle-dir tag shallow]
-  (if shallow
-    (git "-C" bundle-dir "fetch" "--depth" "1" "origin" (or tag "HEAD"))
-    (do
-      # Tag can be a hash, e.g. in lockfile. Some Git servers don't allow
-      # fetching arbitrary objects by hash. First fetch ensures that we have
-      # all objects locally.
-      (git "-C" bundle-dir "fetch" "--tags" "origin")
-      (git "-C" bundle-dir "fetch" "origin" (or tag "HEAD"))))
+  [bundle-dir tag]
+  # Tag can be a hash, e.g. in lockfile. Some Git servers don't allow
+  # fetching arbitrary objects by hash. First fetch ensures that we have
+  # all objects locally.
+  (git "-C" bundle-dir "fetch" "--tags" "origin")
+  (git "-C" bundle-dir "fetch" "--depth" "1" "origin" (or tag "HEAD"))
   (git "-C" bundle-dir "reset" "--hard" "FETCH_HEAD"))
 
 (defn download-git-bundle
   "Download a git bundle from a remote respository."
-  [bundle-dir url tag shallow]
+  [bundle-dir url tag]
   (var fresh false)
   (if (dyn :offline)
     (if (not= :directory (os/stat bundle-dir :mode))
@@ -125,9 +122,9 @@
       (set fresh true)
       (git "-c" "init.defaultBranch=master" "-C" bundle-dir "init")
       (git "-C" bundle-dir "remote" "add" "origin" url)
-      (update-git-bundle bundle-dir tag shallow)))
+      (update-git-bundle bundle-dir tag)))
   (unless (or (dyn :offline) fresh)
-    (update-git-bundle bundle-dir tag shallow))
+    (update-git-bundle bundle-dir tag))
   (unless (dyn :offline)
     (git "-C" bundle-dir "submodule" "update" "--init" "--recursive")))
 
@@ -156,10 +153,10 @@
 (defn download-bundle
   "Download the package source (using git, curl+tar, or a file copy) to the local cache. Return the
   path to the downloaded or cached soure code."
-  [url bundle-type &opt tag shallow]
+  [url bundle-type &opt tag]
   (def bundle-dir (get-cachedir url bundle-type tag))
   (case bundle-type
-    :git (download-git-bundle bundle-dir url tag shallow)
+    :git (download-git-bundle bundle-dir url tag)
     :tar (download-tar-bundle bundle-dir url)
     :file (if (= :windows (os/which))
             (sh/copy url bundle-dir)
@@ -207,14 +204,12 @@
 (dofile "project.janet" :env (jpm-shim-env))
 ````)
 
-(defn jpm-dep-to-bundle-dep
-  "Convert a remote dependency identifier to a bundle dependency name. `dep-name` is any value that can be passed to `pm-install`.
-  Will return a string than can be passed to `bundle/reinstall`, `bundle/uninstall`, etc."
-  [dep-name]
+(defn- name-lookup
+  "Find the bundle name of a bundle address"
+  [bundle-addr]
   (def {:url url
         :tag tag
-        :type bundle-type}
-    (resolve-bundle dep-name))
+        :type bundle-type} bundle-addr)
   (def key [url tag bundle-type])
   (var result nil)
   (each d (bundle/list)
@@ -225,9 +220,16 @@
       (when (= check key)
         (set result (get m :name))
         (break))))
-  (unless result
-    (eprintf "unable to resolve jpm style dependency %q to a local bundle" dep-name))
   result)
+
+(defn jpm-dep-to-bundle-dep
+  "Convert a remote dependency identifier to a bundle dependency name. `dep-name` is any value that can be passed to `pm-install`.
+  Will return a string than can be passed to `bundle/reinstall`, `bundle/uninstall`, etc."
+  [dep-name]
+  (def bundle-name (name-lookup (resolve-bundle dep-name)))
+  (unless bundle-name
+    (eprintf "unable to resolve jpm style dependency %q to a local bundle" dep-name))
+  bundle-name)
 
 (defn- project-janet-shim
   ``If not already present, add a bundle/ directory to a legacy jpm project directory to allow installation with janet --install. Adds "spork"
@@ -241,7 +243,7 @@
   (if (os/stat bundle-hook-dir :mode) (break false))
   (if (os/stat bundle-janet-path :mode) (break false))
   (assert (os/stat project :mode) "did not find bundle directory, bundle.janet or project.janet")
-  (print "generating bundle/")
+  (printf "generating %s" bundle-hook-dir)
   (def meta (load-project-meta dir))
   (def deps (seq [d :in (get meta :dependencies @[])] d))
   (put meta :jpm-dependencies deps)
@@ -264,31 +266,34 @@
   (add1 (curenv))
   e)
 
+(defn- bundle-name-to-bundle
+  "Convert an installed bundle name to a pm bundle. Also handles bundles not installed with pm for debugging purposes."
+  [bundle-name]
+  (def m (bundle/manifest bundle-name))
+  (or
+    (get m :pm) # installed by pm, has extra info like git repo, etc.
+    (table/to-struct
+      (merge-into @{:local-source (get m :local-source)} (get m :info {}))))) # just a path on disk, native janet support
+
 (defn pm-install
   "Install a bundle given a url, short name, or full 'bundle code'. The bundle source code will be fetched from
   git or a url, then installed with `bundle/install`."
   [bundle-code &named no-deps force-update no-install auto-remove]
   (def bundle (resolve-bundle bundle-code))
-  (def {:url url
-        :tag tag
-        :type bundle-type
-        :shallow shallow}
-    bundle)
-  (var installed false)
-  (each b (bundle/list) # check by cache id before checking bundle name
-    (def id (get (get (bundle/manifest b) :config {}) :url))
-    (when (= id url)
-      (set installed true)
-      (break)))
-  (if (and installed (not force-update)) (break))
-  (def bdir (download-bundle url bundle-type tag shallow))
+  (def name (name-lookup bundle))
+  (if (and name (not force-update)) (break))
+  (def {:url url :type bundle-type :tag tag} bundle)
+  (def bdir (download-bundle url bundle-type tag))
   (def did-shim (project-janet-shim bdir))
   (def info (load-project-meta bdir))
+  (def infoname (get info :name))
+  (when (and (not name) (bundle/installed? infoname))
+    (def existing (bundle-name-to-bundle infoname))
+    (eprintf "a conflicting bundle %v is already installed, keeping that one." infoname)
+    (eprintf "  existing bundle: %.99M" existing)
+    (eprintf "  skipped bundle   %.99M" bundle)
+    (break))
   (def jpm-deps (get info :jpm-dependencies @[]))
-  (def name (get info :name))
-  (def binstalled (bundle/installed? name))
-  (if (and name (not force-update) binstalled) (break))
-  #(def binstalled true) #TODO - prevent double install of pkgs
   (unless no-deps
     (each dep jpm-deps
       (pm-install dep :force-update force-update :auto-remove true)))
@@ -301,9 +306,9 @@
     (put info :dependencies deps)
     (spit (path/join bdir "bundle" "info.jdn") (string/format "%.99m\n" info)))
   (def config @{:pm bundle :installed-with "spork/pm" :auto-remove auto-remove})
-  (with-env (dyn-env) # work around bundle/* quirk with accidentally injecting hooks.
-    (unless no-install
-      (if binstalled
+  (unless no-install
+    (with-env (dyn-env) # work around bundle/* quirk with accidentally injecting hooks.
+      (if (and name (bundle/installed? name))
         (bundle/reinstall name :config config ;(kvs config))
         (bundle/install bdir :config config ;(kvs config))))))
 

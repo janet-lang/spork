@@ -42,6 +42,7 @@
     (when (os/stat headercheck :mode)
       (set result test)
       (break)))
+  # TODO - check JANET_PATH
   (assert result "no prefix discovered for janet headers!")
   (setdyn *prefix* result)
   result)
@@ -308,11 +309,15 @@
   (defn clean-all [&]
     (print "removing directory " br)
     (sh/rm br))
+  (defn run-task [task]
+    (prebuild)
+    (build-rules/build-run e task))
   (defglobal 'install install)
   (defglobal 'build build)
   (defglobal 'check check)
   (defglobal 'rule-tree rule-tree)
   (defglobal 'list-rules list-rules)
+  (defglobal 'run run-task)
   (defglobal 'clean clean)
   (defglobal 'clean-all clean-all))
 
