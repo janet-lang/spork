@@ -9,6 +9,12 @@
 ###
 
 ### TODO
+# - clang unused command line arguments warning
+# - compiler output is interleaved poorly when running on many threads
+# - msvc testing
+# - pkg-config testing and other project.janet feature testing
+# - more testing of `deps` command
+# - expanded testing in test suite
 # - quickbin
 
 (import ./build-rules)
@@ -40,7 +46,6 @@
     (when (os/stat headercheck :mode)
       (set result test)
       (break)))
-  # TODO - check JANET_PATH
   (assert result "no prefix discovered for janet headers!")
   (setdyn *prefix* result)
   result)
@@ -78,6 +83,24 @@
     (assert (cc/msvc-setup?))
     (setdyn cc/*msvc-libs* @[(cc/msvc-janet-import-lib)]))
   toolchain)
+
+(defn- toolchain-to-cc
+  [toolchain]
+  (case toolchain
+    :msvc "cl.exe" # not used but for completion
+    :cc "cc"
+    :clang "clang"
+    :gcc "gcc"
+    "cc"))
+
+(defn- toolchain-to-c++
+  [toolchain]
+  (case toolchain
+    :msvc "cl.exe" # not used but for completion
+    :cc "c++"
+    :clang "clang++"
+    :gcc "g++"
+    "c++"))
 
 (defn- install-rule
   [src dest &opt chmod-mode thunk]
@@ -417,6 +440,7 @@
   (default nostatic false)
   (default defines @{})
   (default smart-libs false)
+  (def toolchain (get-toolchain))
 
   # Create build environment table
   (def benv @{cc/*build-dir* (build-dir)
@@ -432,17 +456,18 @@
               cc/*use-rdynamic* use-rdynamic
               cc/*use-rpath* use-rpath
               cc/*pkg-config-flags* pkg-config-flags
+              cc/*cc* (toolchain-to-cc toolchain)
+              cc/*c++* (toolchain-to-c++ toolchain)
               cc/*c-std* c-std
               cc/*c++-std* c++-std
               cc/*target-os* target-os
               cc/*visit* cc/visit-add-rule
-              :verbose true
+              *toolchain* toolchain
               cc/*rules* rules})
   (table/setproto benv (curenv)) # configurable?
   (when (and pkg-config-libs (next pkg-config-libs))
     (with-env benv (cc/pkg-config ;pkg-config-libs))) # Add package config flags
 
-  (def toolchain (get-toolchain))
   (def suffix (case toolchain :msvc ".dll" ".so"))
   (def asuffix (case toolchain :msvc ".lib" ".a"))
 
@@ -760,6 +785,8 @@ int main(int argc, const char **argv) {
                   cc/*pkg-config-flags* pkg-config-flags
                   cc/*c-std* c-std
                   cc/*c++-std* c++-std
+                  cc/*cc* (toolchain-to-cc toolchain)
+                  cc/*c++* (toolchain-to-c++ toolchain)
                   cc/*target-os* target-os
                   cc/*visit* cc/visit-execute-if-stale
                   cc/*rules* (get-rules)})

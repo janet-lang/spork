@@ -75,19 +75,21 @@
 
     ENVIRONMENT VARIABLES:
 
-    janet-pm inherits all of the environment variables used by janet, as well some of its own:
+    janet-pm inherits all of the environment variables used by janet, as well some of its own. Many of these are
+    only used in support of building bundles that use a project.janet.
 
     JANET_BUILD_DIR
-        Where to create build outputs. Defaults to _build.
+        Where to create build outputs when building a bundle has a project.janet. Defaults to _build.
 
     JANET_BUILD_TYPE
-        What kind of build to make. Should be "develop", "release", or "debug".
+        What kind of build to make when building a bundle that has a project.janet.
+        Should be "develop", "release", or "debug".
 
     JANET_CURL
-        Where to get the "curl" command. Defaults to "curl".
+        Where to get the "curl" command when handling project.janet. Defaults to "curl".
 
     JANET_GIT
-        Where to get the "git" command. Defaults to "git".
+        Where to get the "git" command when handling project.janet. Defaults to "git".
 
     JANET_OFFLINE
         If set to 1, true, on, etc., will only look at packages in the local cache.
@@ -99,6 +101,11 @@
 
     JANET_TAR
         Where to get the "tar" command. Defaults to "tar".
+
+    JANET_TOOLCHAIN
+        Name of the toolchain to use to compile project.janet based natives. Should be one of "gcc", "clang", "msvc", or "cc".
+        Defaults to autodetecting based on the presence of other environment variabls MSVC, GCC, CLANG, and CC.
+        Will then finally default to the value of `(os/compiler)`.
     ```)
 
 (defn help

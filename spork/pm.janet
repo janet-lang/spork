@@ -380,6 +380,7 @@
   (set1 *curlpath* "JANET_CURL")
   (set1 *tarpath* "JANET_TAR")
   (set1 :build-type "JANET_BUILD_TYPE" keyword)
+  (set1 :toolchain "JANET_TOOLCHAIN" keyword)
   (set1 :build-dir "JANET_BUILD_DIR")
   (set1 :offline "JANET_OFFLINE" tobool)
   (set1 :verbose "VERBOSE" tobool))
