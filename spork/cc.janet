@@ -53,7 +53,6 @@
 (defdyn *c-std* "C standard to use as a 2 digit number, defaults to 99 on GCC-like compilers, 11 on msvc.")
 (defdyn *c++-std* "C++ standard to use as a 2 digit number, defaults to 11 on GCC-like compilers, 14 on msvc.")
 (defdyn *rules* "Rules to use with visit-add-rule")
-(defdyn *visit-implicit-deps* "Optional dependencies to add to every rule when using (dyn *visit*) = visit-add-rule")
 
 ###
 ### Universal helpers for all toolchains
@@ -555,9 +554,8 @@
   "Used in conjuction with spork/build-rules. Adds rules to the (dyn *rules* (curenv))"
   [cmd inputs outputs message]
   (def rules (dyn *rules* (curenv)))
-  (def implicit-deps (dyn *visit-implicit-deps* []))
   (build-rules/build-rule
-    rules outputs @[;inputs ;implicit-deps]
+    rules outputs @[;inputs]
     (visit-execute cmd inputs outputs message)))
 
 ###

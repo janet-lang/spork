@@ -56,12 +56,6 @@
     build
         Build all artifacts in the build/ directory. Shorthand for `run build`.
 
-    rules
-        List the available rules. Shorthand for `run list-rules`.
-
-    run rules...
-        Run a specific rule in the project. Calls the project `(build manifest ;rules)` hook.
-
     clean
         Remove any generated files or artifacts. Calls the `(clean)` hook.
 
@@ -69,12 +63,6 @@
         Run tests. Tests should be .janet files in the test/ directory
         relative to project.janet. Will patch the module paths to load
         built native code without installing it. Shorthand for `run check`.
-
-    rule-tree (root rule) (depth)
-        Print a nice tree to see what rules depend on other rules.
-        Optionally provide a root rule to start printing from, and a
-        max depth to print. Without these options, all rules will
-        print their full dependency tree.
     
     save-lockfile dest
         Save all currently installed bundles to a lockfile
@@ -95,17 +83,13 @@
   []
   (pm/local-hook "build" @{}))
 
-(defn run
-  [& targets]
-  (pm/local-hook "build" @{} targets))
-
-(defn rules
-  []
-  (pm/local-hook "list-rules"))
-
 (defn clean
   []
   (pm/local-hook "clean" @{}))
+
+(defn clean-all
+  []
+  (pm/local-hook "clean-all" @{}))
 
 (defn install
   [& repo]
@@ -124,7 +108,6 @@
 
 (defn deps
   []
-  # TODO - no copy
   (pm/pm-install "file::." :no-install true))
 
 (defn clear-cache
@@ -177,9 +160,8 @@
 
 (def subcommands
   {"build" build
-   "run" run
-   "rules" rules
    "clean" clean
+   "clean-all" clean-all
    "help" help
    "install" install
    "test" test
@@ -203,12 +185,6 @@
     (argparse/argparse
       help-text
 
-      "verbose"
-      {:short "v"
-       :kind :flag
-       :help "Show more output"
-       :default false}
-
       "syspath"
       {:short "m"
        :kind :option
@@ -221,13 +197,9 @@
   # Break on help text
   (unless ap (break))
   (unless (ap :default) (break (help)))
-  (when (ap :verbose) (setdyn :verbose true))
   (when-let [sp (get ap :syspath)] (put root-env *syspath* sp))
 
-  (when (get
-          {"t" true "true" true "1" true "yes" true "on" true}
-          (string/ascii-lower (string/trim (os/getenv "VERBOSE" "false"))))
-    (setdyn :verbose true))
+  (pm/read-env-variables)
 
   (def [sub-command & command-args] (ap :default))
   (def cmd (get subcommands sub-command))

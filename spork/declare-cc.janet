@@ -9,20 +9,21 @@
 ###
 
 ### TODO
-# - lock-files
 # - quickbin
 
 (import ./build-rules)
 (import ./cc)
 (import ./path)
 (import ./sh)
-(import ./cjanet)
+(import ./pm)
 
 (defdyn *prefix* "Path prefix used to detect where to find libjanet, janet.h, etc.")
 (defdyn *install-manifest* "Bound to the bundle manifest during a bundle/install.")
 (defdyn *toolchain* "Force a given toolchain. If unset, will auto-detect.")
+(defdyn *build-root* "Root build directory that will contain all built artifacts")
 
-(defn- build-dir [] (dyn cc/*build-dir* "_build"))
+(defn- build-root [] (dyn *build-root* "_build"))
+(defn- build-dir [] (path/join (build-root) (dyn cc/*build-type* :develop)))
 (defn- get-rules [] (dyn cc/*rules* (curenv)))
 (defn- mkbin [] (os/mkdir (path/join (dyn *syspath*) "bin")))
 (defn- mkman [] (os/mkdir (path/join (dyn *syspath*) "man")))
@@ -272,6 +273,8 @@
   [&named name description url version repo tag dependencies]
   (assert name)
   (default dependencies @[])
+  (def br (build-root))
+  (def bd (build-dir))
   (def rules (get-rules))
   # Initialize build rules
   (build-rules/build-rule rules :install ["build"])
@@ -280,7 +283,7 @@
   (def e (curenv))
   (defn- prebuild
     []
-    (def bd (build-dir))
+    (os/mkdir br)
     (os/mkdir bd)
     (os/mkdir (path/join bd "static")))
   (defn build [&opt man target]
@@ -300,15 +303,18 @@
   (defn rule-tree [&]
     (show-rule-tree rules))
   (defn clean [&]
-    (def bd (build-dir))
     (print "removing directory " bd)
     (sh/rm bd))
+  (defn clean-all [&]
+    (print "removing directory " br)
+    (sh/rm br))
   (defglobal 'install install)
   (defglobal 'build build)
   (defglobal 'check check)
   (defglobal 'rule-tree rule-tree)
   (defglobal 'list-rules list-rules)
-  (defglobal 'clean clean))
+  (defglobal 'clean clean)
+  (defglobal 'clean-all clean-all))
 
 (defn declare-source
   "Create Janet modules. This does not actually build the module(s),
@@ -737,7 +743,7 @@ int main(int argc, const char **argv) {
       (def asuffix (case toolchain :msvc ".lib" ".a"))
       (def libjanet (path/join prefix "lib" (string "libjanet" asuffix)))
       (def other-cflags [(string "-I" (path/join prefix "include")) (string "-L" (path/join prefix "lib"))])
-      (def benv @{cc/*build-dir* (build-dir)
+      (def benv @{cc/*build-dir* bd
                   cc/*defines* defines
                   cc/*libs* libs
                   cc/*msvc-libs* msvc-libs
@@ -792,8 +798,9 @@ int main(int argc, const char **argv) {
 (def- path (require "./path"))
 (defn jpm-shim-env
   "Create an environment table that can evaluate project.janet files"
-  [&opt base]
-  (def e (or base (make-env)))
+  []
+  (def e (curenv))
+  (pm/read-env-variables)
   # TODO - one for one naming with jpm
   (merge-module e sh)
   (merge-module e cjanet)

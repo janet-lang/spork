@@ -204,7 +204,7 @@
 (def- shimcode
 ````
 (use spork/declare-cc)
-(dofile "project.janet" :env (jpm-shim-env (curenv)))
+(dofile "project.janet" :env (jpm-shim-env))
 ````)
 
 (defn jpm-dep-to-bundle-dep
@@ -219,26 +219,15 @@
   (var result nil)
   (each d (bundle/list)
     (def m (bundle/manifest d))
-    (def check [(get m :url) (get m :tag) (get m :type)])
-    (when (= check key)
-      (set result (get m :name))
-      (break)))
+    (when m
+      (def pm (get m :pm))
+      (def check [(get pm :url) (get pm :tag) (get pm :type)])
+      (when (= check key)
+        (set result (get m :name))
+        (break))))
   (unless result
-    (eprintf "unable to resolve jpm style dependency %v to a local bundle" dep-name))
+    (eprintf "unable to resolve jpm style dependency %q to a local bundle" dep-name))
   result)
-
-(defn bundle-dep-to-jpm-dep
-  "Convert a bundle dependency name for an installed bundle to a remote dependency identifier than can be passed to `resolve-bundle`.
-  Will raise an error if `bundle-name` is not installed, or if `bundle-name` was no installed via a remote identifier.
-  Will return a string than can be passed to `bundle/reinstall`, `bundle/uninstall`, etc."
-  [bundle-name]
-  (def m (bundle/manifest bundle-name))
-  (assertf (get m :url) "bundle %v was not installed with pm-install" bundle-name)
-  (def code {:url (get m :url)
-             :tag (get m :tag)
-             :type (get m :type)
-             :shallow true})
-  code)
 
 (defn- project-janet-shim
   ``If not already present, add a bundle/ directory to a legacy jpm project directory to allow installation with janet --install. Adds "spork"
@@ -278,7 +267,7 @@
 (defn pm-install
   "Install a bundle given a url, short name, or full 'bundle code'. The bundle source code will be fetched from
   git or a url, then installed with `bundle/install`."
-  [bundle-code &named no-deps force-update no-install]
+  [bundle-code &named no-deps force-update no-install auto-remove]
   (def bundle (resolve-bundle bundle-code))
   (def {:url url
         :tag tag
@@ -299,10 +288,10 @@
   (def name (get info :name))
   (def binstalled (bundle/installed? name))
   (if (and name (not force-update) binstalled) (break))
-  #(def binstalled true)
+  #(def binstalled true) #TODO - prevent double install of pkgs
   (unless no-deps
     (each dep jpm-deps
-      (pm-install dep)))
+      (pm-install dep :force-update force-update :auto-remove true)))
   (when did-shim
     # patch deps after installing all jpm dependencies. This allows the bundle/* module to track dependencies, and
     # prevent things like uninstalling a dependency, breaking another installed package.
@@ -310,8 +299,8 @@
     (def deps (filter identity deps))
     (unless (index-of "spork" deps) (array/push deps "spork"))
     (put info :dependencies deps)
-    (spit (path/join bdir "bundle" "info.jdn") (string/format "%j" info)))
-  (def config @{:pm bundle :installed-with "spork/pm"})
+    (spit (path/join bdir "bundle" "info.jdn") (string/format "%.99m\n" info)))
+  (def config @{:pm bundle :installed-with "spork/pm" :auto-remove auto-remove})
   (with-env (dyn-env) # work around bundle/* quirk with accidentally injecting hooks.
     (unless no-install
       (if binstalled
@@ -361,10 +350,35 @@
 (set bundle-install-recursive pm-install)
 
 ###
+### Configuration via environment variables
+###
+
+(defn- set1
+  [d e &opt xform]
+  (default xform identity)
+  (when-let [x (os/getenv e)] (setdyn d (xform x))))
+
+(defn read-env-variables
+  "Translate environment variables into dynamic bindings."
+  []
+  (set1 *gitpath* "JANET_GIT")
+  (set1 *curlpath* "JANET_CURL")
+  (set1 *tarpath* "JANET_TAR")
+  (set1 :build-type "JANET_BUILD_TYPE" keyword)
+  (set1 :build-dir "JANET_BUILD_DIR")
+  (set1 :offline "JANET_OFFLINE")
+  (when (get
+          {"t" true "true" true "1" true "yes" true "on" true}
+          (string/ascii-lower (string/trim (os/getenv "VERBOSE" "false"))))
+    (setdyn :verbose true)))
+
+###
 ### Project scaffolding
 ###
 ### Generate new projects quickly, ported from jpm
 ###
+
+# TODO - improve on JPM style projects?
 
 (def- template-peg
   "Extract string pieces to generate a templating function"
