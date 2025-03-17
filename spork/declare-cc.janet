@@ -34,10 +34,8 @@
   (if-let [p (dyn *prefix*)] (break p))
   (def prefix (os/getenv "JANET_PREFIX"))
   (when prefix (break prefix))
-  (def prefix (os/getenv "PREFIX"))
-  (when prefix (break prefix))
   (var result nil)
-  (each test ["/usr/" "/usr/local" (path/join (dyn *syspath*) "..")]
+  (each test [(path/join (dyn *syspath*) "..") "/usr/" "/usr/local"]
     (def headercheck (path/join test "include" "janet.h"))
     (when (os/stat headercheck :mode)
       (set result test)

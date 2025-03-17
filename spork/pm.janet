@@ -204,6 +204,19 @@
 (dofile "project.janet" :env (jpm-shim-env))
 ````)
 
+(defn- manifest-pm-extract
+  "Extract the package manager source of a manifest. Needs to handle both pm and default janet installs."
+  [m]
+  (or
+    (get m :pm) # installed by pm, has extra info like git repo, etc.
+    (table/to-struct
+      (merge-into @{:type :file :url (get m :local-source)} (get m :info {}))))) # just a path on disk, native janet support
+
+(defn- bundle-name-to-bundle
+  "Convert an installed bundle name to a pm bundle. Also handles bundles not installed with pm for debugging purposes."
+  [bundle-name]
+  (manifest-pm-extract (bundle/manifest bundle-name)))
+
 (defn- name-lookup
   "Find the bundle name of a bundle address"
   [bundle-addr]
@@ -215,7 +228,7 @@
   (each d (bundle/list)
     (def m (bundle/manifest d))
     (when m
-      (def pm (get m :pm))
+      (def pm (manifest-pm-extract m))
       (def check [(get pm :url) (get pm :tag) (get pm :type)])
       (when (= check key)
         (set result (get m :name))
@@ -265,15 +278,6 @@
       (add1 p)))
   (add1 (curenv))
   e)
-
-(defn- bundle-name-to-bundle
-  "Convert an installed bundle name to a pm bundle. Also handles bundles not installed with pm for debugging purposes."
-  [bundle-name]
-  (def m (bundle/manifest bundle-name))
-  (or
-    (get m :pm) # installed by pm, has extra info like git repo, etc.
-    (table/to-struct
-      (merge-into @{:local-source (get m :local-source)} (get m :info {}))))) # just a path on disk, native janet support
 
 (defn pm-install
   "Install a bundle given a url, short name, or full 'bundle code'. The bundle source code will be fetched from
@@ -363,6 +367,12 @@
   (default xform identity)
   (when-let [x (os/getenv e)] (setdyn d (xform x))))
 
+(defn- tobool
+  [x]
+  (get
+    {"t" true "true" true "1" true "yes" true "on" true}
+    (string/ascii-lower (string/trim x)) false))
+
 (defn read-env-variables
   "Translate environment variables into dynamic bindings."
   []
@@ -371,11 +381,8 @@
   (set1 *tarpath* "JANET_TAR")
   (set1 :build-type "JANET_BUILD_TYPE" keyword)
   (set1 :build-dir "JANET_BUILD_DIR")
-  (set1 :offline "JANET_OFFLINE")
-  (when (get
-          {"t" true "true" true "1" true "yes" true "on" true}
-          (string/ascii-lower (string/trim (os/getenv "VERBOSE" "false"))))
-    (setdyn :verbose true)))
+  (set1 :offline "JANET_OFFLINE" tobool)
+  (set1 :verbose "VERBOSE" tobool))
 
 ###
 ### Project scaffolding
@@ -384,6 +391,7 @@
 ###
 
 # TODO - improve on JPM style projects?
+# - configure a new, janet only project that doesn't depend on spork
 
 (def- template-peg
   "Extract string pieces to generate a templating function"

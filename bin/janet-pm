@@ -47,11 +47,14 @@
     deps
         Install dependencies for the current project.
 
-    install
+    install (repos...)
         Install artifacts of the current project. Shorthand for `janet --install .`
 
-    uninstall
-        Uninstall the current project's artifacts. Shorthand for `janet --uninstall {current-project-name}`
+    uninstall (repos...)
+        Uninstall the current project's artifacts. Shorthand for `janet --uninstall {current-project-name }`
+
+    prune
+        Remove any bundles that have no dependents and are marked for auto-remove
 
     build
         Build all artifacts in the build/ directory. Shorthand for `run build`.
@@ -64,11 +67,38 @@
         relative to project.janet. Will patch the module paths to load
         built native code without installing it. Shorthand for `run check`.
     
-    save-lockfile dest
+    save-lockfile (dest)
         Save all currently installed bundles to a lockfile
 
-    load-lockfile src
+    load-lockfile (src)
         Install all bundles in the given lockfile.
+
+    ENVIRONMENT VARIABLES:
+
+    janet-pm inherits all of the environment variables used by janet, as well some of its own:
+
+    JANET_BUILD_DIR
+        Where to create build outputs. Defaults to _build.
+
+    JANET_BUILD_TYPE
+        What kind of build to make. Should be "develop", "release", or "debug".
+
+    JANET_CURL
+        Where to get the "curl" command. Defaults to "curl".
+
+    JANET_GIT
+        Where to get the "git" command. Defaults to "git".
+
+    JANET_OFFLINE
+        If set to 1, true, on, etc., will only look at packages in the local cache.
+
+    JANET_PREFIX
+        Where to look for Janet headers and libjanet.so, janet.dll, etc. By default, will try to autodetect by searching through the
+        syspath, the PREFIX environment variable, /usr/, and /usr/local. Most installs should not need to set this, but otherwise should
+        be set to whatever PREFIX was when janet was installed.
+
+    JANET_TAR
+        Where to get the "tar" command. Defaults to "tar".
     ```)
 
 (defn help
@@ -101,14 +131,17 @@
     (pm/pm-install "file::." :force-update true :no-deps true)
     (each rep repo (pm/pm-install rep :force-update true))))
 
+(defn uninstall
+  [& repo]
+  (if (empty? repo)
+    (let [m (pm/load-project-meta ".")]
+      (bundle/uninstall (get m :name)))
+    (each rep repo
+      (bundle/uninstall rep))))
+
 (defn test
   []
   (pm/local-hook "check" @{}))
-
-(defn- uninstall-cmd
-  [& what]
-  (print "NYI")
-  (os/exit 1))
 
 (defn deps
   []
@@ -180,8 +213,9 @@
    "list-pkgs" list-pkgs
    "clear-cache" clear-cache
    "run" run
+   "prune" bundle/prune
    "update-pkgs" update-pkgs
-   "uninstall" uninstall-cmd})
+   "uninstall" uninstall})
 
 (defn main
   [&]
@@ -204,6 +238,7 @@
   (unless (ap :default) (break (help)))
   (when-let [sp (get ap :syspath)] (put root-env *syspath* sp))
 
+  # Do configuration
   (pm/read-env-variables)
 
   (def [sub-command & command-args] (ap :default))
