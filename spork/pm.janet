@@ -4,6 +4,7 @@
 ###
 ### Port of parts of jpm/pm.janet
 ###
+### This module is purposefully decoupled from declare-cc.
 
 (import ./sh)
 (import ./path)
@@ -383,6 +384,7 @@
   (set1 :toolchain "JANET_TOOLCHAIN" keyword)
   (set1 :build-dir "JANET_BUILD_DIR")
   (set1 :offline "JANET_OFFLINE" tobool)
+  (set1 *pkglist* "JANET_PKGLIST")
   (set1 :verbose "VERBOSE" tobool))
 
 ###

@@ -94,6 +94,9 @@
     JANET_OFFLINE
         If set to 1, true, on, etc., will only look at packages in the local cache.
 
+    JANET_PKGLIST
+        The package listing repository to use to resolve package nicknames. Defaults to https://github.com/janet-lang/pkgs.git
+
     JANET_PREFIX
         Where to look for Janet headers and libjanet.so, janet.dll, etc. By default, will try to autodetect by searching through the
         syspath, the PREFIX environment variable, /usr/, and /usr/local. Most installs should not need to set this, but otherwise should
