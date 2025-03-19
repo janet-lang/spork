@@ -9,6 +9,8 @@
 ###
 
 ### TODO
+# - MSVC Testing on windows
+# - MINGW Testing
 # - clang unused command line arguments warning
 # - compiler output is interleaved poorly when running on many threads
 # - msvc testing
@@ -775,10 +777,10 @@ int main(int argc, const char **argv) {
                     cc/*defines* defines
                     cc/*libs* libs
                     cc/*msvc-libs* msvc-libs
-                    cc/*lflags* [libjanet ;lflags ;dep-lflags]
-                    cc/*cflags* [;other-cflags ;cflags]
-                    cc/*c++flags* [;other-cflags ;c++flags]
-                    cc/*static-libs* [;dep-libs ;static-libs]
+                    cc/*lflags* (distinct [libjanet ;lflags ;dep-lflags])
+                    cc/*cflags* (distinct [;other-cflags ;cflags])
+                    cc/*c++flags* (distinct [;other-cflags ;c++flags])
+                    cc/*static-libs* (distinct [;dep-libs ;static-libs])
                     cc/*smart-libs* smart-libs
                     cc/*use-rdynamic* use-rdynamic
                     cc/*use-rpath* use-rpath

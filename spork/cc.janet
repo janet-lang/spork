@@ -24,6 +24,7 @@
 (import ./path)
 (import ./sh)
 (import ./build-rules)
+(import ./stream)
 
 (defdyn *ar* "Archiver, defaults to `ar`.")
 (defdyn *build-dir* "If generating intermediate files, store them in this directory")
@@ -150,11 +151,13 @@
   res)
 (defn- extra-paths []
   (def sp (dyn *syspath* "."))
-  (def lp (lib-path))
   (def ip (include-path))
   [(string "-I" sp)
-   ;(if ip [(string "-I" ip)] [])
-   (string "-L" sp)
+   ;(if ip [(string "-I" ip)] [])])
+(defn- extra-link-paths []
+  (def sp (dyn *syspath* "."))
+  (def lp (lib-path))
+  [(string "-L" sp)
    ;(if lp [(string "-L" lp)] [])])
 (defn- rpath
   []
@@ -213,25 +216,25 @@
 (defn link-shared-c
   "Link a C program to make a shared library. Return the command arguments."
   [objects to]
-  (exec [(cc) (ccstd) ;(opt) ;(cflags) ;(extra-paths) "-o" to ;objects "-pthread" ;(libs) ;(dynamic-libs) "-shared"]
+  (exec [(cc) (ccstd) ;(opt) ;(cflags) ;(extra-link-paths) "-o" to ;objects "-pthread" ;(libs) ;(dynamic-libs) "-shared"]
         objects [to] (string "linking " to "...")))
 
 (defn link-shared-c++
   "Link a C++ program to make a shared library. Return the command arguments."
   [objects to]
-  (exec [(c++) (c++std) ;(opt) ;(c++flags) ;(extra-paths) "-o" to ;objects "-pthread" ;(libs) ;(dynamic-libs) "-shared"]
+  (exec [(c++) (c++std) ;(opt) ;(c++flags) ;(extra-link-paths) "-o" to ;objects "-pthread" ;(libs) ;(dynamic-libs) "-shared"]
         objects [to] (string "linking " to "...")))
 
 (defn link-executable-c
   "Link a C program to make an executable. Return the command arguments."
   [objects to]
-  (exec [(cc) (ccstd) ;(opt) ;(cflags) ;(extra-paths) "-o" to ;objects ;(rdynamic) "-pthread" ;(libs)]
+  (exec [(cc) (ccstd) ;(opt) ;(cflags) ;(extra-link-paths) "-o" to ;objects ;(rdynamic) "-pthread" ;(libs)]
         objects [to] (string "linking " to "...")))
 
 (defn link-executable-c++
   "Link a C++ program to make an executable. Return the command arguments."
   [objects to]
-  (exec [(c++) (c++std) ;(opt) ;(c++flags) ;(extra-paths) "-o" to ;objects ;(rdynamic) "-pthread" ;(libs)]
+  (exec [(c++) (c++std) ;(opt) ;(c++flags) ;(extra-link-paths) "-o" to ;objects ;(rdynamic) "-pthread" ;(libs)]
         objects [to] (string "linking " to "...")))
 
 (defn make-archive
@@ -520,13 +523,28 @@
   (print "\t@echo " (describe message))
   (print "\t@'" (string/join cmd "' '") "'\n"))
 
+(defn- exec-linebuffered
+  "Line buffer compiler output so we can run commands in parallel"
+  [args]
+  (def [r w] (os/pipe :W))
+  (def proc (os/spawn args :p {:out w :err w}))
+  (var exit nil)
+  (ev/gather
+    (each line (stream/lines r)
+      (eprint line))
+    (do
+      (set exit (os/proc-wait proc))
+      (ev/close w)))
+  (if (not= 0 exit) (error "non-zero exit code"))
+  exit)
+
 (defn visit-execute
   "A function that can be provided as `(dyn *visit*)` that will execute commands."
   [cmd inputs outputs message]
   (if (dyn :verbose)
     (do
       (print (string/join cmd " "))
-      (os/execute cmd :px))
+      (exec-linebuffered cmd))
     (do
       (print message)
       (def devnull (sh/devnull))
