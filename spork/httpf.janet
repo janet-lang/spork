@@ -17,12 +17,12 @@
 (def- accept-peg
   (peg/compile
     ~{:main (+
-             (* '"text/html" (+ -1 ","))
-             (* '"application/json" (+ -1 ","))
-             (* '"application/jdn" (+ -1 ","))
-             (* '"text/plain" (+ -1 ","))
-             -1
-             (* (thru ",") :main))}))
+              (* '"text/html" (+ -1 ","))
+              (* '"application/json" (+ -1 ","))
+              (* '"application/jdn" (+ -1 ","))
+              (* '"text/plain" (+ -1 ","))
+              -1
+              (* (thru ",") :main))}))
 
 (defn- render-json
   [data buf]
@@ -94,8 +94,8 @@
              (eachp [k v] x (put t (make-schema-rep k) (make-schema-rep v)))
              t)
     :struct (let [t @{}]
-             (eachp [k v] x (put t (make-schema-rep k) (make-schema-rep v)))
-             (table/to-struct t))
+              (eachp [k v] x (put t (make-schema-rep k) (make-schema-rep v)))
+              (table/to-struct t))
     (describe x)))
 
 (defn add-route
@@ -226,7 +226,7 @@
                     (let [content (handler req post-data)]
                       (make-response (dyn :response-code 200) content)))
                   ([err f]
-                   (make-400-response (string err) f)))
+                    (make-400-response (string err) f)))
           "OPTIONS" {:status 200
                      :headers {"allow" "OPTIONS, GET, POST"
                                "content-type" render-mime
@@ -247,9 +247,9 @@
                      ([err f] (make-400-response (string err) f))))
           (make-response 405 "Method not allowed. Use GET, OPTIONS, or POST.")))
       ([err f]
-       (eprint "internal server error: " (string err) f)
-       (debug/stacktrace (fiber/current))
-       (make-response 500 err))))
+        (eprint "internal server error: " (string err) f)
+        (debug/stacktrace (fiber/current))
+        (make-response 500 err))))
 
   (put state :on-connection
        (fn connection-handler [conn]

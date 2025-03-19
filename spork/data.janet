@@ -44,11 +44,11 @@
 (defn- diff-associative [a b &opt ks]
   (default ks (distinct (array/concat (keys a) (keys b))))
   (let [reduced (reduce
-                 (fn [diff1 diff2]
-                   (map |(if (empty? $) nil $)
-                        (map |(merge (or $0 @{}) (or $1 @{})) diff1 diff2)))
-                 [nil nil nil]
-                 (map (partial diff-associative-key a b) ks))]
+                  (fn [diff1 diff2]
+                    (map |(if (empty? $) nil $)
+                         (map |(merge (or $0 @{}) (or $1 @{})) diff1 diff2)))
+                  [nil nil nil]
+                  (map (partial diff-associative-key a b) ks))]
     reduced))
 
 (defn- diff-sequential [a b]
@@ -66,8 +66,8 @@
   (if (deep= a b)
     @[nil nil (postwalk |(cond (tuple? $) (array ;$)
                            (struct? $) (struct/to-table $) $) a)]
-    (do 
+    (do
       (cond
-      (all indexed? [a b]) (diff-sequential a b)
-      (all dictionary? [a b]) (diff-associative a b)
-      (atom-diff a b)))))
+        (all indexed? [a b]) (diff-sequential a b)
+        (all dictionary? [a b]) (diff-associative a b)
+        (atom-diff a b)))))

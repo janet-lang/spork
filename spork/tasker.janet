@@ -131,9 +131,9 @@
           (put payload :error (string err))
           (put payload :status :timeout)
           (os/proc-kill proc))))
-      ([err]
-          (put payload :error (string err))
-          (put payload :status :error)))
+    ([err]
+      (put payload :error (string err))
+      (put payload :status :error)))
   (put (tasker :task-proc-map) task-id nil)
   (put (tasker :task-queued-map) task-id nil)
   (put payload :time-finished (ts))
@@ -236,8 +236,8 @@
                     (task-to-disk x))
                   (log "finished task " task-id " normally"))
                 ([err f]
-                 (log (string/format "error running job: %V" err))
-                 (debug/stacktrace f)))))
+                  (log (string/format "error running job: %V" err))
+                  (debug/stacktrace f)))))
           (ev/sleep 0))
         (log "executor " n " for queue " qname " completed"))))
   tasker)

@@ -75,17 +75,17 @@
 
 (def- month-codes
   (invert ["jan"
-   "feb"
-   "mar"
-   "apr"
-   "may"
-   "jun"
-   "jul"
-   "aug"
-   "sep"
-   "oct"
-   "nov"
-   "dec"]))
+           "feb"
+           "mar"
+           "apr"
+           "may"
+           "jun"
+           "jul"
+           "aug"
+           "sep"
+           "oct"
+           "nov"
+           "dec"]))
 
 (def- dow-codes
   (invert ["sun" "mon" "tue" "wed" "thu" "fri" "sat"]))
@@ -193,7 +193,7 @@
       (and
         (bitmap-check day-of-month Md)
         (bitmap-check day-of-week wd))))
-  (and 
+  (and
     day-correct
     (bitmap-check seconds s)
     (bitmap-check minutes m)
@@ -219,7 +219,7 @@
   (when (not= next-M M)
     (def next-y (if (< next-M M) (inc y) y))
     (break
-        (os/mktime {:hours 0 :minutes 0 :seconds 0 :month next-M :year next-y :month-day 0} local)))
+      (os/mktime {:hours 0 :minutes 0 :seconds 0 :month next-M :year next-y :month-day 0} local)))
 
   # Ensure correct day (increment by 1 day at a time)
   (def next-Md (bitmap-cycle cron-Md Md))

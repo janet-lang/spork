@@ -209,6 +209,6 @@
       (when (handler :required)
         (usage "option " name " is required"))
       (put res name (handler :default)))
-      (handle-map name handler))
+    (handle-map name handler))
 
   (if-not bad res))

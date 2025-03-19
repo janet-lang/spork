@@ -16,7 +16,7 @@
 
 (def default-pkglist
   "The default package listing for resolving short bundle names."
-   "https://github.com/janet-lang/pkgs.git")
+  "https://github.com/janet-lang/pkgs.git")
 
 (def- filepath-replacer
   "Convert url with potential bad characters into a file path element."
@@ -55,8 +55,8 @@
   (let [pkgs (try
                (require "pkgs")
                ([err]
-                (bundle-install-recursive (getpkglist))
-                (require "pkgs")))
+                 (bundle-install-recursive (getpkglist))
+                 (require "pkgs")))
         url (get-in pkgs ['packages :value (symbol bname)])]
     (unless url
       (error (string "bundle " bname " not found.")))
@@ -200,7 +200,7 @@
   ret)
 
 (def- shimcode
-````
+  ````
 (use spork/declare-cc)
 (dofile "project.janet" :env (jpm-shim-env))
 ````)

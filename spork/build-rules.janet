@@ -127,8 +127,8 @@
   (def fibers @{})
   (def super (ev/chan))
   (forv i 0 n-workers
-        (def fib (ev/go worker i super))
-        (put fibers fib fib))
+    (def fib (ev/go worker i super))
+    (put fibers fib fib))
   (wait-for-fibers super fibers)
 
   targets-built)

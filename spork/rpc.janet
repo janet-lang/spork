@@ -82,7 +82,7 @@
                   (def result (f functions ;args))
                   (ev/give out-queue [id true result]))
                 ([err]
-                 (ev/give out-queue [id false err]))))))
+                  (ev/give out-queue [id false err]))))))
 
         # Wait for fibers to finish
         (join-nursery n)))))

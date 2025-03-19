@@ -357,7 +357,7 @@
              y :in [2022 2019 2017]
              e :in ["Enterprise" "Professional" "Community" "BuildTools"]]
         (def path (loc pf y e))
-        (when (os/stat path :mode) 
+        (when (os/stat path :mode)
           (set found-path path)
           (break)))))
   (unless found-path (error "Could not find vcvarsall.bat"))
@@ -587,7 +587,7 @@
             (os/execute [executable] :x {:out devnull :err devnull}))
           true)
         ([e]
-         false)))))
+          false)))))
 
 (defn- search-libs-impl
   [dynb libs]

@@ -750,7 +750,7 @@
   (buffer/push signature ")")
   # Generate function for use in C
   (emit-function-impl docstring classes mangledname cparams (get type-alias-to-ctype (keyword ret-type))
-                 (eval (qq-wrap body)))
+                      (eval (qq-wrap body)))
   # Generate wrapper for use in Janet
   (def cfun_name (mangle (string "_generated_cfunction_" mangledname)))
   (print "\nJANET_FN(" cfun_name ",")

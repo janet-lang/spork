@@ -223,8 +223,8 @@
         (file/write out buf)
         (buffer/clear buf)))
     (file/write out "};\n\n"
-              "const unsigned char * const " name "_embed = bytes;\n"
-              "const size_t " name "_embed_size = sizeof(bytes);\n")))
+                "const unsigned char * const " name "_embed = bytes;\n"
+                "const size_t " name "_embed_size = sizeof(bytes);\n")))
 
 (defn run-tests
   "Run tests on a project in the current directory. The tests will
@@ -492,7 +492,7 @@
       ".cc" (set has-cpp true)
       ".cxx" (set has-cpp true)
       ".cpp" (set has-cpp true)))
-  
+
   (def targets @{})
   (with-env benv
     (def to (cc/out-path name suffix))
@@ -589,14 +589,14 @@ int main(int argc, const char **argv) {
 
     ```
     (if no-core
-    ```
+      ```
     /* Get core env */
     JanetTable *env = janet_table(8);
     JanetTable *lookup = janet_core_lookup_table(NULL);
     JanetTable *temptab;
     int handle = janet_gclock();
     ```
-    ```
+      ```
     /* Get core env */
     JanetTable *env = janet_core_env(NULL);
     JanetTable *lookup = janet_env_lookup(env);
@@ -695,119 +695,119 @@ int main(int argc, const char **argv) {
   (when install (install-rule dest (path/join "bin" name) nil mkbin))
   (rule :build [(if no-compile cimage-dest dest)])
   (rule (if no-compile cimage-dest dest) [entry ;headers ;deps]
-    (print "generating executable c source " cimage-dest " from " entry "...")
-    (sh/create-dirs-to dest)
-    (flush)
-    # Get compiler
-    (def toolchain (get-toolchain))
-    # Do entry
-    (def module-cache @{})
-    (def env (make-env))
-    (put env *module-make-env* (fn [&opt e] (default e env) (make-env e)))
-    (put env *module-cache* module-cache)
-    (dofile entry :env env)
-    (def main (module/value env 'main))
-    (def dep-lflags @[])
-    (def dep-libs @[])
+        (print "generating executable c source " cimage-dest " from " entry "...")
+        (sh/create-dirs-to dest)
+        (flush)
+        # Get compiler
+        (def toolchain (get-toolchain))
+        # Do entry
+        (def module-cache @{})
+        (def env (make-env))
+        (put env *module-make-env* (fn [&opt e] (default e env) (make-env e)))
+        (put env *module-cache* module-cache)
+        (dofile entry :env env)
+        (def main (module/value env 'main))
+        (def dep-lflags @[])
+        (def dep-libs @[])
 
-    # Create marshalling dictionary
-    (def mdict1 (invert (env-lookup root-env)))
-    (def mdict
-      (if no-core
-        (let [temp @{}]
-          (eachp [k v] mdict1
-            (if (or (cfunction? k) (abstract? k))
-              (put temp k v)))
-          temp)
-        mdict1))
+        # Create marshalling dictionary
+        (def mdict1 (invert (env-lookup root-env)))
+        (def mdict
+          (if no-core
+            (let [temp @{}]
+              (eachp [k v] mdict1
+                (if (or (cfunction? k) (abstract? k))
+                  (put temp k v)))
+              temp)
+            mdict1))
 
-    # Load all native modules
-    (def prefixes @{})
-    (def static-libs @[])
-    (loop [[name m] :pairs module-cache
-           :let [n (m :native)]
-           :when n
-           :let [prefix (gensym)]]
-      (print "found native " n "...")
-      (flush)
-      (put prefixes prefix n)
-      (array/push static-libs (modpath-to-static toolchain n))
-      (def oldproto (table/getproto m))
-      (table/setproto m nil)
-      (loop [[sym value] :pairs (env-lookup m)]
-        (put mdict value (symbol prefix sym)))
-      (table/setproto m oldproto))
+        # Load all native modules
+        (def prefixes @{})
+        (def static-libs @[])
+        (loop [[name m] :pairs module-cache
+               :let [n (m :native)]
+               :when n
+               :let [prefix (gensym)]]
+          (print "found native " n "...")
+          (flush)
+          (put prefixes prefix n)
+          (array/push static-libs (modpath-to-static toolchain n))
+          (def oldproto (table/getproto m))
+          (table/setproto m nil)
+          (loop [[sym value] :pairs (env-lookup m)]
+            (put mdict value (symbol prefix sym)))
+          (table/setproto m oldproto))
 
-      # Find static modules
-      (var has-cpp false)
-      (def declarations @"#include <janet.h>\n")
-      (def lookup-into-invocations @"")
-      (loop [[prefix name] :pairs prefixes]
-        (def meta (eval-string (slurp (modpath-to-meta toolchain name))))
-        (if (meta :cpp) (set has-cpp true))
-        (buffer/push-string lookup-into-invocations
-                            "    temptab = janet_table(0);\n"
-                            "    temptab->proto = env;\n"
-                            "    " (meta :static-entry) "(temptab);\n"
-                            "    janet_env_lookup_into(lookup, temptab, \""
-                            prefix
-                            "\", 0);\n\n")
-        (when-let [lfs (meta :lflags)]
-          (array/concat dep-lflags lfs))
-        (when-let [lfs (or (meta :libs) (meta :ldflags))]
-          (array/concat dep-libs lfs))
-        (buffer/push-string declarations
-                            "extern void "
-                            (meta :static-entry)
-                            "(JanetTable *);\n"))
+        # Find static modules
+        (var has-cpp false)
+        (def declarations @"#include <janet.h>\n")
+        (def lookup-into-invocations @"")
+        (loop [[prefix name] :pairs prefixes]
+          (def meta (eval-string (slurp (modpath-to-meta toolchain name))))
+          (if (meta :cpp) (set has-cpp true))
+          (buffer/push-string lookup-into-invocations
+                              "    temptab = janet_table(0);\n"
+                              "    temptab->proto = env;\n"
+                              "    " (meta :static-entry) "(temptab);\n"
+                              "    janet_env_lookup_into(lookup, temptab, \""
+                              prefix
+                              "\", 0);\n\n")
+          (when-let [lfs (meta :lflags)]
+            (array/concat dep-lflags lfs))
+          (when-let [lfs (or (meta :libs) (meta :ldflags))]
+            (array/concat dep-libs lfs))
+          (buffer/push-string declarations
+                              "extern void "
+                              (meta :static-entry)
+                              "(JanetTable *);\n"))
 
-      # Build image
-      (def image (marshal main mdict))
-      (create-buffer-c image cimage-dest "janet_payload_image")
-      (spit cimage-dest (make-bin-source declarations lookup-into-invocations no-core) :ab)
-      (def oimage-dest (cc/out-path cimage-dest ".o"))
+        # Build image
+        (def image (marshal main mdict))
+        (create-buffer-c image cimage-dest "janet_payload_image")
+        (spit cimage-dest (make-bin-source declarations lookup-into-invocations no-core) :ab)
+        (def oimage-dest (cc/out-path cimage-dest ".o"))
 
-      (def prefix (get-prefix))
-      (def asuffix (case toolchain :msvc ".lib" ".a"))
-      (def libjanet (path/join prefix "lib" (string "libjanet" asuffix)))
-      (def other-cflags [(string "-I" (path/join prefix "include")) (string "-L" (path/join prefix "lib"))])
-      (def benv @{cc/*build-dir* bd
-                  cc/*defines* defines
-                  cc/*libs* libs
-                  cc/*msvc-libs* msvc-libs
-                  cc/*lflags* [libjanet ;lflags ;dep-lflags]
-                  cc/*cflags* [;other-cflags ;cflags]
-                  cc/*c++flags* [;other-cflags ;c++flags]
-                  cc/*static-libs* [;dep-libs ;static-libs]
-                  cc/*smart-libs* smart-libs
-                  cc/*use-rdynamic* use-rdynamic
-                  cc/*use-rpath* use-rpath
-                  cc/*pkg-config-flags* pkg-config-flags
-                  cc/*c-std* c-std
-                  cc/*c++-std* c++-std
-                  cc/*cc* (toolchain-to-cc toolchain)
-                  cc/*c++* (toolchain-to-c++ toolchain)
-                  cc/*target-os* target-os
-                  cc/*visit* cc/visit-execute-if-stale
-                  cc/*rules* (get-rules)})
-      (table/setproto benv (curenv)) # configurable?
-      (when (and pkg-config-libs (next pkg-config-libs))
-        (with-env benv (cc/pkg-config ;pkg-config-libs))) # Add package config flags
-      (def compile-c
-        (case toolchain
-          :msvc cc/msvc-compile-c
-          cc/compile-c))
-      (def link
+        (def prefix (get-prefix))
+        (def asuffix (case toolchain :msvc ".lib" ".a"))
+        (def libjanet (path/join prefix "lib" (string "libjanet" asuffix)))
+        (def other-cflags [(string "-I" (path/join prefix "include")) (string "-L" (path/join prefix "lib"))])
+        (def benv @{cc/*build-dir* bd
+                    cc/*defines* defines
+                    cc/*libs* libs
+                    cc/*msvc-libs* msvc-libs
+                    cc/*lflags* [libjanet ;lflags ;dep-lflags]
+                    cc/*cflags* [;other-cflags ;cflags]
+                    cc/*c++flags* [;other-cflags ;c++flags]
+                    cc/*static-libs* [;dep-libs ;static-libs]
+                    cc/*smart-libs* smart-libs
+                    cc/*use-rdynamic* use-rdynamic
+                    cc/*use-rpath* use-rpath
+                    cc/*pkg-config-flags* pkg-config-flags
+                    cc/*c-std* c-std
+                    cc/*c++-std* c++-std
+                    cc/*cc* (toolchain-to-cc toolchain)
+                    cc/*c++* (toolchain-to-c++ toolchain)
+                    cc/*target-os* target-os
+                    cc/*visit* cc/visit-execute-if-stale
+                    cc/*rules* (get-rules)})
+        (table/setproto benv (curenv)) # configurable?
+        (when (and pkg-config-libs (next pkg-config-libs))
+          (with-env benv (cc/pkg-config ;pkg-config-libs))) # Add package config flags
+        (def compile-c
+          (case toolchain
+            :msvc cc/msvc-compile-c
+            cc/compile-c))
+        (def link
           (case toolchain
             :msvc cc/msvc-link-executable
             (if has-cpp cc/link-executable-c++ cc/link-executable-c)))
-      (unless no-compile
-        (with-env benv
-          (cc/search-libraries "m" "rt" "dl")
-          (flush)
-          (compile-c cimage-dest oimage-dest)
-          (flush)
-          (link [oimage-dest] dest)))))
+        (unless no-compile
+          (with-env benv
+            (cc/search-libraries "m" "rt" "dl")
+            (flush)
+            (compile-c cimage-dest oimage-dest)
+            (flush)
+            (link [oimage-dest] dest)))))
 
 ###
 ### Create an environment that emulates jpm's project.janet environment

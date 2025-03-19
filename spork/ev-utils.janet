@@ -72,7 +72,7 @@
   (join chan
         (tabseq [i :range [0 n]
                  :let [fib (ev/go (fiber/new new-f :tp) i chan)]]
-                fib fib)))
+          fib fib)))
 
 (defn pmap-full
   "Function form of `ev/gather`. If any of the
