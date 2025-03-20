@@ -398,9 +398,10 @@
               first-line (if hardcode-syspath second-line) rest)))
   (install-buffer contents dest 8r755 mkbin)
   (when (is-win-or-mingw)
-    (def bat (string "@echo off\r\ngoto #_undefined_# 2>NUL || title %COMSPEC% & janet \"" main "\" %*"))
+    (def absdest (path/join (dyn *syspath*) dest))
+    (def bat (string "@echo off\r\ngoto #_undefined_# 2>NUL || title %COMSPEC% & janet \"" absdest "\" %*"))
     (def newname (string main ".bat"))
-    (install-buffer bat (path/basename newname) nil mkbin))
+    (install-buffer bat (string dest ".bat") nil mkbin))
   dest)
 
 (defn declare-archive
@@ -487,6 +488,9 @@
     (case toolchain
       :msvc cc/msvc-compile-and-make-archive
       cc/compile-and-make-archive))
+
+  (when (= toolchain :msvc) # Disable import lib generation for natives
+    (put benv cc/*lflags* @[;(get benv cc/*lflags* @[]) "/NOIMPLIB"]))
 
   (var has-cpp false)
   (each s source

@@ -349,6 +349,13 @@
   will work as expected."
   []
   (when (msvc-setup?) (break))
+  (var found false)
+  (when-with [f (file/open ".vcvars.jdn")]
+    (def data (-> f (:read :all) parse))
+    (eachp [k v] data
+      (os/setenv k v))
+    (set found true))
+  (if found (break))
   (def arch (string (os/arch)))
   (defn loc [pf y e]
     (string `C:\` pf `\Microsoft Visual Studio\` y `\` e `\VC\Auxiliary\Build\vcvarsall.bat`))
@@ -370,8 +377,13 @@
   (def output (sh/exec-slurp "cmd" "/s" "/c" arg))
   (def kvpairs (peg/match vcvars-grammar output))
   (assert kvpairs)
+  (def vcvars-cache @{})
   (each [k v] kvpairs
-    (os/setenv (string/trim k) (string/trim v)))
+    (def kk (string/trim k))
+    (def vv (string/trim v))
+    (put vcvars-cache kk vv)
+    (os/setenv kk vv))
+  (spit ".vcvars.jdn" (string/format "%j" vcvars-cache))
   nil)
 
 (defn- msvc-opt
@@ -544,6 +556,7 @@
   (if (dyn :verbose)
     (do
       (print (string/join cmd " "))
+      # (eprint (sh/exec-slurp ;cmd)))
       (exec-linebuffered cmd))
     (do
       (print message)

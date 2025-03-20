@@ -15,7 +15,7 @@
 (defn randdir
   "Get a random directory name"
   []
-  (string "/tmp/tmp_dir_" (slice (string (math/random) ".tmp") 2)))
+  (string (os/cwd) "/tmp/tmp_dir_" (slice (string (math/random) ".tmp") 2)))
 
 # Create a temporary directory for our janet tree
 (math/seedrandom (os/cryptorand 16))
