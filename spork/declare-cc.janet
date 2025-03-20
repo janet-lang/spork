@@ -311,11 +311,11 @@
   (defn build [&opt man target]
     (prebuild)
     (default target "build")
-    (build-rules/build-run e target))
+    (build-rules/build-run e target (dyn :workers)))
   (defn install [manifest &]
     (build)
     (with-dyns [*install-manifest* manifest]
-      (build-rules/build-run e "install")))
+      (build-rules/build-run e "install" (dyn :workers))))
   (defn check [&]
     (build)
     (run-tests))
@@ -332,7 +332,7 @@
     (sh/rm br))
   (defn run-task [task]
     (prebuild)
-    (build-rules/build-run e task))
+    (build-rules/build-run e task (dyn :workers)))
   (defglobal 'install install)
   (defglobal 'build build)
   (defglobal 'check check)

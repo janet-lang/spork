@@ -374,6 +374,12 @@
     {"t" true "true" true "1" true "yes" true "on" true}
     (string/ascii-lower (string/trim x)) false))
 
+(defn- toposint
+  [x]
+  (def y (scan-number x))
+  (assertf (and (>= y 1) (int? y)) "expected a positive integer for number of workers, got %v" x)
+  y)
+
 (defn read-env-variables
   "Translate environment variables into dynamic bindings."
   []
@@ -385,6 +391,7 @@
   (set1 :build-dir "JANET_BUILD_DIR")
   (set1 :offline "JANET_OFFLINE" tobool)
   (set1 *pkglist* "JANET_PKGLIST")
+  (set1 :workers "WORKERS" toposint)
   (set1 :verbose "VERBOSE" tobool))
 
 ###

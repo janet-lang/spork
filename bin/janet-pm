@@ -78,6 +78,12 @@
     janet-pm inherits all of the environment variables used by janet, as well some of its own. Many of these are
     only used in support of building bundles that use a project.janet.
 
+    VERBOSE
+        Print full output from running commands
+
+    WORKERS
+        Number of processes to run in parallel when compiling C and C++ source code.
+
     JANET_BUILD_DIR
         Where to create build outputs when building a bundle has a project.janet. Defaults to _build.
 

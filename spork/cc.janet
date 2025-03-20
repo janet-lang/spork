@@ -54,6 +54,7 @@
 (defdyn *c-std* "C standard to use as a 2 digit number, defaults to 99 on GCC-like compilers, 11 on msvc.")
 (defdyn *c++-std* "C++ standard to use as a 2 digit number, defaults to 11 on GCC-like compilers, 14 on msvc.")
 (defdyn *rules* "Rules to use with visit-add-rule")
+(defdyn *vcvars-cache* "Where to cache vcvars once we have calculated them")
 
 ###
 ### Universal helpers for all toolchains
@@ -67,6 +68,7 @@
 (defn- static-libs [] (dyn *static-libs* []))
 (defn- dynamic-libs [] (dyn *dynamic-libs* []))
 (defn- default-libs [] (dyn *libs* []))
+(defn- vcvars-cache [] (dyn *vcvars-cache* ".vcvars.jdn"))
 
 (defn- build-type []
   (def bt (dyn *build-type* :develop))
@@ -341,16 +343,18 @@
        (string/replace-all ")" "^)")))
 
 (defn msvc-find
-  "Find vcvarsall.bat and run it to setup the current environment for building.
-  Uses `(dyn *msvc-vcvars*)` to find the location of the setup script, otherwise defaults
+  ``Find vcvarsall.bat and run it to setup the current environment for building.
+  Uses `(dyn *msvc-vcvars*)` to find the location of the setup script, then will check
+  for the presence of a file `(dyn *vcvars-cache* ".vcvars.jdn")`, and then otherwise defaults
   to checking typical install locations for Visual Studio.
   Supports VS 2017, 2019, and 2022, any edition.
   Will set environment variables such that invocations of cl.exe, link.exe, etc.
-  will work as expected."
+  will work as expected.``
   []
   (when (msvc-setup?) (break))
+  # Cache the vcvars locally instead of calling vcvarsall.bat over and over again
   (var found false)
-  (when-with [f (file/open ".vcvars.jdn")]
+  (when-with [f (file/open (vcvars-cache))]
     (def data (-> f (:read :all) parse))
     (eachp [k v] data
       (os/setenv k v))
@@ -377,13 +381,13 @@
   (def output (sh/exec-slurp "cmd" "/s" "/c" arg))
   (def kvpairs (peg/match vcvars-grammar output))
   (assert kvpairs)
-  (def vcvars-cache @{})
+  (def cache @{})
   (each [k v] kvpairs
     (def kk (string/trim k))
     (def vv (string/trim v))
-    (put vcvars-cache kk vv)
+    (put cache kk vv)
     (os/setenv kk vv))
-  (spit ".vcvars.jdn" (string/format "%j" vcvars-cache))
+  (spit (vcvars-cache) (string/format "%j" cache))
   nil)
 
 (defn- msvc-opt
