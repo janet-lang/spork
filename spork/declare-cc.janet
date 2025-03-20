@@ -11,8 +11,6 @@
 ### TODO
 # - MSVC Testing on windows
 # - MINGW Testing
-# - clang unused command line arguments warning
-# - compiler output is interleaved poorly when running on many threads
 # - msvc testing
 # - pkg-config testing and other project.janet feature testing
 # - more testing of `deps` command
