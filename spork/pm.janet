@@ -201,7 +201,9 @@
 
 (def- shimcode
   ````
-(use spork/declare-cc)
+(if (dyn :install-time-syspath)
+  (use @install-time-syspath/spork/declare-cc)
+  (use spork/declare-cc))
 (dofile "project.janet" :env (jpm-shim-env))
 ````)
 
@@ -307,7 +309,9 @@
     # prevent things like uninstalling a dependency, breaking another installed package.
     (def deps (seq [d :in jpm-deps] (jpm-dep-to-bundle-dep d)))
     (def deps (filter identity deps))
-    (unless (index-of "spork" deps) (array/push deps "spork"))
+    (unless (index-of "spork" deps)
+      # if spork is not installed, we are installing to a different tree.
+      (when (bundle/installed? "spork") (array/push deps "spork")))
     (put info :dependencies deps)
     (spit (path/join bdir "bundle" "info.jdn") (string/format "%.99m\n" info)))
   (def config @{:pm bundle :installed-with "spork/pm" :auto-remove auto-remove})

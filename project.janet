@@ -24,7 +24,7 @@
 
 (declare-binscript
   :main "bin/janet-pm"
-  :hardcode-syspath true
+  :hardcode-syspath :dynamic # allow for JANET_PATH=new_module_tree
   :is-janet true)
 
 # Natives

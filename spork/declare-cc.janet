@@ -29,10 +29,14 @@
 (defdyn *build-root* "Root build directory that will contain all built artifacts")
 
 (defn- build-root [] (dyn *build-root* "_build"))
-(defn- build-dir [] (path/join (build-root) (dyn cc/*build-type* :develop)))
+(defn- build-dir [] (path/join (build-root) (dyn cc/*build-type* :release)))
 (defn- get-rules [] (dyn cc/*rules* (curenv)))
-(defn- mkbin [] (os/mkdir (path/join (dyn *syspath*) "bin")))
-(defn- mkman [] (os/mkdir (path/join (dyn *syspath*) "man")))
+(defn- bindir [] (or (os/getenv "JANET_BINPATH") (path/join (dyn *syspath*) "bin")))
+(defn- mandir [] (or (os/getenv "JANET_MANPATH") (path/join (dyn *syspath*) "man")))
+(defn- mkbin [] (os/mkdir (bindir)))
+(defn- mkman [] (os/mkdir (mandir)))
+(defn- bindir-rel [] (path/relpath (dyn *syspath*) (bindir)))
+(defn- mandir-rel [] (path/relpath (dyn *syspath*) (mandir)))
 
 (defn- get-prefix
   "Auto-detect what prefix to use for finding libjanet.so, headers, etc."
@@ -374,7 +378,7 @@
 (defn declare-bin
   "Declare a generic file to be installed as an executable."
   [&named main]
-  (install-rule main "bin" 8r755 mkbin))
+  (install-rule main (bindir-rel) 8r755 mkbin))
 
 (defn declare-binscript
   ``Declare a janet file to be installed as an executable script. Creates
@@ -383,17 +387,26 @@
   is truthy, will also automatically insert a correct shebang line.
   ``
   [&named main hardcode-syspath is-janet]
-  (def auto-shebang is-janet)
   (def main (path/abspath main))
-  (def dest (path/join "bin" (path/basename main)))
+  (def bin (bindir-rel))
+  (def dest (path/join bin (path/basename main)))
   (defn contents []
     (with [f (file/open main :rbn)]
       (def first-line (:read f :line))
-      (def second-line (string/format "(put root-env :syspath %v)\n" (dyn *syspath*)))
+      (def auto-shebang (and is-janet (not (string/has-prefix? "#!" first-line))))
+      (def dynamic-syspath (= hardcode-syspath :dynamic))
+      (def second-line (string/format "(put root-env :original-syspath (os/realpath (dyn *syspath*))) # auto generated\n"))
+      (def third-line  (string/format "(put root-env :syspath %v) # auto generated\n" (dyn *syspath*)))
+      (def fourth-line (string/format "(put root-env :install-time-syspath %v) # auto generated\n" (dyn *syspath*)))
+      (def last-line "\n(put root-env :syspath (get root-env :original-syspath)) # auto generated\n")
       (def rest (:read f :all))
-      (string (if auto-shebang
-                (string "#!/usr/bin/env janet\n"))
-              first-line (if hardcode-syspath second-line) rest)))
+      (string (if auto-shebang (string "#!/usr/bin/env janet\n"))
+              first-line
+              (if (or dynamic-syspath hardcode-syspath) second-line)
+              (if hardcode-syspath third-line)
+              (if hardcode-syspath fourth-line)
+              rest
+              (if dynamic-syspath last-line))))
   (install-buffer contents dest 8r755 mkbin)
   (when (is-win-or-mingw)
     (def absdest (path/join (dyn *syspath*) dest))
@@ -423,7 +436,7 @@
 (defn declare-manpage
   "Mark a manpage for installation"
   [page]
-  (install-rule page "man" nil mkman))
+  (install-rule page (mandir-rel) nil mkman))
 
 (defn declare-native
   "Declare a native module. This is a shared library that can be loaded
@@ -696,7 +709,8 @@ int main(int argc, const char **argv) {
   (def bd (build-dir))
   (def dest (path/join bd name))
   (def cimage-dest (string dest ".c"))
-  (when install (install-rule dest (path/join "bin" name) nil mkbin))
+  (def bin (bindir-rel))
+  (when install (install-rule dest (path/join bin name) nil mkbin))
   (rule :build [(if no-compile cimage-dest dest)])
   (rule (if no-compile cimage-dest dest) [entry ;headers ;deps]
         (print "generating executable c source " cimage-dest " from " entry "...")
