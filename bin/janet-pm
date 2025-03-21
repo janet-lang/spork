@@ -4,7 +4,7 @@
 (import spork/path)
 (import spork/pm)
 (import spork/sh)
-(import spork/build-rules)
+# Do not import declare-cc here - keep a clean separation for faster load times
 
 (def help-text
     ```
@@ -66,6 +66,11 @@
         Run tests. Tests should be .janet files in the test/ directory
         relative to project.janet. Will patch the module paths to load
         built native code without installing it. Shorthand for `run check`.
+
+    quickbin entry output
+        Create an executable file from a script, statically linking in any dependencies found while compiling
+        the script. The script should contain a main function that will serve as the main function for the generated
+        executable.
 
     save-lockfile (dest)
         Save all currently installed bundles to a lockfile
@@ -218,6 +223,17 @@
   [name]
   (pm/scaffold-project name {:c false :exe true}))
 
+(defn quickbin
+  "Create an executable file"
+  [entry output]
+  # Lazy load
+  (def module
+    (require (if (dyn :install-time-syspath)
+               "@install-time-syspath/spork/declare-cc"
+               "spork/declare-cc")))
+  (def quickbin-fn (module/value module "quickbin"))
+  (quickbin-fn entry output))
+
 (def subcommands
   {"build" build
    "clean" clean
@@ -233,6 +249,7 @@
    "new-exe-project" new-exe-project
    "load-lockfile" load-lockfile
    "save-lockfile" save-lockfile
+   "quickbin" quickbin
    "list-pkgs" list-pkgs
    "clear-cache" clear-cache
    "run" run

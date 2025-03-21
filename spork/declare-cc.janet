@@ -11,7 +11,6 @@
 ### TODO
 # - MSVC Testing on windows
 # - MINGW Testing
-# - msvc testing
 # - pkg-config testing and other project.janet feature testing
 # - more testing of `deps` command
 # - expanded testing in test suite
@@ -711,8 +710,9 @@ int main(int argc, const char **argv) {
   (def cimage-dest (string dest ".c"))
   (def bin (bindir-rel))
   (when install (install-rule dest (path/join bin name) nil mkbin))
-  (rule :build [(if no-compile cimage-dest dest)])
-  (rule (if no-compile cimage-dest dest) [entry ;headers ;deps]
+  (def target (if no-compile cimage-dest dest))
+  (rule :build [target])
+  (rule target [entry ;headers ;deps]
         (print "generating executable c source " cimage-dest " from " entry "...")
         (sh/create-dirs-to dest)
         (flush)
@@ -825,7 +825,23 @@ int main(int argc, const char **argv) {
             (flush)
             (compile-c cimage-dest oimage-dest)
             (flush)
-            (link [oimage-dest] dest)))))
+            (link [oimage-dest] dest))))
+  target)
+
+(defn quickbin
+  ```
+  Create an executable file from a script with a main function.
+  ```
+  [entry output]
+  (def rules @{})
+  (with-dyns [cc/*rules* rules
+              *build-root* "_quickbin"]
+    (defer (sh/rm "_quickbin")
+      (declare-project :name "fake-project")
+      (def target (declare-executable :entry entry :name output))
+      (build-rules/build-run rules "build")
+      (print "copying " target " to " output)
+      (sh/copy target output))))
 
 ###
 ### Create an environment that emulates jpm's project.janet environment
