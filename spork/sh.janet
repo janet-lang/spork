@@ -61,9 +61,9 @@
   [path]
   (case (os/lstat path :mode)
     :directory (do
-      (each subpath (os/dir path)
-        (rm (path/join path subpath)))
-      (os/rmdir path))
+                 (each subpath (os/dir path)
+                   (rm (path/join path subpath)))
+                 (os/rmdir path))
     nil nil # do nothing if file does not exist
     # Default, try to remove
     (os/rm path)))
@@ -106,8 +106,16 @@
   (each part (path/parts dir-path)
     (array/push dirs part)
     (let [path (path/join ;dirs)]
-         (if-not (os/lstat path)
-             (os/mkdir path)))))
+      (os/mkdir path))))
+
+(defn create-dirs-to
+  "Create all directories in path specified as string not including the final path segment."
+  [dir-path]
+  (def dirs @[])
+  (each part (slice (path/parts dir-path) 0 -2)
+    (array/push dirs part)
+    (let [path (path/join ;dirs)]
+      (os/mkdir path))))
 
 (defn make-new-file
   "Create and open a file, creating all the directories leading to the file if
@@ -146,16 +154,14 @@
                         "/y /s /e /i > nul")))
     (os/execute ["cp" "-rf" src dest] :px)))
 
-(def- shlex-grammar (peg/compile ~{
-  :ws (set " \t\r\n")
-  :escape (* "\\" (capture 1))
-  :dq-string (accumulate (* "\"" (any (+ :escape (if-not "\"" (capture 1)))) "\""))
-  :sq-string (accumulate (* "'" (any (if-not "'" (capture 1))) "'"))
-  :token-char (+ :escape (* (not :ws) (capture 1)))
-  :token (accumulate (some :token-char))
-  :value (* (any (+ :ws)) (+ :dq-string :sq-string :token) (any :ws))
-  :main (any :value)
-}))
+(def- shlex-grammar (peg/compile ~{:ws (set " \t\r\n")
+                                   :escape (* "\\" (capture 1))
+                                   :dq-string (accumulate (* "\"" (any (+ :escape (if-not "\"" (capture 1)))) "\""))
+                                   :sq-string (accumulate (* "'" (any (if-not "'" (capture 1))) "'"))
+                                   :token-char (+ :escape (* (not :ws) (capture 1)))
+                                   :token (accumulate (some :token-char))
+                                   :value (* (any (+ :ws)) (+ :dq-string :sq-string :token) (any :ws))
+                                   :main (any :value)}))
 
 (defn split
   "Split a string into 'sh like' tokens, returns

@@ -1,0 +1,15 @@
+{:title "pm"
+ :author "Calvin Rose"
+ :license "MIT"
+ :template "mdzdoc/main.html"}
+---
+
+The PM module (short for package manager) contains a number of utilities for downloading
+bundles from the internet, managing dependencies, and building projects. It works in tandem
+with Janet's built-in @code`bundle/` module, as well as supporting legacy JPM projects on a
+best-effort basis.
+
+## Reference
+
+@api-docs("../../spork" "pm")
+

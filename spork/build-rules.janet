@@ -18,17 +18,6 @@
           (cancel-all fibers "sibling canceled")
           (propagate (fiber/last-value fiber) fiber))))))
 
-(defn- executor
-  "How to execute a rule at runtime - extract the recipe thunk(s) and call them."
-  [rule]
-  (def r (assert (get rule :recipe)))
-  (edefer
-    (each o (get rule :outputs [])
-      (protect (os/rm o)))
-    (if (indexed? r)
-      (each rr r (rr))
-      (r))))
-
 (defn- target-not-found
   "Creates an error message."
   [target]
@@ -70,7 +59,7 @@
   (set (utd-cache target) ret))
 
 (defn- run-rules
-  "Create execution graph from rules that will build targets."
+  "Execute the minimal set of rules needed to build all targets in `targets`."
   [rules targets &opt n-workers]
   (def utd-cache @{})
   (def all-targets @{})
@@ -109,6 +98,7 @@
       (++ work-count))
     needs-build)
   (each target targets (needs-build? target))
+  (default n-workers 1)
 
   (defn worker
     [n]
@@ -118,7 +108,15 @@
       (-- work-count)
       (def rule (get all-targets target))
       (def dependent-set (get dependents target ()))
-      (executor rule)
+      (def r (assert (get rule :recipe)))
+      (edefer
+        (do
+          (each o (get rule :outputs [])
+            (protect (os/rm o)))
+          (repeat n-workers (ev/give q nil)))
+        (if (indexed? r)
+          (each rr r (rr))
+          (r)))
       (array/push targets-built target)
       (eachk next-target dependent-set
         (-- (dep-counts next-target))
@@ -127,11 +125,10 @@
     (ev/give q nil))
 
   (def fibers @{})
-  (default n-workers 1)
   (def super (ev/chan))
   (forv i 0 n-workers
-        (def fib (ev/go worker i super))
-        (put fibers fib fib))
+    (def fib (ev/go worker i super))
+    (put fibers fib fib))
   (wait-for-fibers super fibers)
 
   targets-built)
@@ -182,7 +179,17 @@
   If target is a keyword, the rule will always be considered out of date.
   ```
   [rules target deps & body]
-  ~(,rule-impl ,rules ,target ,deps (fn [] nil ,;body)))
+  ~(,rule-impl ,rules ,target ,deps (fn :build-rule [] nil ,;body)))
+
+(defn build-thunk
+  ```
+  Add a rule to the rule graph. `rules` should be a table, `target`
+  a string or tuple of strings, and `deps` a tuple of strings. `body`
+  is code that will be executed to create all of the targets by the rules.
+  If target is a keyword, the rule will always be considered out of date.
+  ```
+  [rules target deps thunk]
+  (rule-impl rules target deps thunk))
 
 (defn build-run
   "Build a list of targets, as specified by rules. Return an array of all recursively updated targets."

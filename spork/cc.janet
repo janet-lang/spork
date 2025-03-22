@@ -24,6 +24,7 @@
 (import ./path)
 (import ./sh)
 (import ./build-rules)
+(import ./stream)
 
 (defdyn *ar* "Archiver, defaults to `ar`.")
 (defdyn *build-dir* "If generating intermediate files, store them in this directory")
@@ -53,6 +54,7 @@
 (defdyn *c-std* "C standard to use as a 2 digit number, defaults to 99 on GCC-like compilers, 11 on msvc.")
 (defdyn *c++-std* "C++ standard to use as a 2 digit number, defaults to 11 on GCC-like compilers, 14 on msvc.")
 (defdyn *rules* "Rules to use with visit-add-rule")
+(defdyn *vcvars-cache* "Where to cache vcvars once we have calculated them")
 
 ###
 ### Universal helpers for all toolchains
@@ -66,6 +68,7 @@
 (defn- static-libs [] (dyn *static-libs* []))
 (defn- dynamic-libs [] (dyn *dynamic-libs* []))
 (defn- default-libs [] (dyn *libs* []))
+(defn- vcvars-cache [] (dyn *vcvars-cache* ".vcvars.jdn"))
 
 (defn- build-type []
   (def bt (dyn *build-type* :develop))
@@ -114,13 +117,16 @@
     x))
 
 (defn- classify-source
-  "Classify a source file as C or C++"
+  "Classify a source file as C or C++ (or object files)"
   [path]
   (cond
     (string/has-suffix? ".c" path) :c
     (string/has-suffix? ".cc" path) :c++
     (string/has-suffix? ".cpp" path) :c++
     (string/has-suffix? ".cxx" path) :c++
+    # object files
+    (string/has-suffix? ".o" path) :o
+    (string/has-suffix? ".obj" path) :o
     # else
     (errorf "unknown source file type for %v" path)))
 
@@ -147,11 +153,13 @@
   res)
 (defn- extra-paths []
   (def sp (dyn *syspath* "."))
-  (def lp (lib-path))
   (def ip (include-path))
   [(string "-I" sp)
-   ;(if ip [(string "-I" ip)] [])
-   (string "-L" sp)
+   ;(if ip [(string "-I" ip)] [])])
+(defn- extra-link-paths []
+  (def sp (dyn *syspath* "."))
+  (def lp (lib-path))
+  [(string "-L" sp)
    ;(if lp [(string "-L" lp)] [])])
 (defn- rpath
   []
@@ -196,13 +204,13 @@
     (string "-std=c++" std)))
 
 (defn compile-c
-  "Compile a C program to an object file. Return the command arguments."
+  "Compile a C source file to an object file. Return the command arguments."
   [from to]
   (exec [(cc) (ccstd) ;(opt) ;(cflags) ;(extra-paths) "-fPIC" ;(defines) "-c" from "-o" to "-pthread"]
         [from] [to] (string "compiling " from "...")))
 
 (defn compile-c++
-  "Compile a C++ program to an object file. Return the command arguments."
+  "Compile a C++ source file to an object file. Return the command arguments."
   [from to]
   (exec [(c++) (c++std) ;(opt) ;(c++flags) ;(extra-paths) "-fPIC" ;(defines) "-c" from "-o" to "-pthread"]
         [from] [to] (string "compiling " from "...")))
@@ -210,25 +218,25 @@
 (defn link-shared-c
   "Link a C program to make a shared library. Return the command arguments."
   [objects to]
-  (exec [(cc) (ccstd) ;(opt) ;(cflags) ;(extra-paths) "-o" to ;objects "-pthread" ;(libs) "-shared"]
+  (exec [(cc) (ccstd) ;(opt) ;(cflags) ;(extra-link-paths) "-o" to ;objects "-pthread" ;(libs) ;(dynamic-libs) "-shared"]
         objects [to] (string "linking " to "...")))
 
 (defn link-shared-c++
   "Link a C++ program to make a shared library. Return the command arguments."
   [objects to]
-  (exec [(c++) (c++std) ;(opt) ;(c++flags) ;(extra-paths) "-o" to ;objects "-pthread" ;(libs) "-shared"]
+  (exec [(c++) (c++std) ;(opt) ;(c++flags) ;(extra-link-paths) "-o" to ;objects "-pthread" ;(libs) ;(dynamic-libs) "-shared"]
         objects [to] (string "linking " to "...")))
 
 (defn link-executable-c
   "Link a C program to make an executable. Return the command arguments."
   [objects to]
-  (exec [(cc) (ccstd) ;(opt) ;(cflags) ;(extra-paths) "-o" to ;objects ;(rdynamic) "-pthread" ;(libs)]
+  (exec [(cc) (ccstd) ;(opt) ;(cflags) ;(extra-link-paths) "-o" to ;objects ;(rdynamic) "-pthread" ;(libs)]
         objects [to] (string "linking " to "...")))
 
 (defn link-executable-c++
   "Link a C++ program to make an executable. Return the command arguments."
   [objects to]
-  (exec [(c++) (c++std) ;(opt) ;(c++flags) ;(extra-paths) "-o" to ;objects ;(rdynamic) "-pthread" ;(libs)]
+  (exec [(c++) (c++std) ;(opt) ;(c++flags) ;(extra-link-paths) "-o" to ;objects ;(rdynamic) "-pthread" ;(libs)]
         objects [to] (string "linking " to "...")))
 
 (defn make-archive
@@ -238,7 +246,7 @@
 
 # Compound commands
 
-(defn- out-path
+(defn out-path
   "Take a source file path and convert it to an output path."
   [path to-ext &opt sep]
   (default sep "/")
@@ -259,6 +267,8 @@
     (def o (out-path source ".o"))
     (def source-type (classify-source source))
     (case source-type
+      :o
+      (array/push objects source)
       :c
       (do
         (array/push cmds-into (compile-c source o))
@@ -333,14 +343,23 @@
        (string/replace-all ")" "^)")))
 
 (defn msvc-find
-  "Find vcvarsall.bat and run it to setup the current environment for building.
-  Uses `(dyn *msvc-vcvars*)` to find the location of the setup script, otherwise defaults
+  ``Find vcvarsall.bat and run it to setup the current environment for building.
+  Uses `(dyn *msvc-vcvars*)` to find the location of the setup script, then will check
+  for the presence of a file `(dyn *vcvars-cache* ".vcvars.jdn")`, and then otherwise defaults
   to checking typical install locations for Visual Studio.
   Supports VS 2017, 2019, and 2022, any edition.
   Will set environment variables such that invocations of cl.exe, link.exe, etc.
-  will work as expected."
+  will work as expected.``
   []
   (when (msvc-setup?) (break))
+  # Cache the vcvars locally instead of calling vcvarsall.bat over and over again
+  (var found false)
+  (when-with [f (file/open (vcvars-cache))]
+    (def data (-> f (:read :all) parse))
+    (eachp [k v] data
+      (os/setenv k v))
+    (set found true))
+  (if found (break))
   (def arch (string (os/arch)))
   (defn loc [pf y e]
     (string `C:\` pf `\Microsoft Visual Studio\` y `\` e `\VC\Auxiliary\Build\vcvarsall.bat`))
@@ -352,7 +371,7 @@
              y :in [2022 2019 2017]
              e :in ["Enterprise" "Professional" "Community" "BuildTools"]]
         (def path (loc pf y e))
-        (when (os/stat path :mode) 
+        (when (os/stat path :mode)
           (set found-path path)
           (break)))))
   (unless found-path (error "Could not find vcvarsall.bat"))
@@ -362,8 +381,13 @@
   (def output (sh/exec-slurp "cmd" "/s" "/c" arg))
   (def kvpairs (peg/match vcvars-grammar output))
   (assert kvpairs)
+  (def cache @{})
   (each [k v] kvpairs
-    (os/setenv (string/trim k) (string/trim v)))
+    (def kk (string/trim k))
+    (def vv (string/trim v))
+    (put cache kk vv)
+    (os/setenv kk vv))
+  (spit (vcvars-cache) (string/format "%j" cache))
   nil)
 
 (defn- msvc-opt
@@ -408,14 +432,14 @@
 (defn- lib.exe [] "lib.exe")
 
 (defn msvc-compile-c
-  "Compile a C program with MSVC. Return the command arguments."
+  "Compile a C source file with MSVC to an object file. Return the command arguments."
   [from to]
   (exec [(cl.exe) "/c" (msvc-cstd) "/utf-8" "/nologo" ;(cflags) ;(msvc-compile-paths) ;(msvc-opt) ;(msvc-defines)
          "/I" (dyn *syspath* ".") from (string "/Fo" to)]
         [from] [to] (string "compiling " from "...")))
 
 (defn msvc-compile-c++
-  "Compile a C++ program with MSVC. Return the command arguments."
+  "Compile a C++ source file with MSVC to an object file. Return the command arguments."
   [from to]
   (exec [(cl.exe) "/c" (msvc-c++std) "/utf-8" "/nologo" "/EHsc" ;(c++flags) ;(msvc-compile-paths) ;(msvc-opt) ;(msvc-defines)
          "/I" (dyn *syspath* ".") from (string "/Fo" to)]
@@ -451,6 +475,8 @@
     (def o (out-path source ".o" "\\"))
     (def source-type (classify-source source))
     (case source-type
+      :o
+      (array/push objects source)
       :c
       (do
         (array/push cmds-into (msvc-compile-c source o))
@@ -507,9 +533,26 @@
   "A function that can be provided as `(dyn *visit*)` that will generate Makefile targets."
   [cmd inputs outputs message]
   (assert (one? (length outputs)) "only single outputs are supported for Makefile generation")
+  (print ".PHONY: _all")
+  (print "_all: " (string/join outputs " "))
   (print (first outputs) ": " (string/join inputs " "))
   (print "\t@echo " (describe message))
   (print "\t@'" (string/join cmd "' '") "'\n"))
+
+(defn- exec-linebuffered
+  "Line buffer compiler output so we can run commands in parallel"
+  [args]
+  (def [r w] (os/pipe :W))
+  (def proc (os/spawn args :p {:out w :err w}))
+  (var exit nil)
+  (ev/gather
+    (each line (stream/lines r)
+      (eprint line))
+    (do
+      (set exit (os/proc-wait proc))
+      (ev/close w)))
+  (if (not= 0 exit) (error "non-zero exit code"))
+  exit)
 
 (defn visit-execute
   "A function that can be provided as `(dyn *visit*)` that will execute commands."
@@ -517,7 +560,8 @@
   (if (dyn :verbose)
     (do
       (print (string/join cmd " "))
-      (os/execute cmd :px))
+      # (eprint (sh/exec-slurp ;cmd)))
+      (exec-linebuffered cmd))
     (do
       (print message)
       (def devnull (sh/devnull))
@@ -546,7 +590,7 @@
   [cmd inputs outputs message]
   (def rules (dyn *rules* (curenv)))
   (build-rules/build-rule
-    rules outputs inputs
+    rules outputs @[;inputs]
     (visit-execute cmd inputs outputs message)))
 
 ###
@@ -578,7 +622,7 @@
             (os/execute [executable] :x {:out devnull :err devnull}))
           true)
         ([e]
-         false)))))
+          false)))))
 
 (defn- search-libs-impl
   [dynb libs]

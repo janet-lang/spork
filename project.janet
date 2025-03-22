@@ -3,6 +3,7 @@
   :description "Official contrib library of various Janet utility modules."
   :author "Calvin Rose"
   :license "MIT"
+  :dependencies []
   :url "https://github.com/janet-lang/spork"
   :repo "git+https://github.com/janet-lang/spork")
 
@@ -20,6 +21,15 @@
   :main "bin/janet-netrepl"
   :hardcode-syspath true
   :is-janet true)
+
+(declare-binscript
+  :main "bin/janet-pm"
+  :hardcode-syspath :dynamic # allow for JANET_PATH=new_module_tree
+  :is-janet true)
+
+# Manual pages
+
+(declare-manpage "man/janet-pm.1")
 
 # Natives
 

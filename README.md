@@ -23,14 +23,22 @@ janet bundle/test.janet
 
 ## Installation
 
+As of Janet version 1.38.0, the normal Janet binary can install spork in the following way:
+
 ```
-[sudo] jpm install spork
+[sudo] janet --install .
 ```
 
-Alternatively,
+For versions prior to 1.38.0, but with support for the bundle module:
 
 ```
 [sudo] janet -e '(bundle/install ".")'
+```
+
+Or, finally, with JPM:
+
+```
+[sudo] jpm install spork
 ```
 
 ## Dependencies

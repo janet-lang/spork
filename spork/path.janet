@@ -168,7 +168,7 @@
 (redef "ext" "win32/ext")
 (decl-sep "win32" "\\")
 (decl-delim "win32" ";")
-(decl-last-sep "win32" "\\")
+(decl-last-sep "win32" (set "\\/"))
 (decl-basename "win32")
 (decl-dirname "win32")
 (decl-parts "win32" "\\")

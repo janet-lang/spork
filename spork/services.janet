@@ -214,4 +214,3 @@
       (get services service-name)))
   (def rows (filter filter-fn raw-rows))
   (misc/print-table rows service-columns service-header-map service-column-map))
-

@@ -25,7 +25,7 @@
 (defn- postfix-modify
   "Apply regex postfix operators to a pattern."
   [cc suffix &opt suf2]
-  (case suffix 
+  (case suffix
     "?" ['? cc]
     "*" ['any cc]
     "+" ['some cc]
@@ -66,8 +66,7 @@
 (def peg
   "Peg used to generate peg source code from a regular expression string."
   (peg/compile
-    ~{
-      # Custom character classes (bracketed characters)
+    ~{# Custom character classes (bracketed characters)
       # Compiled to a single (range ...) peg combinator
       :hex (range "09" "af" "AF")
       :escapedchar (+ (/ `\n` "\n")

@@ -1,0 +1,305 @@
+#!/usr/bin/env janet
+
+(import spork/argparse)
+(import spork/path)
+(import spork/pm)
+(import spork/sh)
+# Do not import declare-cc here - keep a clean separation for faster load times
+
+(def help-text
+    ```
+    usage: janet-pm [--key=value, --flag] ... [subcommand] [args] ...
+
+    Run from a directory containing a project.janet file to perform
+    operations on a project, or from anywhere to do operations on the
+    global module cache (modpath).  Commands that need write permission to
+    the modpath are considered privileged commands - in some environments
+    they may require super user privileges.  Other project-level commands
+    need to have a ./project.janet file in the current directory.
+
+    GLOBAL COMMANDS:
+
+    help
+        Show this help text.
+
+    install (repo or name)...
+        Install remote bundles, and any required dependencies.
+
+    clear-cache
+        Clear the git cache. Useful for updating dependencies.
+
+    list-pkgs (search)
+        List packages in the remote package listing that the contain the
+        string search. If no search pattern is given, prints the
+        entire package listing.
+
+    new-project name
+        Create a new Janet project in a directory `name`.
+
+    new-simple-project name
+        Create a new Janet project that can be installed and distributed without spork in a directory `name`.
+
+    new-c-project name
+        Create a new C+Janet project in a directory `name`.
+
+    new-exe-project name
+        Create a new project for an executable in a directory `name`.
+
+    PER PROJECT COMMANDS:
+
+    deps
+        Install dependencies for the current project.
+
+    install (repos...)
+        Install artifacts of the current project. Shorthand for `janet --install .`
+
+    uninstall (repos...)
+        Uninstall the current project's artifacts. Shorthand for `janet --uninstall {current-project-name }`
+
+    prune
+        Remove any bundles that have no dependents and are marked for auto-remove
+
+    build
+        Build all artifacts in the build/ directory. Shorthand for `run build`.
+
+    clean
+        Remove any generated files or artifacts. Calls the `(clean)` hook.
+
+    test
+        Run tests. Tests should be .janet files in the test/ directory
+        relative to project.janet. Will patch the module paths to load
+        built native code without installing it. Shorthand for `run check`.
+
+    quickbin entry output
+        Create an executable file from a script, statically linking in any dependencies found while compiling
+        the script. The script should contain a main function that will serve as the main function for the generated
+        executable.
+
+    save-lockfile (dest)
+        Save all currently installed bundles to a lockfile
+
+    load-lockfile (src)
+        Install all bundles in the given lockfile.
+
+    ENVIRONMENT VARIABLES:
+
+    janet-pm inherits all of the environment variables used by janet, as well some of its own. Many of these are
+    only used in support of building bundles that use a project.janet.
+
+    JANET_BINPATH
+        Where to install executables and scripts. By default, will store them at in $SYSPATH/bin.
+
+    JANET_BUILD_DIR
+        Where to create build outputs when building a bundle has a project.janet. Defaults to _build.
+
+    JANET_BUILD_TYPE
+        What kind of build to make when building a bundle that has a project.janet.
+        Should be "develop", "release", or "debug".
+
+    JANET_CURL
+        Where to get the "curl" command when handling project.janet. Defaults to "curl".
+
+    JANET_GIT
+        Where to get the "git" command when handling project.janet. Defaults to "git".
+
+    JANET_MANPATH
+        Where to install manpages. By default, will store them at in $SYSPATH/man.
+
+    JANET_OFFLINE
+        If set to 1, true, on, etc., will only look at packages in the local cache.
+
+    JANET_PKGLIST
+        The package listing repository to use to resolve package nicknames. Defaults to https://github.com/janet-lang/pkgs.git
+
+    JANET_PREFIX
+        Where to look for Janet headers and libjanet.so, janet.dll, etc. By default, will try to autodetect by searching through the
+        syspath, the PREFIX environment variable, /usr/, and /usr/local. Most installs should not need to set this, but otherwise should
+        be set to whatever PREFIX was when janet was installed.
+
+    JANET_TAR
+        Where to get the "tar" command. Defaults to "tar".
+
+    JANET_TOOLCHAIN
+        Name of the toolchain to use to compile project.janet based natives. Should be one of "gcc", "clang", "msvc", or "cc".
+        Defaults to autodetecting based on the presence of other environment variabls MSVC, GCC, CLANG, and CC.
+        Will then finally default to the value of `(os/compiler)`.
+
+    VERBOSE
+        Print full output from running commands
+
+    WORKERS
+        Number of processes to run in parallel when compiling C and C++ source code.
+
+    ```)
+
+(defn help
+  []
+  (print help-text))
+
+(defn do-hook
+  [hook & args]
+  (pm/local-hook hook @{} ;args))
+
+(defn build
+  []
+  (pm/local-hook "build" @{}))
+
+(defn run
+  [task]
+  (pm/local-hook "run" task))
+
+(defn clean
+  []
+  (pm/local-hook "clean" @{}))
+
+(defn clean-all
+  []
+  (pm/local-hook "clean-all" @{}))
+
+(defn install
+  [& repo]
+  (if (empty? repo)
+    (pm/pm-install "file::." :force-update true :no-deps true)
+    (each rep repo (pm/pm-install rep :force-update true))))
+
+(defn uninstall
+  [& repo]
+  (if (empty? repo)
+    (let [m (pm/load-project-meta ".")]
+      (bundle/uninstall (get m :name)))
+    (each rep repo
+      (bundle/uninstall rep))))
+
+(defn test
+  []
+  (pm/local-hook "check" @{}))
+
+(defn deps
+  []
+  (pm/pm-install "file::." :no-install true))
+
+(defn clear-cache
+  []
+  (def cache (path/join (dyn *syspath*) ".cache"))
+  (sh/rm cache))
+
+(defn list-pkgs
+  [&opt search]
+  (def [ok _] (module/find "pkgs"))
+  (unless ok
+    (eprint "no local package listing found. Run `jpm update-pkgs` to get listing.")
+    (os/exit 1))
+  (def pkgs-mod (require "pkgs"))
+  (def ps
+    (seq [p :keys (get-in pkgs-mod ['packages :value] [])
+          :when (if search (string/find search p) true)]
+      p))
+  (sort ps)
+  (each p ps (print p)))
+
+(defn update-pkgs
+  []
+  (pm/pm-install (dyn pm/*pkglist* pm/default-pkglist)))
+
+(defn load-lockfile
+  [&opt path]
+  (default path "lockfile.jdn")
+  (pm/load-lockfile path))
+
+(defn save-lockfile
+  [&opt path]
+  (default path "lockfile.jdn")
+  (print "saving lockfile to " path)
+  (pm/save-lockfile path))
+
+(defn new-project
+  "Create a new project"
+  [name]
+  (pm/scaffold-project name {:c false}))
+
+(defn new-simple-project
+  "Create a new project"
+  [name]
+  (pm/scaffold-project name {:no-spork true}))
+
+(defn new-c-project
+  "Create a new C project"
+  [name]
+  (pm/scaffold-project name {:c true}))
+
+(defn new-exe-project
+  "Create a new executable project"
+  [name]
+  (pm/scaffold-project name {:c false :exe true}))
+
+(defn quickbin
+  "Create an executable file"
+  [entry output]
+  # Lazy load
+  (def module
+    (require (if (dyn :install-time-syspath)
+               "@install-time-syspath/spork/declare-cc"
+               "spork/declare-cc")))
+  (def quickbin-fn (module/value module "quickbin"))
+  (quickbin-fn entry output))
+
+(def subcommands
+  {"build" build
+   "clean" clean
+   "clean-all" clean-all
+   "help" help
+   "install" install
+   "test" test
+   "help" help
+   "deps" deps
+   "hook" do-hook
+   "new-project" new-project
+   "new-simple-project" new-simple-project
+   "new-c-project" new-c-project
+   "new-exe-project" new-exe-project
+   "load-lockfile" load-lockfile
+   "save-lockfile" save-lockfile
+   "quickbin" quickbin
+   "list-pkgs" list-pkgs
+   "clear-cache" clear-cache
+   "run" run
+   "prune" bundle/prune
+   "update-pkgs" update-pkgs
+   "uninstall" uninstall})
+
+(defn main
+  [&]
+
+  (def ap
+    (argparse/argparse
+      help-text
+
+      "syspath"
+      {:short "m"
+       :kind :option
+       :help "Set the syspath"}
+
+      "local"
+      {:short "l"
+       :kind :flag
+       :help "Set the syspath to ./jpm_tree"}
+
+      :default
+      {:kind :accumulate
+       :help "Commands to run"}))
+
+  # Break on help text
+  (unless ap (break))
+  (unless (ap :default) (break (help)))
+  (when-let [local (get ap :local)]
+    (os/mkdir "jpm_tree")
+    (put root-env *syspath* (os/realpath "jpm_tree")))
+  (when-let [sp (get ap :syspath)] (put root-env *syspath* sp))
+
+  # Do configuration
+  (pm/read-env-variables root-env)
+
+  (def [sub-command & command-args] (ap :default))
+  (def cmd (get subcommands sub-command))
+  (assertf cmd "unknown command %v, --help for help" sub-command)
+  (cmd ;command-args))
