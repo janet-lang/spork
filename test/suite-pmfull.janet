@@ -23,6 +23,7 @@
   (math/seedrandom (os/cryptorand 16))
   (def syspath (randdir))
   (sh/rm syspath)
+  (os/mkdir "tmp")
   (assert (os/mkdir syspath))
   (defer (sh/rm syspath)
     (put root-env *syspath* (bundle-rpath syspath))
