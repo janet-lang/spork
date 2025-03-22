@@ -13,7 +13,7 @@ jobs:
     strategy:
       matrix:
         os: [ ubuntu-latest, macos-latest, macos-13 ]
-        janet-version: [ heads/master, tag/v1.37.2, tags/v1.36.0, tags/v1.35.2 ]
+        janet-version: [ heads/master, tags/v1.38.0, tags/v1.37.2, tags/v1.36.0, tags/v1.35.2 ]
     steps:
       - name: Checkout Janet
         uses: actions/checkout@v4
