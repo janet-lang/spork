@@ -1,0 +1,175 @@
+.TH JANET-PM 1
+.SH NAME
+janet-pm \- the Janet Project Manager, a build tool for Janet
+.SH SYNOPSIS
+.B janet-pm
+[\fB\-\-flag ...\fR]
+[\fB\-\-option=value ...\fR]
+.IR command
+.IR args ...
+
+.SH DESCRIPTION
+Run from a directory containing a project.janet file to perform
+operations on a project, or from anywhere to do operations on the
+global module cache (modpath). Commands that need write permission to
+the modpath are considered privileged commands - in some environments
+they may require super user privileges. Other project-level commands
+need to have a ./project.janet file in the current directory.
+
+.SH DOCUMENTATION
+
+.SH GLOBAL COMMANDS
+
+.TP
+.BR help
+Show this help text.
+
+.TP
+.BR install\ [\fBrepo...\fR]
+Install remote bundles, and any required dependencies.
+
+.TP
+.BR clear-cache
+Clear the cache of saved remote dependencies.
+
+.TP
+.BR list-pkgs\ [\fBsearch\fR]
+List packages in the remote package listing that the contain the
+string search. If no search pattern is given, prints the
+entire package listing.
+
+.TP
+.BR new-project\ [\fBname\fR]
+Create a new Janet project in a directory `name`.
+
+.TP
+.BR new-c-project\ [\fBname\fR]
+Create a new C+Janet project in a directory `name`.
+
+.TP
+.BR new-exe-project\ [\fBname\fR]
+new-exe-project name
+Create a new project for an executable in a directory `name`.
+
+.SH PER-PROJECT COMMANDS
+
+.TP
+.BR deps
+Install dependencies for the current project.
+
+.TP
+.BR install\ [\fBrepos...\fR]
+Install artifacts of the current project. Shorthand for `janet --install .`
+
+.TP
+.BR uninstall\ [\fBrepos...\fR]
+Uninstall the current project's artifacts. Shorthand for `janet --uninstall {current-project-name}`
+
+.TP
+.BR prune
+Remove any bundles that have no dependents and are marked for auto-remove
+
+.TP
+.BR build
+Build all artifacts of the project. The build configuration is determined by JANET_BUILD_TYPE, and the
+location of artifacts will by in the JANET_BUILD_DIR directory.
+
+.TP
+.BR clean
+Remove any generated files or artifacts. Calls the `(clean)` hook.
+
+.TP
+.BR test
+Run tests. Tests should be .janet files in the test/ directory
+relative to project.janet. Will patch the module paths to load
+built native code without installing it. Shorthand for `run check`.
+
+.TP
+.BR quickbin\ [\fBentry\fR]\ [\fBoutput\fR]
+Create an executable file from a script, statically linking in any dependencies found while compiling
+the script. The script should contain a main function that will serve as the main function for the generated
+executable.
+
+.TP
+.BR save-lockfile\ [\fBdestination\fR]
+Save all currently installed bundles to a lockfile
+
+.TP
+.BR load-lockfile\ [\fBsource\fR]
+Install all bundles in the given lockfile.
+
+.SH ENVIRONMENT VARIABLES
+
+janet-pm inherits all of the environment variables used by janet, as well some of its own. Many of these are
+only used in support of building bundles that use a project.janet.
+
+.B JANET_BINPATH
+.RS
+Where to install executables and scripts. By default, will store them at in $SYSPATH/bin.
+.RE
+
+.B JANET_BUILD_DIR
+.RS
+Where to create build outputs when building a bundle has a project.janet. Defaults to _build.
+.RE
+
+.B JANET_BUILD_TYPE
+.RS
+What kind of build to make when building a bundle that has a project.janet.
+Should be "develop", "release", or "debug".
+.RE
+
+.B JANET_CURL
+.RS
+Where to get the "curl" command when handling project.janet. Defaults to "curl".
+.RE
+
+.B JANET_GIT
+.RS
+Where to get the "git" command when handling project.janet. Defaults to "git".
+.RE
+
+.B JANET_MANPATH
+.RS
+Where to install manpages. By default, will store them at in $SYSPATH/man.
+.RE
+
+.B JANET_OFFLINE
+.RS
+If set to 1, true, on, etc., will only look at packages in the local cache.
+.RE
+
+.B JANET_PKGLIST
+.RS
+The package listing repository to use to resolve package nicknames. Defaults to https://github.com/janet-lang/pkgs.git
+.RE
+
+.B JANET_PREFIX
+.RS
+Where to look for Janet headers and libjanet.so, janet.dll, etc. By default, will try to autodetect by searching through the
+syspath, the PREFIX environment variable, /usr/, and /usr/local. Most installs should not need to set this, but otherwise should
+be set to whatever PREFIX was when janet was installed.
+.RE
+
+.B JANET_TAR
+.RS
+Where to get the "tar" command. Defaults to "tar".
+.RE
+
+.B JANET_TOOLCHAIN
+.RS
+Name of the toolchain to use to compile project.janet based natives. Should be one of "gcc", "clang", "msvc", or "cc".
+Defaults to autodetecting based on the presence of other environment variabls MSVC, GCC, CLANG, and CC.
+Will then finally default to whatever compiler was used to compile the `janet` executable running this script. This
+is the output of `janet -e '(print (os/compiler))'`
+.RE
+
+.B VERBOSE
+.RS
+Print full output from running commands
+.RE
+
+.B WORKERS
+.RS
+Number of processes to run in parallel when compiling C and C++ source code.
+.RE

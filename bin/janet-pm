@@ -206,6 +206,7 @@
 (defn save-lockfile
   [&opt path]
   (default path "lockfile.jdn")
+  (print "saving lockfile to " path)
   (pm/save-lockfile path))
 
 (defn new-project
@@ -269,6 +270,11 @@
        :kind :option
        :help "Set the syspath"}
 
+      "local"
+      {:short "l"
+       :kind :flag
+       :help "Set the syspath to ./jpm_tree"}
+
       :default
       {:kind :accumulate
        :help "Commands to run"}))
@@ -276,6 +282,9 @@
   # Break on help text
   (unless ap (break))
   (unless (ap :default) (break (help)))
+  (when-let [local (get ap :local)]
+    (os/mkdir "jpm_tree")
+    (put root-env *syspath* (os/realpath "jpm_tree")))
   (when-let [sp (get ap :syspath)] (put root-env *syspath* sp))
 
   # Do configuration

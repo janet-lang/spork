@@ -431,7 +431,8 @@
 (defn declare-manpage
   "Mark a manpage for installation"
   [page]
-  (install-rule page (mandir-rel) nil mkman))
+  (def page-name (path/basename page))
+  (install-rule page (path/join (mandir-rel) page-name) nil mkman))
 
 (defn declare-native
   "Declare a native module. This is a shared library that can be loaded

@@ -27,6 +27,10 @@
   :hardcode-syspath :dynamic # allow for JANET_PATH=new_module_tree
   :is-janet true)
 
+# Manual pages
+
+(declare-manpage "man/janet-pm.1")
+
 # Natives
 
 (declare-native
