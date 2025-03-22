@@ -539,9 +539,13 @@
   (print "\t@echo " (describe message))
   (print "\t@'" (string/join cmd "' '") "'\n"))
 
+(def ver (tuple ;(map scan-number (string/split "." janet/version))))
+
 (defn- exec-linebuffered
   "Line buffer compiler output so we can run commands in parallel"
   [args]
+  (when (< ver [1 36 0]) # os/pipe with flags is a new feature
+    (break (eprint (sh/exec-slurp ;args))))
   (def [r w] (os/pipe :W))
   (def proc (os/spawn args :p {:out w :err w}))
   (var exit nil)
@@ -560,7 +564,6 @@
   (if (dyn :verbose)
     (do
       (print (string/join cmd " "))
-      # (eprint (sh/exec-slurp ;cmd)))
       (exec-linebuffered cmd))
     (do
       (print message)
