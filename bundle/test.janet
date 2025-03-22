@@ -5,7 +5,7 @@
 
 (defn main [& argv]
   (def failures-array @[])
-  (def build-path (os/realpath "build"))
+  (def build-path (os/realpath "_build/release"))
   (each suite (sorted (os/dir "test"))
     (when (string/has-prefix? "suite-" suite)
       (eprint "Running suite " suite)
