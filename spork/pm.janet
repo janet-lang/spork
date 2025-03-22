@@ -347,7 +347,8 @@
     (array/push lock {:name name :pm pm :config config}))
   (def buf @"[\n")
   (each d lock
-    (buffer/format buf "  %j\n" d))
+    (string/format "%j" d) # check JDN correctness
+    (buffer/format buf "%.99m\n" d))
   (buffer/push buf "]\n")
   (spit lock-dest buf)
   lock)
