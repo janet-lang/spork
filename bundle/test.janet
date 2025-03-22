@@ -5,11 +5,10 @@
 
 (defn main [& argv]
   (def failures-array @[])
-  (def build-path (os/realpath "_build/release"))
   (each suite (sorted (os/dir "test"))
     (when (string/has-prefix? "suite-" suite)
       (eprint "Running suite " suite)
-      (def result (os/execute [(dyn *executable*) "-m" build-path (string "test/" suite) ;argv] :p))
+      (def result (os/execute [(dyn *executable*) "-m" (os/realpath (dyn *syspath*)) (string "test/" suite) ;argv] :p))
       (if-not (zero? result) 
         (array/push failures-array suite))))
   (if (empty? failures-array)
