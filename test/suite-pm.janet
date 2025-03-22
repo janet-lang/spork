@@ -23,13 +23,15 @@
 (sh/rm syspath)
 (os/mkdir "tmp")
 (assert (os/mkdir syspath))
-(defer (sh/rm syspath)
+(defer (sh/rm "tmp")
   (put root-env *syspath* (bundle-rpath syspath))
   (unless (os/getenv "VERBOSE")
     (setdyn *out* @""))
   (assert (empty? (bundle/list)) "initial bundle/list")
   (assert (empty? (bundle/topolist)) "initial bundle/topolist")
   (sh/rm "./test-bundle/bundle")
+  (sh/rm "./test-bundle/build")
+  (sh/rm "./test-bundle/_build")
 
   # Check our project.janet based bundle
   (pm/pm-install "file::.") # install spork

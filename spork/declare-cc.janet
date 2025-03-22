@@ -718,8 +718,9 @@ int main(int argc, const char **argv) {
         # Do entry
         (def module-cache @{})
         (def env (make-env))
-        (put env *module-make-env* (fn [&opt e] (default e env) (make-env e)))
+        (put env *module-make-env* (fn :module-make-env [&opt e] (default e env) (make-env e)))
         (put env *module-cache* module-cache)
+        (put env :build bd) # expose build directory to executable main (see test-bundle for example)
         (dofile entry :env env)
         (def main (module/value env 'main))
         (def dep-lflags @[])
