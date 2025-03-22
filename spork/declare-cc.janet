@@ -9,19 +9,17 @@
 ###
 
 ### TODO
-# - MSVC Testing on windows
 # - MINGW Testing
 # - pkg-config testing and other project.janet feature testing
-# - more testing of `deps` command
 # - expanded testing in test suite
-# - quickbin
 
 (import ./build-rules)
 (import ./cc)
 (import ./path)
 (import ./sh)
-(import ./pm)
 
+(defdyn *binpath* "Path to install scripts and executables to")
+(defdyn *manpath* "Path to install man pages to")
 (defdyn *prefix* "Path prefix used to detect where to find libjanet, janet.h, etc.")
 (defdyn *install-manifest* "Bound to the bundle manifest during a bundle/install.")
 (defdyn *toolchain* "Force a given toolchain. If unset, will auto-detect.")
@@ -30,8 +28,8 @@
 (defn- build-root [] (dyn *build-root* "_build"))
 (defn- build-dir [] (path/join (build-root) (dyn cc/*build-type* :release)))
 (defn- get-rules [] (dyn cc/*rules* (curenv)))
-(defn- bindir [] (or (os/getenv "JANET_BINPATH") (path/join (dyn *syspath*) "bin")))
-(defn- mandir [] (or (os/getenv "JANET_MANPATH") (path/join (dyn *syspath*) "man")))
+(defn- bindir [] (or (dyn *binpath*) (path/join (dyn *syspath*) "bin")))
+(defn- mandir [] (or (dyn *manpath*) (path/join (dyn *syspath*) "man")))
 (defn- mkbin [] (os/mkdir (bindir)))
 (defn- mkman [] (os/mkdir (mandir)))
 (defn- bindir-rel [] (path/relpath (dyn *syspath*) (bindir)))
@@ -41,8 +39,6 @@
   "Auto-detect what prefix to use for finding libjanet.so, headers, etc."
   []
   (if-let [p (dyn *prefix*)] (break p))
-  (def prefix (os/getenv "JANET_PREFIX"))
-  (when prefix (break prefix))
   (var result nil)
   (each test [(path/join (dyn *syspath*) "..") "/usr/" "/usr/local"]
     (def headercheck (path/join test "include" "janet.h"))
@@ -864,7 +860,6 @@ int main(int argc, const char **argv) {
   "Create an environment table that can evaluate project.janet files"
   []
   (def e (curenv))
-  (pm/read-env-variables)
   # TODO - one for one naming with jpm
   (merge-module e sh)
   (merge-module e cjanet)

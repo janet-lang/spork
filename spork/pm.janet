@@ -368,9 +368,10 @@
 ###
 
 (defn- set1
-  [d e &opt xform]
+  [env d e &opt xform]
   (default xform identity)
-  (when-let [x (os/getenv e)] (setdyn d (xform x))))
+  (when-let [x (os/getenv e)]
+    (put env d (xform x))))
 
 (defn- tobool
   [x]
@@ -398,17 +399,21 @@
 
 (defn read-env-variables
   "Translate environment variables into dynamic bindings."
-  []
-  (set1 *gitpath* "JANET_GIT")
-  (set1 *curlpath* "JANET_CURL")
-  (set1 *tarpath* "JANET_TAR")
-  (set1 :build-type "JANET_BUILD_TYPE" build-type-xform)
-  (set1 :toolchain "JANET_TOOLCHAIN" toochain-xform)
-  (set1 :build-dir "JANET_BUILD_DIR")
-  (set1 :offline "JANET_OFFLINE" tobool)
-  (set1 *pkglist* "JANET_PKGLIST")
-  (set1 :workers "WORKERS" toposint)
-  (set1 :verbose "VERBOSE" tobool))
+  [&opt env]
+  (default env (curenv))
+  (set1 env :prefix "JANET_PREFIX")
+  (set1 env :binpath "JANET_BINPATH")
+  (set1 env :manpath "JANET_MANPATH")
+  (set1 env *gitpath* "JANET_GIT")
+  (set1 env *curlpath* "JANET_CURL")
+  (set1 env *tarpath* "JANET_TAR")
+  (set1 env :build-type "JANET_BUILD_TYPE" build-type-xform)
+  (set1 env :toolchain "JANET_TOOLCHAIN" toochain-xform)
+  (set1 env :build-dir "JANET_BUILD_DIR")
+  (set1 env :offline "JANET_OFFLINE" tobool)
+  (set1 env *pkglist* "JANET_PKGLIST")
+  (set1 env :workers "WORKERS" toposint)
+  (set1 env :verbose "VERBOSE" tobool))
 
 ###
 ### Project scaffolding

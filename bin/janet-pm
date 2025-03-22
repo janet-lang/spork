@@ -279,7 +279,7 @@
   (when-let [sp (get ap :syspath)] (put root-env *syspath* sp))
 
   # Do configuration
-  (pm/read-env-variables)
+  (pm/read-env-variables root-env)
 
   (def [sub-command & command-args] (ap :default))
   (def cmd (get subcommands sub-command))
