@@ -30,8 +30,8 @@
 (defn- get-rules [] (dyn cc/*rules* (curenv)))
 (defn- bindir [] (or (dyn *binpath*) (path/join (dyn *syspath*) "bin")))
 (defn- mandir [] (or (dyn *manpath*) (path/join (dyn *syspath*) "man")))
-(defn- mkbin [] (def x (bindir)) (fn :make-bin [] (os/mkdir x)))
-(defn- mkman [] (def x (mandir)) (fn :make-man [] (os/mkdir x)))
+(defn- mkbin [] (def x (bindir)) (fn :make-bin [] (sh/create-dirs x)))
+(defn- mkman [] (def x (mandir)) (fn :make-man [] (sh/create-dirs x)))
 (defn- bindir-rel [] (path/relpath (dyn *syspath*) (bindir)))
 (defn- mandir-rel [] (path/relpath (dyn *syspath*) (mandir)))
 
