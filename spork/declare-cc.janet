@@ -30,8 +30,8 @@
 (defn- get-rules [] (dyn cc/*rules* (curenv)))
 (defn- bindir [] (or (dyn *binpath*) (path/join (dyn *syspath*) "bin")))
 (defn- mandir [] (or (dyn *manpath*) (path/join (dyn *syspath*) "man")))
-(defn- mkbin [] (os/mkdir (bindir)))
-(defn- mkman [] (os/mkdir (mandir)))
+(defn- mkbin [] (def x (bindir)) (fn :make-bin [] (os/mkdir x)))
+(defn- mkman [] (def x (mandir)) (fn :make-man [] (os/mkdir x)))
 (defn- bindir-rel [] (path/relpath (dyn *syspath*) (bindir)))
 (defn- mandir-rel [] (path/relpath (dyn *syspath*) (mandir)))
 
@@ -373,7 +373,7 @@
 (defn declare-bin
   "Declare a generic file to be installed as an executable."
   [&named main]
-  (install-rule main (bindir-rel) 8r755 mkbin))
+  (install-rule main (bindir-rel) 8r755 (mkbin)))
 
 (defn declare-binscript
   ``Declare a janet file to be installed as an executable script. Creates
@@ -402,12 +402,12 @@
               (if hardcode-syspath fourth-line)
               rest
               (if dynamic-syspath last-line))))
-  (install-buffer contents dest 8r755 mkbin)
+  (install-buffer contents dest 8r755 (mkbin))
   (when (is-win-or-mingw)
     (def absdest (path/join (dyn *syspath*) dest))
     (def bat (string "@echo off\r\ngoto #_undefined_# 2>NUL || title %COMSPEC% & janet \"" absdest "\" %*"))
     (def newname (string main ".bat"))
-    (install-buffer bat (string dest ".bat") nil mkbin))
+    (install-buffer bat (string dest ".bat") nil (mkbin)))
   dest)
 
 (defn declare-archive
@@ -432,7 +432,7 @@
   "Mark a manpage for installation"
   [page]
   (def page-name (path/basename page))
-  (install-rule page (path/join (mandir-rel) page-name) nil mkman))
+  (install-rule page (path/join (mandir-rel) page-name) nil (mkman)))
 
 (defn declare-native
   "Declare a native module. This is a shared library that can be loaded
@@ -706,7 +706,7 @@ int main(int argc, const char **argv) {
   (def dest (path/join bd name))
   (def cimage-dest (string dest ".c"))
   (def bin (bindir-rel))
-  (when install (install-rule dest (path/join bin name) nil mkbin))
+  (when install (install-rule dest (path/join bin name) nil (mkbin)))
   (def target (if no-compile cimage-dest dest))
   (rule :build [target])
   (rule target [entry ;headers ;deps]
