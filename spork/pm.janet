@@ -14,6 +14,18 @@
 (defdyn *curlpath* "What curl command to use to fetch dependencies")
 (defdyn *pkglist* "Override the default package listing if a `pkgs` bundle is not currently installed.")
 
+# Fix for janet 1.35.2
+(compwhen (not (dyn 'assertf))
+  (defmacro- assertf
+    "Convenience macro that combines `assert` and `string/format`."
+    [x fmt & args]
+    (def v (gensym))
+    ~(do
+       (def ,v ,x)
+       (if ,v
+         ,v
+         (,errorf ,fmt ,;args)))))
+
 (def default-pkglist
   "The default package listing for resolving short bundle names."
   "https://github.com/janet-lang/pkgs.git")
