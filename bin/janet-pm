@@ -36,6 +36,9 @@
     new-project name
         Create a new Janet project in a directory `name`.
 
+    new-simple-project name
+        Create a new Janet project that can be installed and distributed without spork in a directory `name`.
+
     new-c-project name
         Create a new C+Janet project in a directory `name`.
 
@@ -214,6 +217,11 @@
   [name]
   (pm/scaffold-project name {:c false}))
 
+(defn new-simple-project
+  "Create a new project"
+  [name]
+  (pm/scaffold-project name {:no-spork true}))
+
 (defn new-c-project
   "Create a new C project"
   [name]
@@ -246,6 +254,7 @@
    "deps" deps
    "hook" do-hook
    "new-project" new-project
+   "new-simple-project" new-simple-project
    "new-c-project" new-c-project
    "new-exe-project" new-exe-project
    "load-lockfile" load-lockfile

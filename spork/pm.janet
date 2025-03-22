@@ -398,7 +398,8 @@
 (def toochain-xform (make-enum "toolchain" "gcc" "clang" "msvc" "cc")) # TODO mingw, zig
 
 (defn read-env-variables
-  "Translate environment variables into dynamic bindings."
+  "Read and validate environment variables for configuration. These environment variables are
+  translated to dynamic bindings and stored in an environment table. By default, store the bindings in the current environment."
   [&opt env]
   (default env (curenv))
   (set1 env :prefix "JANET_PREFIX")
@@ -598,6 +599,22 @@
   (assert (= (hello-native) "Hello!"))
   ```)
 
+(deftemplate bundle-init-template
+  ````
+  (defn install
+    [manifest &]
+    (bundle/add manifest "$name"))
+  ````)
+
+(deftemplate bundle-info-template
+  ````
+  {:name "$name"
+   :description ```$description ```
+   :author ```$author ```
+   :dependencies @[]
+   :version "0.0.0"}
+  ````)
+
 (defn- format-date
   []
   (def x (os/date))
@@ -613,6 +630,7 @@
   (def date (format-date))
   (def scaffold-native (get options :c))
   (def scaffold-exe (get options :exe))
+  (def scaffold-spork-free (get options :no-spork))
   (def template-opts (merge-into @{:name name :year year :author author :date date :description description} options))
   (print "creating project directory for " name)
   (os/mkdir name)
@@ -625,6 +643,11 @@
   (spit (string name "/LICENSE") (license-template template-opts))
   (spit (string name "/CHANGELOG.md") (changelog-template template-opts))
   (cond
+    scaffold-spork-free
+    (do
+      (os/mkdir (string name "/bundle"))
+      (spit (string name "/bundle/info.jdn") (bundle-info-template template-opts))
+      (spit (string name "/bundle/init.janet") (bundle-init-template template-opts)))
     scaffold-native
     (do
       (os/mkdir (string name "/c"))
