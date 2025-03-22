@@ -384,14 +384,26 @@
   (assertf (and (>= y 1) (int? y)) "expected a positive integer for number of workers, got %v" x)
   y)
 
+(defn- make-enum
+  [name & options]
+  (def enum-set (tabseq [o :in options] o o))
+  (fn enum
+    [x]
+    (def y (-> x string/ascii-lower keyword))
+    (assertf (in enum-set y) "unknown option %v for %s. Expected one of %s." x name (string/join options ", "))
+    y))
+
+(def build-type-xform (make-enum "build type" "debug" "develop" "release"))
+(def toochain-xform (make-enum "toolchain" "gcc" "clang" "msvc" "cc")) # TODO mingw, zig
+
 (defn read-env-variables
   "Translate environment variables into dynamic bindings."
   []
   (set1 *gitpath* "JANET_GIT")
   (set1 *curlpath* "JANET_CURL")
   (set1 *tarpath* "JANET_TAR")
-  (set1 :build-type "JANET_BUILD_TYPE" keyword)
-  (set1 :toolchain "JANET_TOOLCHAIN" keyword)
+  (set1 :build-type "JANET_BUILD_TYPE" build-type-xform)
+  (set1 :toolchain "JANET_TOOLCHAIN" toochain-xform)
   (set1 :build-dir "JANET_BUILD_DIR")
   (set1 :offline "JANET_OFFLINE" tobool)
   (set1 *pkglist* "JANET_PKGLIST")
