@@ -3,6 +3,7 @@
 (import spork/argparse)
 (import spork/path)
 (import spork/pm)
+(import spork/pm-config)
 (import spork/sh)
 # Do not import declare-cc here - keep a clean separation for faster load times
 
@@ -297,7 +298,7 @@
   (when-let [sp (get ap :syspath)] (put root-env *syspath* sp))
 
   # Do configuration
-  (pm/read-env-variables root-env)
+  (pm-config/read-env-variables root-env)
 
   (def [sub-command & command-args] (ap :default))
   (def cmd (get subcommands sub-command))

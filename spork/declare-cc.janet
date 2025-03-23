@@ -17,6 +17,7 @@
 (import ./cc)
 (import ./path)
 (import ./sh)
+(import ./pm-config)
 
 (defdyn *binpath* "Path to install scripts and executables to")
 (defdyn *manpath* "Path to install man pages to")
@@ -862,6 +863,7 @@ int main(int argc, const char **argv) {
   "Create an environment table that can evaluate project.janet files"
   []
   (def e (curenv))
+  (pm-config/read-env-variables e)
   # TODO - one for one naming with jpm
   (merge-module e sh)
   (merge-module e cjanet)

@@ -126,8 +126,8 @@
   ~(defn ,(symbol pre "/relpath")
      "Get the relative path between two subpaths."
      [source target]
-     (def source-parts (,(symbol pre "/parts") (,(symbol pre "/abspath") source)))
-     (def target-parts (,(symbol pre "/parts") (,(symbol pre "/abspath") target)))
+     (def source-parts (filter next (,(symbol pre "/parts") (,(symbol pre "/abspath") source))))
+     (def target-parts (filter next (,(symbol pre "/parts") (,(symbol pre "/abspath") target))))
      (def same-parts (length (take-until identity (map not= source-parts target-parts))))
      (def up-walk (array/new-filled (- (length source-parts) same-parts) ".."))
      (def down-walk (tuple/slice target-parts same-parts))
