@@ -103,6 +103,10 @@
     JANET_GIT
         Where to get the "git" command when handling project.janet. Defaults to "git".
 
+    JANET_LIBPATH
+        The directory that the MSVC toolchain will use to find janet.h, janet.dll, and libjanet.lib. Most installs should not need to set this, unless
+        there is a non-standard windows install or possibly multiple Janet versions installed.
+
     JANET_MANPATH
         Where to install manpages. By default, will store them at in $SYSPATH/man.
 
@@ -130,7 +134,6 @@
 
     WORKERS
         Number of processes to run in parallel when compiling C and C++ source code.
-
     ```)
 
 (defn help

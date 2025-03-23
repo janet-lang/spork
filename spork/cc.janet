@@ -38,6 +38,7 @@
 (defdyn *dynamic-libs* "List of dynamic libraries to use when compiling")
 (defdyn *msvc-libs* "List of .lib libraries to use when compiling with msvc")
 (defdyn *msvc-vcvars* "Path to vcvarsall.bat to use initialize MSVC environment. If unset, `msvc-find` will try to guess using typical install locations.")
+(defdyn *msvc-cpath* "Path to Janet libraries and headers.")
 (defdyn *lflags* "Extra linker flags")
 (defdyn *static-libs* "List of static libraries to use when compiling")
 (defdyn *target-os* "Operating system to assume is being used for target compiler toolchain")
@@ -79,7 +80,7 @@
 (defn- lib-path []
   "Guess a library path based on the current system path"
   (def sp (dyn *syspath* "."))
-  (def parts (filter next (path/parts sp)))
+  (def parts (path/parts sp))
   (if (= "janet" (last parts))
     (path/abspath (string sp "/.."))
     (path/abspath ".")))
@@ -93,9 +94,10 @@
 (defn- msvc-cpath
   "Guess a library and header path for msvc with a defualt Janet windows install."
   []
+  (when-let [p (dyn *msvc-cpath*)] (break p))
   (when-let [p (os/getenv "JANET_LIBPATH")] (break p))
   (def sp (dyn *syspath* "."))
-  (def parts (filter next (path/parts sp)))
+  (def parts (path/parts sp))
   (if (= "Library" (last parts))
     (path/abspath (string sp "\\..\\C\\"))))
 
@@ -418,11 +420,17 @@
 (defn- msvc-compile-paths
   []
   (def cpath (msvc-cpath))
-  [(string "/I" cpath) (string "/I" (dyn *syspath* "."))])
+  (def sp (dyn *syspath* "."))
+  (if (= sp cpath)
+    [(string "/I" cpath)]
+    [(string "/I" cpath) (string "/I" sp)]))
 (defn- msvc-link-paths
   []
   (def cpath (msvc-cpath))
-  [(string "/LIBPATH:" cpath) (string "/LIBPATH:" (dyn *syspath* "."))])
+  (def sp (dyn *syspath* "."))
+  (if (= sp cpath)
+    [(string "/LIBPATH:" cpath)]
+    [(string "/LIBPATH:" cpath) (string "/LIBPATH:" sp)]))
 (defn- msvc-libs []
   (seq [l :in (dyn *msvc-libs* [])]
     (if (string/has-suffix? ".lib" l)

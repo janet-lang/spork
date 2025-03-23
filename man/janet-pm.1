@@ -133,6 +133,12 @@ Where to get the "curl" command when handling project.janet. Defaults to "curl".
 Where to get the "git" command when handling project.janet. Defaults to "git".
 .RE
 
+.B JANET_LIBPATH
+.RS
+The directory that the MSVC toolchain will use to find janet.h, janet.dll, and libjanet.lib. Most installs should not need to set this, unless
+there is a non-standard windows install or possibly multiple Janet versions installed.
+.RE
+
 .B JANET_MANPATH
 .RS
 Where to install manpages. By default, will store them at in $SYSPATH/man.
@@ -150,7 +156,7 @@ The package listing repository to use to resolve package nicknames. Defaults to 
 
 .B JANET_PREFIX
 .RS
-Where to look for Janet headers and libjanet.so, janet.dll, etc. By default, will try to autodetect by searching through the
+Where POSIX toolchain will look for Janet headers and libjanet.a. By default, will try to autodetect by searching through the
 syspath, the PREFIX environment variable, /usr/, and /usr/local. Most installs should not need to set this, but otherwise should
 be set to whatever PREFIX was when janet was installed.
 .RE
