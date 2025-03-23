@@ -66,7 +66,7 @@
 (defn resolve-bundle
   ```
   Convert any bundle string/table to the normalized table form. `bundle` can be any of the following forms:
- 
+
   * A short name that indicates a package from the package listing.
   * A URL or path to a git repository
   * A URL or path to a .tar.gz archive
@@ -371,9 +371,6 @@
 ### Generate new projects quickly, ported from jpm
 ###
 
-# TODO - improve on JPM style projects?
-# - configure a new, janet only project that doesn't depend on spork
-
 (def- template-peg
   "Extract string pieces to generate a templating function"
   (peg/compile
@@ -553,6 +550,35 @@
   (defn install
     [manifest &]
     (bundle/add manifest "$name"))
+
+  (defn build
+    [&]
+    (print "Nothing to build!"))
+
+  (defn clean
+    [&]
+    (print "Nothing to clean!"))
+
+  (defn check
+    [&]
+    (var pass-count 0)
+    (var total-count 0)
+    (def failing @[])
+    (each dir (sorted (os/dir "test"))
+      (def path (string "test/" dir))
+      (when (string/has-suffix? ".janet" path)
+        (def pass (zero? (os/execute [(dyn *executable* "janet") "--" path] :p)))
+        (++ total-count)
+        (unless pass (array/push failing path))
+        (when pass (++ pass-count))))
+    (if (= pass-count total-count)
+      (print "All tests passed!")
+      (do
+        (printf "%d of %d passed." pass-count total-count)
+        (print "failing scripts:")
+        (each f failing
+          (print "  " f))
+        (os/exit 1))))
   ````)
 
 (deftemplate bundle-info-template
