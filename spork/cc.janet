@@ -93,6 +93,7 @@
 (defn- msvc-cpath
   "Guess a library and header path for msvc with a defualt Janet windows install."
   []
+  (when-let [p (os/getenv "JANET_LIBPATH")] (break p))
   (def sp (dyn *syspath* "."))
   (def parts (filter next (path/parts sp)))
   (if (= "Library" (last parts))

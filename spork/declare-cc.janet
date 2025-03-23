@@ -80,8 +80,7 @@
       (os/compiler)))
   (when (= :msvc toolchain)
     (cc/msvc-find)
-    (assert (cc/msvc-setup?))
-    (setdyn cc/*msvc-libs* @[(cc/msvc-janet-import-lib)]))
+    (assert (cc/msvc-setup?)))
   toolchain)
 
 (defn- toolchain-to-cc
@@ -451,7 +450,12 @@
   (default nostatic false)
   (default defines @{})
   (default smart-libs false)
+  (default msvc-libs @[])
   (def toolchain (get-toolchain))
+
+  (def msvc-libs @[;msvc-libs])
+  (if (= :msvc toolchain)
+    (array/push msvc-libs (cc/msvc-janet-import-lib)))
 
   # Create build environment table
   (def benv @{cc/*build-dir* (build-dir)
@@ -698,6 +702,7 @@ int main(int argc, const char **argv) {
   (default deps @[])
   (default pkg-config-libs @[])
   (default pkg-config-flags @[])
+  (default msvc-libs @[])
 
   (assert (string? entry))
   (assert (string? name))
@@ -784,16 +789,28 @@ int main(int argc, const char **argv) {
         (spit cimage-dest (make-bin-source declarations lookup-into-invocations no-core) :ab)
         (def oimage-dest (cc/out-path cimage-dest ".o"))
 
-        (def prefix (get-prefix))
-        (def asuffix (case toolchain :msvc ".lib" ".a"))
-        (def libjanet (path/join prefix "lib" (string "libjanet" asuffix)))
-        (def other-cflags [(string "-I" (path/join prefix "include")) (string "-L" (path/join prefix "lib"))])
+        # Extra command line options for building executable statically linked with libjanet
+        (def msvc-libs-extra @[])
+        (def prefix (if (= toolchain :msvc) (dyn *syspath*) (get-prefix)))
+        (def headerpath (path/join prefix "include"))
+        (def libpath (path/join prefix "lib"))
+        (def libjanet (path/join libpath "libjanet.a"))
+        (def msvc-libjanet (path/join (os/getenv "JANET_LIBPATH" "") "libjanet.lib"))
+        (def other-cflags @[])
+        (if (= toolchain :msvc)
+          (do
+            (array/push other-cflags (string "/I" headerpath))
+            (array/push msvc-libs-extra msvc-libjanet))
+          (do
+            (array/push other-cflags (string "-I" headerpath) (string "-L" libpath))
+            (array/push dep-libs libjanet)))
+
         (def benv @{cc/*build-dir* bd
                     cc/*defines* defines
                     cc/*libs* libs
-                    cc/*msvc-libs* msvc-libs
-                    cc/*lflags* (distinct [libjanet ;lflags ;dep-lflags])
-                    cc/*cflags* (distinct [;other-cflags ;cflags])
+                    cc/*msvc-libs* (distinct [;msvc-libs-extra ;msvc-libs ;static-libs])
+                    cc/*lflags* (distinct [;lflags ;dep-lflags])
+                    cc/*cflags* [;other-cflags ;cflags]
                     cc/*c++flags* (distinct [;other-cflags ;c++flags])
                     cc/*static-libs* (distinct [;dep-libs ;static-libs])
                     cc/*smart-libs* smart-libs

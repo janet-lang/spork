@@ -277,7 +277,6 @@
   (spit bundle-init shimcode)
   (spit bundle-info (string/format "%j" meta))
   true)
-(trace project-janet-shim)
 
 (defn- dyn-env
   []
