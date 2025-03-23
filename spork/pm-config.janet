@@ -2,6 +2,18 @@
 ### Configuration from environment variables for pm.janet and declare-cc.janet.
 ###
 
+# Fix for janet 1.35.2
+(compwhen (not (dyn 'assertf))
+  (defmacro- assertf
+    "Convenience macro that combines `assert` and `string/format`."
+    [x fmt & args]
+    (def v (gensym))
+    ~(do
+       (def ,v ,x)
+       (if ,v
+         ,v
+         (,errorf ,fmt ,;args)))))
+
 (defn- set1
   [env d e &opt xform]
   (default xform identity)
