@@ -275,16 +275,6 @@
     (argparse/argparse
       help-text
 
-      "syspath"
-      {:short "m"
-       :kind :option
-       :help "Set the syspath"}
-
-      "local"
-      {:short "l"
-       :kind :flag
-       :help "Set the syspath to ./jpm_tree"}
-
       :default
       {:kind :accumulate
        :help "Commands to run"}))
@@ -292,16 +282,6 @@
   # Break on help text
   (unless ap (break))
   (unless (ap :default) (break (help)))
-
-  # Flag Configuration
-  (when-let [local (get ap :local)]
-    (os/mkdir "jpm_tree")
-    (os/mkdir "jpm_tree/man")
-    (os/mkdir "jpm_tree/bin")
-    (put root-env :binpath (path/abspath "jpm_tree/bin"))
-    (put root-env :manpath (path/abspath "jpm_tree/man"))
-    (put root-env *syspath* (path/abspath "jpm_tree")))
-  (when-let [sp (get ap :syspath)] (put root-env *syspath* sp))
 
   # Env Vars Configuration
   (pm-config/read-env-variables root-env)
