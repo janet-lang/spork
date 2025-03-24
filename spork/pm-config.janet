@@ -51,8 +51,6 @@
   (default env (curenv))
   (when (get env :is-configured) (break))
   (set1 env :prefix "JANET_PREFIX")
-  (set1 env :binpath "JANET_BINPATH")
-  (set1 env :manpath "JANET_MANPATH")
   (set1 env :gitpath "JANET_GIT")
   (set1 env :curlpath "JANET_CURL")
   (set1 env :tarpath "JANET_TAR")

@@ -107,11 +107,6 @@ Install all bundles in the given lockfile.
 janet-pm inherits all of the environment variables used by janet, as well some of its own. Many of these are
 only used in support of building bundles that use a project.janet.
 
-.B JANET_BINPATH
-.RS
-Where to install executables and scripts. By default, will store them at in $SYSPATH/bin.
-.RE
-
 .B JANET_BUILD_DIR
 .RS
 Where to create build outputs when building a bundle has a project.janet. Defaults to _build.
@@ -137,11 +132,6 @@ Where to get the "git" command when handling project.janet. Defaults to "git".
 .RS
 The directory that the MSVC toolchain will use to find janet.h, janet.dll, and libjanet.lib. Most installs should not need to set this, unless
 there is a non-standard windows install or possibly multiple Janet versions installed.
-.RE
-
-.B JANET_MANPATH
-.RS
-Where to install manpages. By default, will store them at in $SYSPATH/man.
 .RE
 
 .B JANET_OFFLINE

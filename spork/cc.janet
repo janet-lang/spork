@@ -56,6 +56,52 @@
 (defdyn *c++-std* "C++ standard to use as a 2 digit number, defaults to 11 on GCC-like compilers, 14 on msvc.")
 (defdyn *rules* "Rules to use with visit-add-rule")
 (defdyn *vcvars-cache* "Where to cache vcvars once we have calculated them")
+(defdyn *janet-prefix* "Path prefix used to detect where to find libjanet, janet.h, etc.")
+
+###
+### Prefix detection
+###
+
+(defn get-unix-prefix
+  "Auto-detect what prefix to use for finding libjanet.so, headers, etc. on unix systems"
+  []
+  (if-let [p (dyn *janet-prefix*)] (break p))
+  (var result nil)
+  (each test [(os/getenv "JANET_PREFIX")
+              (os/getenv "PREFIX")
+              (path/join (dyn *syspath*) ".." "..")
+              (path/join (dyn *syspath*) "..")
+              (dyn *syspath*)
+              "/usr/"
+              "/usr/local"
+              "/"]
+    (when test
+      (def headercheck (path/join test "include" "janet.h"))
+      (when (os/stat headercheck :mode)
+        (set result test)
+        (break))))
+  (assert result "no prefix discovered for janet headers!")
+  (setdyn *janet-prefix* result)
+  result)
+
+(defn get-windows-prefix
+  "Auto-detect install location on windows systems with a default install. This is the directory containing Library, C, docs, bin, etc."
+  []
+  (if-let [p (dyn *janet-prefix*)] (break p))
+  (var result nil)
+  (each test [(os/getenv "JANET_PREFIX")
+              (os/getenv "PREFIX")
+              (path/join (dyn *syspath*) ".." "..")
+              (path/join (dyn *syspath*) "..")
+              (dyn *syspath*)]
+    (when test
+      (def headercheck (path/join test "C" "janet.h"))
+      (when (os/stat headercheck :mode)
+        (set result test)
+        (break))))
+  (assert result "no prefix discovered for janet headers!")
+  (setdyn *janet-prefix* result)
+  result)
 
 ###
 ### Universal helpers for all toolchains
@@ -79,32 +125,26 @@
 
 (defn- lib-path []
   "Guess a library path based on the current system path"
-  (def sp (dyn *syspath* "."))
-  (def parts (path/parts sp))
-  (if (= "janet" (last parts))
-    (path/abspath (string sp "/.."))
-    (path/abspath ".")))
+  (def prefix (get-unix-prefix))
+  (path/join prefix "lib"))
 
 (defn- include-path []
   "Guess a header path based on the current system path"
-  (def lp (lib-path))
-  (if lp
-    (path/join lp "../include")))
+  (def prefix (get-unix-prefix))
+  (path/join prefix "include"))
 
 (defn- msvc-cpath
   "Guess a library and header path for msvc with a defualt Janet windows install."
   []
   (when-let [p (dyn *msvc-cpath*)] (break p))
   (when-let [p (os/getenv "JANET_LIBPATH")] (break p))
-  (def sp (dyn *syspath* "."))
-  (def parts (path/parts sp))
-  (if (= "Library" (last parts))
-    (path/abspath (string sp "\\..\\C\\"))))
+  (def wp (get-windows-prefix))
+  (path/join wp "C"))
 
 (defn msvc-janet-import-lib
   "Get path to the installed Janet import lib. This import lib is needed when create dlls for natives."
   []
-  (string (msvc-cpath) "\\janet.lib"))
+  (path/join (msvc-cpath) "janet.lib"))
 
 (defn- default-exec [&])
 (defn- exec

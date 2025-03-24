@@ -19,9 +19,6 @@
 (import ./sh)
 (import ./pm-config)
 
-(defdyn *binpath* "Path to install scripts and executables to")
-(defdyn *manpath* "Path to install man pages to")
-(defdyn *prefix* "Path prefix used to detect where to find libjanet, janet.h, etc.")
 (defdyn *install-manifest* "Bound to the bundle manifest during a bundle/install.")
 (defdyn *toolchain* "Force a given toolchain. If unset, will auto-detect.")
 (defdyn *build-root* "Root build directory that will contain all built artifacts")
@@ -29,26 +26,12 @@
 (defn- build-root [] (dyn *build-root* "_build"))
 (defn- build-dir [] (path/join (build-root) (dyn cc/*build-type* :release)))
 (defn- get-rules [] (dyn cc/*rules* (curenv)))
-(defn- bindir [] (or (dyn *binpath*) (path/join (dyn *syspath*) "bin")))
-(defn- mandir [] (or (dyn *manpath*) (path/join (dyn *syspath*) "man")))
+(defn- bindir [] (path/join (dyn *syspath*) "bin"))
+(defn- mandir [] (path/join (dyn *syspath*) "man"))
 (defn- mkbin [] (def x (bindir)) (fn :make-bin [] (sh/create-dirs x)))
 (defn- mkman [] (def x (mandir)) (fn :make-man [] (sh/create-dirs x)))
 (defn- bindir-rel [] (path/relpath (dyn *syspath*) (bindir)))
 (defn- mandir-rel [] (path/relpath (dyn *syspath*) (mandir)))
-
-(defn- get-prefix
-  "Auto-detect what prefix to use for finding libjanet.so, headers, etc."
-  []
-  (if-let [p (dyn *prefix*)] (break p))
-  (var result nil)
-  (each test [(path/join (dyn *syspath*) "..") "/usr/" "/usr/local"]
-    (def headercheck (path/join test "include" "janet.h"))
-    (when (os/stat headercheck :mode)
-      (set result test)
-      (break)))
-  (assert result "no prefix discovered for janet headers!")
-  (setdyn *prefix* result)
-  result)
 
 (defn- is-win-or-mingw
   []
@@ -791,17 +774,24 @@ int main(int argc, const char **argv) {
 
         # Extra command line options for building executable statically linked with libjanet
         (def msvc-libs-extra @[])
-        (def prefix (if (= toolchain :msvc) (dyn *syspath*) (get-prefix)))
-        (def headerpath (path/join prefix "include"))
-        (def libpath (path/join prefix "lib"))
-        (def libjanet (path/join libpath "libjanet.a"))
-        (def msvc-libjanet (path/join (os/getenv "JANET_LIBPATH" "") "libjanet.lib"))
         (def other-cflags @[])
         (if (= toolchain :msvc)
           (do
-            (array/push other-cflags (string "/I" headerpath))
+            (def libpath (os/getenv "JANET_LIBPATH" ""))
+            (def msvc-libjanet (path/join libpath "libjanet.lib"))
+            (def janeth (path/join libpath "janet.h"))
+            (assert (= (os/stat janeth :mode) :file) "janet.h not found in expected location, possible misconfiguration")
+            (assert (= (os/stat msvc-libjanet :mode) :file) "libjanet.lib not found in expected location, possible misconfiguration")
+            (array/push other-cflags (string "/I" libpath))
             (array/push msvc-libs-extra msvc-libjanet))
           (do
+            (def prefix (cc/get-unix-prefix))
+            (def headerpath (path/join prefix "include"))
+            (def libpath (path/join prefix "lib"))
+            (def libjanet (path/join libpath "libjanet.a"))
+            (def janeth (path/join headerpath "janet.h"))
+            (assert (= (os/stat janeth :mode) :file) "janet.h not found in expected location, possible misconfiguration")
+            (assert (= (os/stat libjanet :mode) :file) "libjanet.a not found in expected location, possible misconfiguration")
             (array/push other-cflags (string "-I" headerpath) (string "-L" libpath))
             (array/push dep-libs libjanet)))
 
@@ -878,8 +868,8 @@ int main(int argc, const char **argv) {
 (def- path (require "./path"))
 (defn jpm-shim-env
   "Create an environment table that can evaluate project.janet files"
-  []
-  (def e (curenv))
+  [&opt e]
+  (default e (curenv))
   (pm-config/read-env-variables e)
   # TODO - one for one naming with jpm
   (merge-module e sh)
