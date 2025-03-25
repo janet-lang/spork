@@ -34,6 +34,9 @@
         string search. If no search pattern is given, prints the
         entire package listing.
 
+    env name
+        Create an environment with which one can install Janet dependencies and scripts in an isolated manner.
+
     new-project name
         Create a new Janet project in a directory `name`.
 
@@ -236,7 +239,9 @@
 (defn new-venv
   "Create a new virtual environment"
   [path]
-  (pm/scaffold-pm-shell path))
+  (pm/scaffold-pm-shell path)
+  (print "created project shell environment at " path)
+  (print "run `source " path "/bin/activate` to enter the new environment, then `deactivate` to exit."))
 
 (defn quickbin
   "Create an executable file"
@@ -264,7 +269,7 @@
    "help" help
    "deps" deps
    "hook" do-hook
-   "new-venv" new-venv
+   "env" new-venv
    "new-project" new-project
    "new-simple-project" new-simple-project
    "new-c-project" new-c-project

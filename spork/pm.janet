@@ -633,7 +633,7 @@
 
 (deftemplate enter-shell-template
     ````
-    # source bin/enter_shell
+    # source bin/activate
     _OLD_JANET_PATH="$$JANET_PATH";
     _OLD_PATH="$$PATH";
     _OLD_PS1="$$PS1";
@@ -643,7 +643,7 @@
     export PATH;
     PS1="("$name") $${PS1:-}"
     export PS1;
-    exit_shell() {
+    deactivate() {
       PATH="$$_OLD_PATH";
       JANET_PATH="$$_OLD_JANET_PATH";
       PS1="$$_OLD_PS1";
@@ -660,20 +660,24 @@
 
 (deftemplate enter-cmd-template
     ````
-    @rem bin\enter_shell.bat
-    @set _OLD_JANET_PATH="%JANET_PATH%"
-    @set _OLD_PATH="%PATH%"
-    @set JANET_PATH="$abspath"
+    @rem bin\activate.bat
+    @set _OLD_JANET_PATH=%JANET_PATH%
+    @set _OLD_PATH=%PATH%
+    @set _OLD_PROMPT=%PROMPT%
+    @set JANET_PATH=$abspath
     @set PATH=%JANET_PATH%\bin:%PATH%
+    @set PROMPT=($path) %PROMPT%
     ````)
 
 (deftemplate exit-cmd-template
     ````
-    @rem bin\exit_shell.bat
+    @rem bin\deactivate.bat
     @set JANET_PATH=%_OLD_JANET_PATH%
     @set PATH=%_OLD_PATH%
+    @set PROMPT=%_OLD_PROMPT%
     @set _OLD_JANET_PATH=%PATH%
     @set _OLD_PATH=%PATH%
+    @set _OLD_PROMPT=%PROMPT%
     ````)
 
 (defn scaffold-pm-shell
@@ -683,6 +687,6 @@
   (os/mkdir (path/join path "bin"))
   (os/mkdir (path/join path "man"))
   (def opts {:path path :abspath (path/abspath path) :name (path/basename path)})
-  (spit (path/join path "bin" "enter_shell") (enter-shell-template opts))
-  (spit (path/join path "bin" "enter_shell.bat") (enter-cmd-template opts))
-  (spit (path/join path "bin" "exit_shell.bat") (enter-cmd-template opts)))
+  (spit (path/join path "bin" "activate") (enter-shell-template opts))
+  (spit (path/join path "bin" "activate.bat") (enter-cmd-template opts))
+  (spit (path/join path "bin" "deactivate.bat") (exit-cmd-template opts)))

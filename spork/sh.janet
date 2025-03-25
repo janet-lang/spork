@@ -178,14 +178,26 @@
   [& args]
   (string/join (map shell-quote args) " "))
 
+(defn which
+  "Search for the full path to a program, like the `which` command on unix or the `where` command on Windows."
+  [name &opt paths]
+  (default paths
+    (let [o (os/which)]
+      (if (or (= o :windows) (= o :mingw))
+        (string/split ";" (os/getenv "Path"))
+        (string/split ":" (os/getenv "PATH")))))
+  (prompt :result
+    (each p paths
+      (when (= (os/stat p :mode) :directory)
+        (def fp (path/join p name))
+        (when (= (os/stat fp :mode) :file)
+          (return :result fp))))))
+
 (defn self-exe
   "Get path to the janet executable"
   []
   (def janet (dyn *executable* "janet"))
-  (defn which [cmd] (try (exec-slurp cmd janet) ([e] janet)))
   (case (os/which)
-    :windows (which "where")
-    :mingw (which "where")
     :linux (os/readlink "/proc/self/exe")
     # default
-    (which "which")))
+    (which janet)))
