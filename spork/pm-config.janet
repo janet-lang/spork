@@ -2,6 +2,22 @@
 ### Configuration from environment variables for pm.janet and declare-cc.janet.
 ###
 
+(def default-pkglist
+  "The default package listing for resolving short bundle names."
+  "https://github.com/janet-lang/pkgs.git")
+
+(defn detect-toolchain
+  "Auto-detect the current compiler toolchain."
+  [env]
+  (cond
+    (get env :toolchain) (get env :toolchain)
+    (os/getenv "MSVC") :msvc
+    (os/getenv "GCC") :gcc
+    (os/getenv "CLANG") :clang
+    (os/getenv "CC") :cc # any posix compatible compiler accessed via `cc`
+    (= :windows (os/which)) :msvc
+    (os/compiler)))
+
 # Fix for janet 1.35.2
 (compwhen (not (dyn 'assertf))
   (defmacro- assertf
@@ -50,16 +66,33 @@
   [&opt env]
   (default env (curenv))
   (when (get env :is-configured) (break))
-  (set1 env :prefix "JANET_PREFIX")
+  (set1 env :janet-prefix "JANET_PREFIX")
   (set1 env :gitpath "JANET_GIT")
   (set1 env :curlpath "JANET_CURL")
   (set1 env :tarpath "JANET_TAR")
   (set1 env :msvc-cpath "JANET_LIBPATH")
   (set1 env :build-type "JANET_BUILD_TYPE" build-type-xform)
   (set1 env :toolchain "JANET_TOOLCHAIN" toochain-xform)
-  (set1 env :build-dir "JANET_BUILD_DIR")
+  (set1 env :build-root "JANET_BUILD_DIR")
   (set1 env :offline "JANET_OFFLINE" tobool)
   (set1 env :pkglist "JANET_PKGLIST")
   (set1 env :workers "WORKERS" toposint)
   (set1 env :verbose "VERBOSE" tobool)
   (put env :is-configured true))
+
+(defn print-config
+  "Print all current settings"
+  [&opt env]
+  (default env (curenv))
+  (print "build dir:  " (get env :build-root "_build"))
+  (print "build type: " (get env :build-type "release"))
+  (print "curl:       " (get env :curlpath "curl"))
+  (print "git:        " (get env :gitpath "git"))
+  (print "offline:    " (if (get env :offline) "true" "false"))
+  (print "pkg list:   " (get env :pkglist default-pkglist))
+  (print "prefix:     " (get env :janet-prefix "<none>"))
+  (print "syspath:    " (get env *syspath* "<none>"))
+  (print "tar:        " (get env :tarpath "tar"))
+  (print "toolchain:  " (detect-toolchain env))
+  (print "verbose:    " (if (get env :verbose) "true" "false"))
+  (print "workers:    " (get env :workers (os/cpu-count))))

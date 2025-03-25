@@ -200,7 +200,7 @@
 
 (defn update-pkgs
   []
-  (pm/pm-install (dyn pm/*pkglist* pm/default-pkglist)))
+  (pm/pm-install (dyn pm/*pkglist* pm-config/default-pkglist)))
 
 (defn load-lockfile
   [&opt path]
@@ -233,6 +233,11 @@
   [name]
   (pm/scaffold-project name {:c false :exe true}))
 
+(defn new-venv
+  "Create a new virtual environment"
+  [path]
+  (pm/scaffold-pm-shell path))
+
 (defn quickbin
   "Create an executable file"
   [entry output]
@@ -244,6 +249,11 @@
   (def quickbin-fn (module/value module "quickbin"))
   (quickbin-fn entry output))
 
+(defn show-config
+  "Show all useful paths and configuration"
+  []
+  (pm-config/print-config root-env))
+
 (def subcommands
   {"build" build
    "clean" clean
@@ -254,6 +264,7 @@
    "help" help
    "deps" deps
    "hook" do-hook
+   "new-venv" new-venv
    "new-project" new-project
    "new-simple-project" new-simple-project
    "new-c-project" new-c-project
@@ -265,6 +276,7 @@
    "clear-cache" clear-cache
    "run" run
    "prune" bundle/prune
+   "show-config" show-config
    "update-pkgs" update-pkgs
    "uninstall" uninstall})
 

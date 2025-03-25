@@ -71,6 +71,7 @@
               (os/getenv "PREFIX")
               (path/join (dyn *syspath*) ".." "..")
               (path/join (dyn *syspath*) "..")
+              (try (path/join (sh/self-exe) ".." "..") ([e] nil))
               (dyn *syspath*)
               "/usr/"
               "/usr/local"
@@ -93,6 +94,7 @@
               (os/getenv "PREFIX")
               (path/join (dyn *syspath*) ".." "..")
               (path/join (dyn *syspath*) "..")
+              (try (path/join (sh/self-exe) ".." "..") ([e] nil))
               (dyn *syspath*)]
     (when test
       (def headercheck (path/join test "C" "janet.h"))
@@ -137,7 +139,7 @@
   "Guess a library and header path for msvc with a defualt Janet windows install."
   []
   (when-let [p (dyn *msvc-cpath*)] (break p))
-  (when-let [p (os/getenv "JANET_LIBPATH")] (break p))
+  (when-let [p (os/getenv "JANET_LIBPATH")] (break p)) # TODO - remove?
   (def wp (get-windows-prefix))
   (path/join wp "C"))
 

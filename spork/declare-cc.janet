@@ -52,15 +52,7 @@
 (defn- get-toolchain
   "Auto-detect the current compiler toolchain."
   []
-  (def toolchain
-    (cond
-      (dyn *toolchain*) (dyn *toolchain*)
-      (os/getenv "MSVC") :msvc
-      (os/getenv "GCC") :gcc
-      (os/getenv "CLANG") :clang
-      (os/getenv "CC") :cc # any posix compatible compiler accessed via `cc`
-      (= :windows (os/which)) :msvc
-      (os/compiler)))
+  (def toolchain (pm-config/detect-toolchain (curenv)))
   (when (= :msvc toolchain)
     (cc/msvc-find)
     (assert (cc/msvc-setup?)))

@@ -15,10 +15,6 @@
 (defdyn *curlpath* "What curl command to use to fetch dependencies")
 (defdyn *pkglist* "Override the default package listing if a `pkgs` bundle is not currently installed.")
 
-(def default-pkglist
-  "The default package listing for resolving short bundle names."
-  "https://github.com/janet-lang/pkgs.git")
-
 (def- filepath-replacer
   "Convert url with potential bad characters into a file path element."
   (peg/compile ~(% (any (+ (/ '(set "<>:\"/\\|?*") "_") '1)))))
@@ -45,7 +41,7 @@
   (sh/exec (dyn *curlpath* "curl") ;args))
 
 (defn- getpkglist []
-  (dyn *pkglist* default-pkglist))
+  (dyn *pkglist* pm-config/default-pkglist))
 
 (var- bundle-install-recursive nil)
 
@@ -377,7 +373,7 @@
     ~{:sub (group
              (+ (* "${" '(to "}") "}")
                 (* "$" '(some (range "az" "AZ" "09" "__" "--")))))
-      :main (any (* '(to (+ "$$" -1 :sub)) (+ '"$$" :sub 0)))}))
+      :main (any (* '(to (+ "$$" -1 :sub)) (+ (/ '"$$" "$") :sub 0)))}))
 
 (defn- make-template
   "Make a simple string template as defined by Python PEP292 (shell-like $ substitution).
@@ -634,3 +630,59 @@
       (spit (string name "/project.janet") (exe-project-template template-opts)))
     (do
       (spit (string name "/project.janet") (project-template template-opts)))))
+
+(deftemplate enter-shell-template
+    ````
+    # source bin/enter_shell
+    _OLD_JANET_PATH="$$JANET_PATH";
+    _OLD_PATH="$$PATH";
+    _OLD_PS1="$$PS1";
+    JANET_PATH="$abspath";
+    export JANET_PATH;
+    PATH="$$JANET_PATH"/bin:"$$PATH";
+    export PATH;
+    PS1="("$name") $${PS1:-}"
+    export PS1;
+    exit_shell() {
+      PATH="$$_OLD_PATH";
+      JANET_PATH="$$_OLD_JANET_PATH";
+      PS1="$$_OLD_PS1";
+      export PATH;
+      export JANET_PATH;
+      export PS1;
+      unset _OLD_JANET_PATH;
+      unset _OLD_PATH;
+      unset -f exit_shell;
+      hash -r 2> /dev/null;
+    }
+    hash -r 2> /dev/null;
+    ````)
+
+(deftemplate enter-cmd-template
+    ````
+    @rem bin\enter_shell.bat
+    @set _OLD_JANET_PATH="%JANET_PATH%"
+    @set _OLD_PATH="%PATH%"
+    @set JANET_PATH="$abspath"
+    @set PATH=%JANET_PATH%\bin:%PATH%
+    ````)
+
+(deftemplate exit-cmd-template
+    ````
+    @rem bin\exit_shell.bat
+    @set JANET_PATH=%_OLD_JANET_PATH%
+    @set PATH=%_OLD_PATH%
+    @set _OLD_JANET_PATH=%PATH%
+    @set _OLD_PATH=%PATH%
+    ````)
+
+(defn scaffold-pm-shell
+  "Generate a pm shell with configuration already setup."
+  [path]
+  (os/mkdir path)
+  (os/mkdir (path/join path "bin"))
+  (os/mkdir (path/join path "man"))
+  (def opts {:path path :abspath (path/abspath path) :name (path/basename path)})
+  (spit (path/join path "bin" "enter_shell") (enter-shell-template opts))
+  (spit (path/join path "bin" "enter_shell.bat") (enter-cmd-template opts))
+  (spit (path/join path "bin" "exit_shell.bat") (enter-cmd-template opts)))

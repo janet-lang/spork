@@ -177,3 +177,15 @@
   "Output a string with all arguments correctly quoted"
   [& args]
   (string/join (map shell-quote args) " "))
+
+(defn self-exe
+  "Get path to the janet executable"
+  []
+  (def janet (dyn *executable* "janet"))
+  (defn which [cmd] (try (exec-slurp cmd janet) ([e] janet)))
+  (case (os/which)
+    :windows (which "where")
+    :mingw (which "where")
+    :linux (os/readlink "/proc/self/exe")
+    # default
+    (which "which")))
