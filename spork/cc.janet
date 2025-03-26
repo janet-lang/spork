@@ -437,9 +437,9 @@
 
 (defn- msvc-opt
   [to]
-  (def pdb-name (string to ".pdb"))
   (case (build-type)
-    :debug ["/Od" "/Zi" "/MDd" (string "/Fd" pdb-name)]
+    :debug ["/Od" "/DDEBUG" "/Zi" "/MDd" (string "/Fd" to ".pdb")]
+    :develop ["/O2" "/DDEBUG" "/Zi" "/MDd" (string "/Fd" to ".pdb")]
     ["/O2" "/MD"]))
 (defn- msvc-defines []
   (def res @[])

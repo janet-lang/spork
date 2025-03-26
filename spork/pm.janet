@@ -665,6 +665,28 @@
     hash -r 2> /dev/null;
     ````)
 
+(deftemplate enter-ps-template
+    ````
+    # . bin/activate.ps1
+    $$global:_OLD_JANET_PATH=$$env:JANET_PATH
+    $$global:_OLD_PATH=$$env:PATH
+    $$env:JANET_PATH="$abspath"
+    $$env:PATH=$$JANET_PATH + "/bin:" + $$env:PATH
+    $$old_prompt = Get-Content function:prompt
+    function global:prompt {
+      Write-Host "($name) " -NoNewline
+      & $$old_prompt
+    }
+    function deactivate {
+      $$env:PATH=$$global:_OLD_PATH
+      $$env:JANET_PATH=$$global:_OLD_JANET_PATH
+      Remove-Item function:\deactivate
+      function global:prompt {
+        & $$old_prompt
+      }
+    }
+    ````)
+
 (deftemplate enter-cmd-template
     ````
     @rem bin\activate.bat
@@ -695,6 +717,7 @@
   (os/mkdir (path/join path "man"))
   (def opts {:path path :abspath (path/abspath path) :name (path/basename path)})
   (spit (path/join path "bin" "activate") (enter-shell-template opts))
+  (spit (path/join path "bin" "activate.ps1") (enter-ps-template opts))
   (spit (path/join path "bin" "activate.bat") (enter-cmd-template opts))
   (spit (path/join path "bin" "deactivate.bat") (exit-cmd-template opts))
   (print "created project shell environment at " path)
