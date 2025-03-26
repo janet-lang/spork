@@ -640,6 +640,9 @@
     JANET_PATH="$abspath";
     PATH="$$JANET_PATH"/bin:"$$PATH";
     PS1="("$name") $${PS1:-}"
+    export _OLD_JANET_PATH;
+    export _OLD_PATH;
+    export _OLD_PS1;
     export JANET_PATH;
     export PATH;
     export PS1;
@@ -654,6 +657,9 @@
       unset _OLD_PATH;
       unset _OLD_PS1;
       unset -f deactivate;
+      export _OLD_JANET_PATH;
+      export _OLD_PATH;
+      export _OLD_PS1;
       hash -r 2> /dev/null;
     }
     hash -r 2> /dev/null;
