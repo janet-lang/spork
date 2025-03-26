@@ -239,9 +239,7 @@
 (defn new-venv
   "Create a new virtual environment"
   [path]
-  (pm/scaffold-pm-shell path)
-  (print "created project shell environment at " path)
-  (print "run `source " path "/bin/activate` to enter the new environment, then `deactivate` to exit."))
+  (pm/scaffold-pm-shell path))
 
 (defn quickbin
   "Create an executable file"

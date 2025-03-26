@@ -633,26 +633,27 @@
 
 (deftemplate enter-shell-template
     ````
-    # source bin/activate
+    # . bin/activate
     _OLD_JANET_PATH="$$JANET_PATH";
     _OLD_PATH="$$PATH";
     _OLD_PS1="$$PS1";
     JANET_PATH="$abspath";
-    export JANET_PATH;
     PATH="$$JANET_PATH"/bin:"$$PATH";
-    export PATH;
     PS1="("$name") $${PS1:-}"
+    export JANET_PATH;
+    export PATH;
     export PS1;
     deactivate() {
       PATH="$$_OLD_PATH";
       JANET_PATH="$$_OLD_JANET_PATH";
       PS1="$$_OLD_PS1";
-      export PATH;
       export JANET_PATH;
+      export PATH;
       export PS1;
       unset _OLD_JANET_PATH;
       unset _OLD_PATH;
-      unset -f exit_shell;
+      unset _OLD_PS1;
+      unset -f deactivate;
       hash -r 2> /dev/null;
     }
     hash -r 2> /dev/null;
@@ -689,4 +690,6 @@
   (def opts {:path path :abspath (path/abspath path) :name (path/basename path)})
   (spit (path/join path "bin" "activate") (enter-shell-template opts))
   (spit (path/join path "bin" "activate.bat") (enter-cmd-template opts))
-  (spit (path/join path "bin" "deactivate.bat") (exit-cmd-template opts)))
+  (spit (path/join path "bin" "deactivate.bat") (exit-cmd-template opts))
+  (print "created project shell environment at " path)
+  (print "run `. " path "/bin/activate` to enter the new environment, then `deactivate` to exit."))
