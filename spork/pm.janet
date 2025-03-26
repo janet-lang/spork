@@ -672,7 +672,7 @@
     @set _OLD_PATH=%PATH%
     @set _OLD_PROMPT=%PROMPT%
     @set JANET_PATH=$abspath
-    @set PATH=%JANET_PATH%\bin:%PATH%
+    @set PATH=%JANET_PATH%\bin;%PATH%
     @set PROMPT=($path) %PROMPT%
     ````)
 
@@ -698,4 +698,6 @@
   (spit (path/join path "bin" "activate.bat") (enter-cmd-template opts))
   (spit (path/join path "bin" "deactivate.bat") (exit-cmd-template opts))
   (print "created project shell environment at " path)
-  (print "run `. " path "/bin/activate` to enter the new environment, then `deactivate` to exit."))
+  (if (or (= :windows (os/which)) (= :mingw (os/which)))
+    (print "run `" path "\\bin\\activate` to enter the new environment, then `deactivate` to exit.")
+    (print "run `. " path "/bin/activate` to enter the new environment, then `deactivate` to exit.")))

@@ -292,7 +292,7 @@
 # Compound commands
 
 (defn out-path
-  "Take a source file path and convert it to an output path."
+  "Take a source file path and convert it to an output path with no intermediate directories."
   [path to-ext &opt sep]
   (default sep "/")
   (def flatpath
@@ -305,11 +305,11 @@
   "Compile a number of source files, and return the
   generated objects files, as well as a boolean if any cpp
   source files were found."
-  [sources cmds-into]
+  [sources cmds-into ext]
   (def objects @[])
   (var has-cpp false)
   (each source sources
-    (def o (out-path source ".o"))
+    (def o (out-path source ext))
     (def source-type (classify-source source))
     (case source-type
       :o
@@ -331,7 +331,7 @@
   "Compile and link a shared C/C++ library. Return an array of commands."
   [to & sources]
   (def res @[])
-  (def [has-cpp objects] (compile-many sources res))
+  (def [has-cpp objects] (compile-many sources res ".shared.o"))
   (array/push
     res
     (if has-cpp
@@ -342,7 +342,7 @@
   "Compile and link an executable C/C++ program. Return an array of commands."
   [to & sources]
   (def res @[])
-  (def [has-cpp objects] (compile-many sources res))
+  (def [has-cpp objects] (compile-many sources res ".executable.o"))
   (array/push
     res
     (if has-cpp
@@ -353,7 +353,7 @@
   "Compile and create a static archive. Return an array of commands."
   [to & sources]
   (def res @[])
-  (def [_ objects] (compile-many sources res))
+  (def [_ objects] (compile-many sources res ".static.o"))
   (array/push res (make-archive objects to)))
 
 ###
@@ -436,9 +436,10 @@
   nil)
 
 (defn- msvc-opt
-  []
+  [to]
+  (def pdb-name (string to ".pdb"))
   (case (build-type)
-    :debug ["/Od" "/Zi" "/MDd"]
+    :debug ["/Od" "/Zi" "/MDd" (string "/Fd" pdb-name)]
     ["/O2" "/MD"]))
 (defn- msvc-defines []
   (def res @[])
@@ -485,14 +486,14 @@
 (defn msvc-compile-c
   "Compile a C source file with MSVC to an object file. Return the command arguments."
   [from to]
-  (exec [(cl.exe) "/c" (msvc-cstd) "/utf-8" "/nologo" ;(cflags) ;(msvc-compile-paths) ;(msvc-opt) ;(msvc-defines)
+  (exec [(cl.exe) "/c" (msvc-cstd) "/utf-8" "/nologo" ;(cflags) ;(msvc-compile-paths) ;(msvc-opt to) ;(msvc-defines)
          from (string "/Fo" to)]
         [from] [to] (string "compiling " from "...")))
 
 (defn msvc-compile-c++
   "Compile a C++ source file with MSVC to an object file. Return the command arguments."
   [from to]
-  (exec [(cl.exe) "/c" (msvc-c++std) "/utf-8" "/nologo" "/EHsc" ;(c++flags) ;(msvc-compile-paths) ;(msvc-opt) ;(msvc-defines)
+  (exec [(cl.exe) "/c" (msvc-c++std) "/utf-8" "/nologo" "/EHsc" ;(c++flags) ;(msvc-compile-paths) ;(msvc-opt to) ;(msvc-defines)
          from (string "/Fo" to)]
         [from] [to] (string "compiling " from "...")))
 
@@ -520,10 +521,10 @@
   "Compile a number of source files, and return the
   generated objects files, as well as a boolean if any cpp
   source files were found."
-  [sources cmds-into]
+  [sources cmds-into ext]
   (def objects @[])
   (each source sources
-    (def o (out-path source ".o" "\\"))
+    (def o (out-path source ext "\\"))
     (def source-type (classify-source source))
     (case source-type
       :o
@@ -544,7 +545,7 @@
   "Compile and link a shared C/C++ library. Return an array of commands."
   [to & sources]
   (def res @[])
-  (def objects (msvc-compile-many sources res))
+  (def objects (msvc-compile-many sources res ".shared.o"))
   (array/push
     res
     (msvc-link-shared objects to)))
@@ -553,7 +554,7 @@
   "Compile and link an executable C/C++ program. Return an array of commands."
   [to & sources]
   (def res @[])
-  (def objects (msvc-compile-many sources res))
+  (def objects (msvc-compile-many sources res ".executable.o"))
   (array/push
     res
     (msvc-link-executable objects to)))
@@ -562,7 +563,7 @@
   "Compile and create a static archive. Return an array of commands."
   [to & sources]
   (def res @[])
-  (def objects (msvc-compile-many sources res))
+  (def objects (msvc-compile-many sources res ".static.o"))
   (array/push res (msvc-make-archive objects to)))
 
 ###

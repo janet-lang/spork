@@ -493,8 +493,8 @@
     (install-rule to (string name suffix))
     (def objects @[])
     (loop [src :in embedded]
-      (def c-src (cc/out-path src ".c"))
-      (def o-src (cc/out-path src ".o"))
+      (def c-src (cc/out-path src ".dynamic.c"))
+      (def o-src (cc/out-path src ".dynamic.o"))
       (array/push objects o-src)
       (build-rules/build-rule rules c-src [src]
                               (create-buffer-c (slurp src) c-src (embed-name src)))
@@ -512,8 +512,8 @@
                   cc/*defines* (merge-into @{"JANET_ENTRY_NAME" ename} defines)]
         (def sobjects @[])
         (loop [src :in embedded]
-          (def c-src (cc/out-path src ".c"))
-          (def o-src (cc/out-path src ".o"))
+          (def c-src (cc/out-path src ".static.c"))
+          (def o-src (cc/out-path src ".static.o"))
           (array/push sobjects o-src)
           (build-rules/build-rule rules c-src [src]
                                   (create-buffer-c (slurp src) c-src (embed-name src)))

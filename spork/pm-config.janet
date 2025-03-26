@@ -57,8 +57,8 @@
     (assertf (in enum-set y) "unknown option %v for %s. Expected one of %s." x name (string/join options ", "))
     y))
 
-(def- build-type-xform (make-enum "build type" "debug" "develop" "release"))
-(def- toochain-xform (make-enum "toolchain" "gcc" "clang" "msvc" "cc")) # TODO mingw, zig
+(def- build-type-xform (make-enum "build type" :debug :develop :release))
+(def- toochain-xform (make-enum "toolchain" :gcc :clang :msvc :cc)) # TODO mingw, zig
 
 (defn read-env-variables
   "Read and validate environment variables for configuration. These environment variables are
