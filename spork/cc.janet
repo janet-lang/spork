@@ -436,10 +436,10 @@
   nil)
 
 (defn- msvc-opt
-  [to]
+  []
   (case (build-type)
-    :debug ["/Od" "/DDEBUG" "/Zi" "/MDd" (string "/Fd" to ".pdb")]
-    :develop ["/O2" "/DDEBUG" "/Zi" "/MDd" (string "/Fd" to ".pdb")]
+    :debug ["/Od" "/DDEBUG" "/Z7" "/MDd"]
+    :develop ["/O2" "/DDEBUG" "/Z7" "/MDd"]
     ["/O2" "/MD"]))
 (defn- msvc-defines []
   (def res @[])
@@ -486,14 +486,14 @@
 (defn msvc-compile-c
   "Compile a C source file with MSVC to an object file. Return the command arguments."
   [from to]
-  (exec [(cl.exe) "/c" (msvc-cstd) "/utf-8" "/nologo" ;(cflags) ;(msvc-compile-paths) ;(msvc-opt to) ;(msvc-defines)
+  (exec [(cl.exe) "/c" (msvc-cstd) "/utf-8" "/nologo" ;(cflags) ;(msvc-compile-paths) ;(msvc-opt) ;(msvc-defines)
          from (string "/Fo" to)]
         [from] [to] (string "compiling " from "...")))
 
 (defn msvc-compile-c++
   "Compile a C++ source file with MSVC to an object file. Return the command arguments."
   [from to]
-  (exec [(cl.exe) "/c" (msvc-c++std) "/utf-8" "/nologo" "/EHsc" ;(c++flags) ;(msvc-compile-paths) ;(msvc-opt to) ;(msvc-defines)
+  (exec [(cl.exe) "/c" (msvc-c++std) "/utf-8" "/nologo" "/EHsc" ;(c++flags) ;(msvc-compile-paths) ;(msvc-opt) ;(msvc-defines)
          from (string "/Fo" to)]
         [from] [to] (string "compiling " from "...")))
 
