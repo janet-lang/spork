@@ -672,18 +672,17 @@
     $$global:_OLD_PATH=$$env:PATH
     $$env:JANET_PATH="$abspath"
     $$env:PATH=$$JANET_PATH + "/bin:" + $$env:PATH
-    $$old_prompt = Get-Content function:prompt
+    $$function:old_prompt = $$function:prompt
     function global:prompt {
       Write-Host "($name) " -NoNewline
-      & $$old_prompt
+      & $$function:old_prompt
     }
     function deactivate {
       $$env:PATH=$$global:_OLD_PATH
       $$env:JANET_PATH=$$global:_OLD_JANET_PATH
       Remove-Item function:\deactivate
-      function global:prompt {
-        & $$old_prompt
-      }
+      $$function:prompt = $$function:old_prompt
+      Remove-Item function:\old_prompt
     }
     ````)
 
