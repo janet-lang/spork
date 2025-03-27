@@ -185,7 +185,7 @@
 (defn clear-cache
   []
   (def cache (path/join (dyn *syspath*) ".cache"))
-  (sh/rm cache))
+  (sh/rm-readonly cache))
 
 (defn list-pkgs
   [&opt search]

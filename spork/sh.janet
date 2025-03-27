@@ -68,6 +68,18 @@
     # Default, try to remove
     (os/rm path)))
 
+(defn rm-readonly
+  "Like sh/rm, but will also remove readonly files and folders on windows"
+  [path]
+  (def os (os/which))
+  (when (or (= os :windows) (= os :mingw))
+    (def root
+      (if (= :file (os/stat path :mode))
+        path
+        (path/join path "*.*")))
+    (exec "attrib" "-R" "-H" root "/S" "/D"))
+  (rm path))
+
 (defn exists?
   "Check if the given file or directory exists. (Follows symlinks)"
   [path]
