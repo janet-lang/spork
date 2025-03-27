@@ -78,7 +78,7 @@
               "/"]
     (when test
       (def headercheck (path/join test "include" "janet.h"))
-      (when (os/stat headercheck :mode)
+      (when (= :file (os/stat headercheck :mode))
         (set result test)
         (break))))
   (assert result "no prefix discovered for janet headers!")
@@ -98,7 +98,7 @@
               (dyn *syspath*)]
     (when test
       (def headercheck (path/join test "C" "janet.h"))
-      (when (os/stat headercheck :mode)
+      (when (= :file (os/stat headercheck :mode))
         (set result test)
         (break))))
   (assert result "no prefix discovered for janet headers!")

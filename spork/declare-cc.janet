@@ -27,7 +27,7 @@
 (defn- build-dir [] (path/join (build-root) (dyn cc/*build-type* :release)))
 (defn- get-rules [] (dyn cc/*rules* (curenv)))
 (defn- bindir [] (path/join (dyn *syspath*) "bin"))
-(defn- mandir [] (path/join (dyn *syspath*) "man"))
+(defn- mandir [] (path/join (dyn *syspath*) "man" "man1"))
 (defn- mkbin [] (def x (bindir)) (fn :make-bin [] (sh/create-dirs x)))
 (defn- mkman [] (def x (mandir)) (fn :make-man [] (sh/create-dirs x)))
 (defn- bindir-rel [] (path/relpath (dyn *syspath*) (bindir)))
