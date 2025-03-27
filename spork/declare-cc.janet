@@ -26,12 +26,8 @@
 (defn- build-root [] (dyn *build-root* "_build"))
 (defn- build-dir [] (path/join (build-root) (dyn cc/*build-type* :release)))
 (defn- get-rules [] (dyn cc/*rules* (curenv)))
-(defn- bindir [] (path/join (dyn *syspath*) "bin"))
-(defn- mandir [] (path/join (dyn *syspath*) "man" "man1"))
-(defn- mkbin [] (def x (bindir)) (fn :make-bin [] (sh/create-dirs x)))
-(defn- mkman [] (def x (mandir)) (fn :make-man [] (sh/create-dirs x)))
-(defn- bindir-rel [] (path/relpath (dyn *syspath*) (bindir)))
-(defn- mandir-rel [] (path/relpath (dyn *syspath*) (mandir)))
+(defn- mkbin [] (def x (path/join (dyn *syspath*) "bin")) (fn :make-bin [] (sh/create-dirs x)))
+(defn- mkman [] (def x (path/join (dyn *syspath*) "man" "man1")) (fn :make-man [] (sh/create-dirs x)))
 
 (defn- is-win-or-mingw
   []
@@ -348,7 +344,7 @@
 (defn declare-bin
   "Declare a generic file to be installed as an executable."
   [&named main]
-  (install-rule main (bindir-rel) 8r755 (mkbin)))
+  (install-rule main "bin" 8r755 (mkbin)))
 
 (defn declare-binscript
   ``Declare a janet file to be installed as an executable script. Creates
@@ -358,8 +354,7 @@
   ``
   [&named main hardcode-syspath is-janet]
   (def main (path/abspath main))
-  (def bin (bindir-rel))
-  (def dest (path/join bin (path/basename main)))
+  (def dest (path/join "bin" (path/basename main)))
   (defn contents []
     (with [f (file/open main :rbn)]
       (def first-line (:read f :line))
@@ -404,10 +399,17 @@
   ipath)
 
 (defn declare-manpage
-  "Mark a manpage for installation"
+  "Mark a manpage for installation. Manpages will be installed to $SYSPATH/man/man1/`(basename page)`"
   [page]
   (def page-name (path/basename page))
-  (install-rule page (path/join (mandir-rel) page-name) nil (mkman)))
+  (install-rule page (path/join "man" "man1" page-name) nil (mkman)))
+
+(defn declare-documentation
+  "Mark a file as general documentation to be installed. Documentation will be installed to $SYSYPATH/man/`prefix`/`(basename source)`"
+  [&named source prefix]
+  (default prefix "")
+  (def page-name (path/basename source))
+  (install-rule source (path/join "man" prefix page-name) nil (mkman)))
 
 (defn declare-native
   "Declare a native module. This is a shared library that can be loaded
@@ -686,8 +688,7 @@ int main(int argc, const char **argv) {
   (def bd (build-dir))
   (def dest (path/join bd name))
   (def cimage-dest (string dest ".c"))
-  (def bin (bindir-rel))
-  (when install (install-rule dest (path/join bin name) nil (mkbin)))
+  (when install (install-rule dest (path/join "bin" name) nil (mkbin)))
   (def target (if no-compile cimage-dest dest))
   (rule :build [target])
   (rule target [entry ;headers ;deps]
