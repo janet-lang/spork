@@ -193,12 +193,12 @@
 (defn which
   "Search for the full path to a program, like the `which` command on unix or the `where` command on Windows."
   [name &opt paths]
+  (def o (os/which))
   (def win (or (= o :windows) (= o :mingw)))
   (default paths
-    (let [o (os/which)]
-      (if win
-        (string/split ";" (os/getenv "Path"))
-        (string/split ":" (os/getenv "PATH")))))
+    (if win
+      (string/split ";" (os/getenv "Path"))
+      (string/split ":" (os/getenv "PATH"))))
   (def pathexts (if win (string/split ";" (os/getenv "PATHEXT" "")) @[]))
   (array/insert pathexts 0 "")
   (prompt :result
