@@ -198,17 +198,21 @@
       (if (or (= o :windows) (= o :mingw))
         (string/split ";" (os/getenv "Path"))
         (string/split ":" (os/getenv "PATH")))))
+  (def pathexts (string/split ";" (os/getenv "PATHEXT" "")))
   (prompt :result
     (each p paths
       (when (= (os/stat p :mode) :directory)
         (def fp (path/join p name))
-        (when (= (os/stat fp :mode) :file)
-          (return :result fp))))))
+        (each ext pathexts
+          (def fp2 (string fp ext))
+          (when (= (os/stat fp2 :mode) :file)
+            (return :result fp2)))))))
 
 (defn self-exe
   "Get path to the janet executable"
   []
   (def janet (dyn *executable* "janet"))
+  (when (path/abspath? janet) (break janet))
   (case (os/which)
     :linux (os/readlink "/proc/self/exe")
     # default
