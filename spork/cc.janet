@@ -85,7 +85,7 @@
   (setdyn *janet-prefix* result)
   result)
 
-(defn get-windows-prefix
+(defn get-msvc-prefix
   "Auto-detect install location on windows systems with a default install. This is the directory containing Library, C, docs, bin, etc."
   []
   (if-let [p (dyn *janet-prefix*)] (break p))
@@ -139,8 +139,7 @@
   "Guess a library and header path for msvc with a defualt Janet windows install."
   []
   (when-let [p (dyn *msvc-cpath*)] (break p))
-  (when-let [p (os/getenv "JANET_LIBPATH")] (break p)) # TODO - remove?
-  (def wp (get-windows-prefix))
+  (def wp (get-msvc-prefix))
   (path/join wp "C"))
 
 (defn msvc-janet-import-lib

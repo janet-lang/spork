@@ -70,7 +70,6 @@
   (set1 env :gitpath "JANET_GIT")
   (set1 env :curlpath "JANET_CURL")
   (set1 env :tarpath "JANET_TAR")
-  (set1 env :msvc-cpath "JANET_LIBPATH")
   (set1 env :build-type "JANET_BUILD_TYPE" build-type-xform)
   (set1 env :toolchain "JANET_TOOLCHAIN" toochain-xform)
   (set1 env :build-root "JANET_BUILD_DIR")

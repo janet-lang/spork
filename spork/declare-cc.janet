@@ -769,7 +769,7 @@ int main(int argc, const char **argv) {
         (def other-cflags @[])
         (if (= toolchain :msvc)
           (do
-            (def libpath (os/getenv "JANET_LIBPATH" ""))
+            (def libpath (path/join (cc/get-msvc-prefix) "C"))
             (def msvc-libjanet (path/join libpath "libjanet.lib"))
             (def janeth (path/join libpath "janet.h"))
             (assert (= (os/stat janeth :mode) :file) "janet.h not found in expected location, possible misconfiguration")
