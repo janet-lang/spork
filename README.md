@@ -12,13 +12,16 @@ as seen in the example for the part.
 ## Build
 
 ```
-janet bundle/build.janet
+janet -l ./bundle -e '(build)'
 ```
 
 ## Test
 
+Spork must be installed to test properly.
+
 ```
-janet bundle/test.janet
+janet --install .
+janet -l ./bundle -e '(check)'
 ```
 
 ## Installation
@@ -29,13 +32,15 @@ As of Janet version 1.38.0, the normal Janet binary can install spork in the fol
 [sudo] janet --install .
 ```
 
+This will install all spork modules to `$JANET_PATH` and all executable scripts to `$JANET_PATH/bin`.
+
 For versions prior to 1.38.0, but with support for the bundle module:
 
 ```
 [sudo] janet -e '(bundle/install ".")'
 ```
 
-Or, finally, with JPM:
+Or, finally, with JPM (legacy):
 
 ```
 [sudo] jpm install spork
