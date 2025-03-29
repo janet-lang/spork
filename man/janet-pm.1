@@ -34,9 +34,14 @@ Clear the cache of saved remote dependencies.
 
 .TP
 .BR list-pkgs\ [\fBsearch\fR]
-List packages in the remote package listing that the contain the
+List packages in the remote package listing that contain the
 string search. If no search pattern is given, prints the
 entire package listing.
+
+.TP
+.BR env\ name
+Create an environment with which one can install Janet dependencies
+and scripts in an isolated manner.
 
 .TP
 .BR new-project\ [\fBname\fR]
@@ -71,7 +76,7 @@ Uninstall the current project's artifacts. Shorthand for `janet --uninstall {cur
 
 .TP
 .BR prune
-Remove any bundles that have no dependents and are marked for auto-remove
+Remove any bundles that have no dependents and are marked for auto-remove.
 
 .TP
 .BR build
@@ -96,7 +101,7 @@ executable.
 
 .TP
 .BR save-lockfile\ [\fBdestination\fR]
-Save all currently installed bundles to a lockfile
+Save all currently installed bundles to a lockfile.
 
 .TP
 .BR load-lockfile\ [\fBsource\fR]
@@ -153,14 +158,14 @@ Where to get the "tar" command. Defaults to "tar".
 .B JANET_TOOLCHAIN
 .RS
 Name of the toolchain to use to compile project.janet based natives. Should be one of "gcc", "clang", "msvc", or "cc".
-Defaults to autodetecting based on the presence of other environment variabls MSVC, GCC, CLANG, and CC.
+Defaults to autodetecting based on the presence of other environment variables MSVC, GCC, CLANG, and CC.
 Will then finally default to whatever compiler was used to compile the `janet` executable running this script. This
 is the output of `janet -e '(print (os/compiler))'`
 .RE
 
 .B VERBOSE
 .RS
-Print full output from running commands
+Print full output from running commands.
 .RE
 
 .B WORKERS
