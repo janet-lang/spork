@@ -13,10 +13,11 @@
 
     Run from a directory containing a project.janet file to perform
     operations on a project, or from anywhere to do operations on the
-    global module cache (modpath).  Commands that need write permission to
-    the modpath are considered privileged commands - in some environments
-    they may require super user privileges.  Other project-level commands
-    need to have a ./project.janet file in the current directory.
+    global module cache (modpath).  Commands that need write
+    permission to the modpath are considered privileged commands - in
+    some environments they may require super user privileges.  Other
+    project-level commands need to have a ./project.janet file in the
+    current directory.
 
     GLOBAL COMMANDS:
 
@@ -30,18 +31,20 @@
         Clear the git cache. Useful for updating dependencies.
 
     list-pkgs (search)
-        List packages in the remote package listing that the contain the
+        List packages in the remote package listing that contain the
         string search. If no search pattern is given, prints the
         entire package listing.
 
     env name
-        Create an environment with which one can install Janet dependencies and scripts in an isolated manner.
+        Create an environment with which one can install Janet
+        dependencies and scripts in an isolated manner.
 
     new-project name
         Create a new Janet project in a directory `name`.
 
     new-simple-project name
-        Create a new Janet project that can be installed and distributed without spork in a directory `name`.
+        Create a new Janet project that can be installed and
+        distributed without spork in a directory `name`.
 
     new-c-project name
         Create a new C+Janet project in a directory `name`.
@@ -55,85 +58,97 @@
         Install dependencies for the current project.
 
     install (repos...)
-        Install artifacts of the current project. Shorthand for `janet --install .`
+        Install artifacts of the current project. Shorthand for
+        `janet --install .`
 
     uninstall (repos...)
-        Uninstall the current project's artifacts. Shorthand for `janet --uninstall {current-project-name }`
+        Uninstall the current project's artifacts. Shorthand for
+        `janet --uninstall {current-project-name }`
 
     prune
-        Remove any bundles that have no dependents and are marked for auto-remove
+        Remove any bundles that have no dependents and are marked for
+        auto-remove.
 
     build
-        Build all artifacts in the build/ directory. Shorthand for `run build`.
+        Build all artifacts in the build/ directory. Shorthand for
+        `run build`.
 
     clean
-        Remove any generated files or artifacts. Calls the `(clean)` hook.
+        Remove any generated files or artifacts. Calls the `(clean)`
+        hook.
 
     test
         Run tests. Tests should be .janet files in the test/ directory
         relative to project.janet. Will patch the module paths to load
-        built native code without installing it. Shorthand for `run check`.
+        built native code without installing it. Shorthand for
+        `run check`.
 
     quickbin entry output
-        Create an executable file from a script, statically linking in any dependencies found while compiling
-        the script. The script should contain a main function that will serve as the main function for the generated
-        executable.
+        Create an executable file from a script, statically linking in
+        any dependencies found while compiling the script. The script
+        should contain a main function that will serve as the main
+        function for the generated executable.
 
     save-lockfile (dest)
-        Save all currently installed bundles to a lockfile
+        Save all currently installed bundles to a lockfile.
 
     load-lockfile (src)
         Install all bundles in the given lockfile.
 
     ENVIRONMENT VARIABLES:
 
-    janet-pm inherits all of the environment variables used by janet, as well some of its own. Many of these are
-    only used in support of building bundles that use a project.janet.
+    janet-pm inherits all of the environment variables used by janet,
+    as well some of its own. Many of these are only used in support of
+    building bundles that use a project.janet.
 
     JANET_BUILD_DIR
-        Where to create build outputs when building a bundle has a project.janet. Defaults to _build.
+        Where to create build outputs when building a bundle has a
+        project.janet. Defaults to _build.
 
     JANET_BUILD_TYPE
-        What kind of build to make when building a bundle that has a project.janet.
-        Should be "develop", "release", or "debug".
+        What kind of build to make when building a bundle that has a
+        project.janet. Should be "develop", "release", or "debug".
 
     JANET_CURL
-        Where to get the "curl" command when handling project.janet. Defaults to "curl".
+        Where to get the "curl" command when handling project.janet.
+        Defaults to "curl".
 
     JANET_GIT
-        Where to get the "git" command when handling project.janet. Defaults to "git".
-
-    JANET_LIBPATH
-        The directory that the MSVC toolchain will use to find janet.h, janet.dll, and libjanet.lib. Most installs should not need to set this, unless
-        there is a non-standard windows install or possibly multiple Janet versions installed.
-
-    JANET_MANPATH
-        Where to install manpages. By default, will store them at in $SYSPATH/man.
+        Where to get the "git" command when handling project.janet.
+        Defaults to "git".
 
     JANET_OFFLINE
-        If set to 1, true, on, etc., will only look at packages in the local cache.
+        If set to 1, true, on, etc., will only look at packages in
+        the local cache.
 
     JANET_PKGLIST
-        The package listing repository to use to resolve package nicknames. Defaults to https://github.com/janet-lang/pkgs.git
+        The package listing repository to use to resolve package
+        nicknames. Defaults to https://github.com/janet-lang/pkgs.git
 
     JANET_PREFIX
-        Where to look for Janet headers and libjanet.so, janet.dll, etc. By default, will try to autodetect by searching through the
-        syspath, the PREFIX environment variable, /usr/, and /usr/local. Most installs should not need to set this, but otherwise should
-        be set to whatever PREFIX was when janet was installed.
+        Where to look for Janet headers and libjanet.so, janet.dll,
+        etc. By default, will try to autodetect by searching through
+        the syspath, the PREFIX environment variable, /usr/, and
+        /usr/local. Most installs should not need to set this, but
+        otherwise should be set to whatever PREFIX was when janet
+        was installed.
 
     JANET_TAR
         Where to get the "tar" command. Defaults to "tar".
 
     JANET_TOOLCHAIN
-        Name of the toolchain to use to compile project.janet based natives. Should be one of "gcc", "clang", "msvc", or "cc".
-        Defaults to autodetecting based on the presence of other environment variabls MSVC, GCC, CLANG, and CC.
+        Name of the toolchain to use to compile project.janet based
+        natives. Should be one of "gcc", "clang", "msvc", or "cc".
+        Defaults to autodetecting based on the presence of other
+        environment variables MSVC, GCC, CLANG, and CC.
         Will then finally default to the value of `(os/compiler)`.
 
     VERBOSE
-        Print full output from running commands
+        Print full output from running commands.
 
     WORKERS
-        Number of processes to run in parallel when compiling C and C++ source code.
+        Number of processes to run in parallel when compiling C and
+        C++ source code.
     ```)
 
 (defn help
