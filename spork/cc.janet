@@ -214,13 +214,14 @@
 (defn- smart-libs []
   (def dflt (index-of (target-os) [:linux]))
   (dyn *smart-libs* dflt))
-(defn- libs []
+(defn- libs [static]
   (def dl (if (= (target-os) :macos) ["-undefined" "dynamic_lookup"] []))
   (def sg (if (smart-libs) ["-Wl,--start-group"] []))
   (def eg (if (smart-libs) ["-Wl,--end-group"] []))
   (def bs (if (not= (target-os) :macos) ["-Wl,-Bstatic"] []))
   (def bd (if (not= (target-os) :macos) ["-Wl,-Bdynamic"] []))
   [;(lflags)
+   ;(if static ["-static"] [])
    ;dl
    ;sg
    ;(default-libs)
@@ -228,6 +229,7 @@
    ;(static-libs)
    ;bd
    ;(dynamic-libs)
+   ;(if static bs []) # put back to static linking so the -static flag works.
    ;eg
    ;(rpath)])
 (defn- rdynamic
@@ -262,25 +264,25 @@
 (defn link-shared-c
   "Link a C program to make a shared library. Return the command arguments."
   [objects to]
-  (exec [(cc) (ccstd) ;(opt) ;(cflags) ;(extra-link-paths) "-o" to ;objects "-pthread" ;(libs) ;(dynamic-libs) "-shared"]
+  (exec [(cc) (ccstd) ;(opt) ;(cflags) ;(extra-link-paths) "-o" to ;objects "-pthread" ;(libs false) ;(dynamic-libs) "-shared"]
         objects [to] (string "linking " to "...")))
 
 (defn link-shared-c++
   "Link a C++ program to make a shared library. Return the command arguments."
   [objects to]
-  (exec [(c++) (c++std) ;(opt) ;(c++flags) ;(extra-link-paths) "-o" to ;objects "-pthread" ;(libs) ;(dynamic-libs) "-shared"]
+  (exec [(c++) (c++std) ;(opt) ;(c++flags) ;(extra-link-paths) "-o" to ;objects "-pthread" ;(libs false) ;(dynamic-libs) "-shared"]
         objects [to] (string "linking " to "...")))
 
 (defn link-executable-c
   "Link a C program to make an executable. Return the command arguments."
-  [objects to]
-  (exec [(cc) (ccstd) ;(opt) ;(cflags) ;(extra-link-paths) "-o" to ;objects ;(rdynamic) "-pthread" ;(libs)]
+  [objects to &opt make-static]
+  (exec [(cc) (ccstd) ;(opt) ;(cflags) ;(extra-link-paths) "-o" to ;objects ;(rdynamic) "-pthread" ;(libs make-static)]
         objects [to] (string "linking " to "...")))
 
 (defn link-executable-c++
   "Link a C++ program to make an executable. Return the command arguments."
-  [objects to]
-  (exec [(c++) (c++std) ;(opt) ;(c++flags) ;(extra-link-paths) "-o" to ;objects ;(rdynamic) "-pthread" ;(libs)]
+  [objects to &opt make-static]
+  (exec [(c++) (c++std) ;(opt) ;(c++flags) ;(extra-link-paths) "-o" to ;objects ;(rdynamic) "-pthread" ;(libs make-static)]
         objects [to] (string "linking " to "...")))
 
 (defn make-archive
@@ -504,7 +506,7 @@
 
 (defn msvc-link-executable
   "Link a C/C++ program with MSVC to make an executable. Return the command arguments."
-  [objects to]
+  [objects to &opt make-static]
   (exec [(link.exe) "/nologo" (string "/OUT:" to) ;objects ;(msvc-link-paths) ;(msvc-libs) ;(lflags)]
         objects [to] (string "linking " to "...")))
 

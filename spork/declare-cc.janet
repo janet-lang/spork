@@ -78,6 +78,7 @@
   (build-rules/build-rule
     rules :install [src]
     (def manifest (assert (dyn *install-manifest*)))
+    (put manifest :has-bin-script true)
     (when thunk (thunk))
     (bundle/add manifest src dest chmod-mode))
   dest)
@@ -89,6 +90,7 @@
   (build-rules/build-rule
     rules :install []
     (def manifest (assert (dyn *install-manifest*)))
+    (put manifest :has-bin-script true)
     (def files (get manifest :files @[]))
     (put manifest :files files)
     (def absdest (path/join (dyn *syspath*) dest))
@@ -661,10 +663,9 @@ int main(int argc, const char **argv) {
 (defn declare-executable
   "Declare a janet file to be the entry of a standalone executable program. The entry
   file is evaluated and a main function is looked for in the entry file. This function
-  is marshalled into bytecode which is then embedded in a final executable for distribution.\n\n
-  This executable can be installed as well to the --binpath given."
+  is marshalled into bytecode which is then embedded in a final executable for distribution."
   [&named name entry install headers no-compile no-core defines
-   pkg-config-flags target-os deps
+   pkg-config-flags target-os deps static
    pkg-config-libs smart-libs c-std c++-std msvc-libs
    cflags c++flags lflags libs static-libs dynamic-libs use-rpath use-rdynamic]
 
@@ -824,7 +825,7 @@ int main(int argc, const char **argv) {
             (flush)
             (compile-c cimage-dest oimage-dest)
             (flush)
-            (link [oimage-dest] dest))))
+            (link [oimage-dest] dest static))))
   target)
 
 (defn quickbin
