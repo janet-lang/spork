@@ -620,8 +620,15 @@
       (exec-linebuffered cmd))
     (do
       (print message)
-      (def devnull (sh/devnull))
-      (os/execute cmd :px {:out devnull :err devnull}))))
+      (with [proc (os/spawn cmd :p {:out :pipe :err :pipe})]
+        (def [out err exit] (ev/gather
+                              (ev/read (proc :out) :all)
+                              (ev/read (proc :err) :all)
+                              (os/proc-wait proc)))
+        (unless (zero? exit) # only print output on failure
+          (if out (eprint (string/trimr out)))
+          (if err (eprint (string/trimr err)))
+          (error "non-zero exit code"))))))
 
 (defn visit-execute-if-stale
   "A function that can be provided as `(dyn *visit*)` that will execute a command

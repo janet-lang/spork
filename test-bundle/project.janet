@@ -39,3 +39,18 @@
          (n3 :static)
          (n4 :static)
          (n5 :static)])
+
+(declare-executable
+  :name "testexec-static"
+  :static true
+  :entry "testexec.janet"
+  :deps [(n1 :native)
+         (n2 :native)
+         (n3 :native)
+         (n4 :native)
+         (n5 :native)
+         (n1 :static)
+         (n2 :static)
+         (n3 :static)
+         (n4 :static)
+         (n5 :static)])
