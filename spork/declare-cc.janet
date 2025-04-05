@@ -786,8 +786,16 @@ int main(int argc, const char **argv) {
             (def janeth (path/join headerpath "janet.h"))
             (assert (= (os/stat janeth :mode) :file) "janet.h not found in expected location, possible misconfiguration")
             (assert (= (os/stat libjanet :mode) :file) "libjanet.a not found in expected location, possible misconfiguration")
-            (array/push other-cflags (string "-I" headerpath) (string "-L" libpath))
+            (array/push other-cflags (string "-I" headerpath))
             (array/push dep-libs libjanet)))
+
+        # Static compilation will not work out of the box on mac, so disable with warning.
+        (def static
+          (if (and (= (os/which) :macos) static)
+            (do
+              (eprint "Warning! fully static executable disabled on macos.")
+              false)
+            static))
 
         (def benv @{cc/*build-dir* bd
                     cc/*defines* defines
@@ -821,8 +829,7 @@ int main(int argc, const char **argv) {
             (if has-cpp cc/link-executable-c++ cc/link-executable-c)))
         (unless no-compile
           (with-env benv
-            (unless static
-              (cc/search-libraries "m" "rt" "dl"))
+            (cc/search-libraries "m" "rt" "dl")
             (flush)
             (compile-c cimage-dest oimage-dest)
             (flush)
