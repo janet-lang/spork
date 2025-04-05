@@ -821,7 +821,8 @@ int main(int argc, const char **argv) {
             (if has-cpp cc/link-executable-c++ cc/link-executable-c)))
         (unless no-compile
           (with-env benv
-            (cc/search-libraries "m" "rt" "dl")
+            (unless static
+              (cc/search-libraries "m" "rt" "dl"))
             (flush)
             (compile-c cimage-dest oimage-dest)
             (flush)
