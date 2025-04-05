@@ -617,7 +617,8 @@
   [cmd inputs outputs message]
   (if (dyn :verbose)
     (do
-      (print (string/join cmd " "))
+      (eprint (string/join cmd " "))
+      (flush)
       (exec-linebuffered cmd))
     (do
       (print message)
