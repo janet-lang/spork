@@ -199,12 +199,13 @@
   (def sp (dyn *syspath* "."))
   (def ip (include-path))
   [(string "-I" sp)
-   ;(if ip [(string "-I" ip)] [])])
+   ;(if (dyn :verbose) ["-v"] [])
+   ;(if (and ip (not= ip sp)) [(string "-I" ip)] [])])
 (defn- extra-link-paths []
   (def sp (dyn *syspath* "."))
   (def lp (lib-path))
   [(string "-L" sp)
-   ;(if lp [(string "-L" lp)] [])])
+   ;(if (and lp (not= lp sp)) [(string "-L" lp)] [])])
 (defn- rpath
   []
   (if (dyn *use-rpath* true)
