@@ -789,6 +789,14 @@ int main(int argc, const char **argv) {
             (array/push other-cflags (string "-I" headerpath))
             (array/push dep-libs libjanet)))
 
+        # Static compilation will not work out of the box on mac, so disable with warning.
+        (def static
+          (if (and (= (os/which) :macos) static)
+            (do
+              (eprint "Warning! fully static executable disabled on macos.")
+              false)
+            static))
+
         (def benv @{cc/*build-dir* bd
                     cc/*defines* defines
                     cc/*libs* libs
@@ -821,8 +829,7 @@ int main(int argc, const char **argv) {
             (if has-cpp cc/link-executable-c++ cc/link-executable-c)))
         (unless no-compile
           (with-env benv
-            (unless static
-              (cc/search-libraries "m" "rt" "dl"))
+            (cc/search-libraries "m" "rt" "dl")
             (flush)
             (compile-c cimage-dest oimage-dest)
             (flush)

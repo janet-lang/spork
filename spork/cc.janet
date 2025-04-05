@@ -199,7 +199,7 @@
   (def sp (dyn *syspath* "."))
   (def ip (include-path))
   [(string "-I" sp)
-   ;(if (dyn :verbose) ["-v"] [])
+   # ;(if (dyn :verbose) ["-v"] []) # err, too verbose
    ;(if (and ip (not= ip sp)) [(string "-I" ip)] [])])
 (defn- extra-link-paths []
   (def sp (dyn *syspath* "."))
