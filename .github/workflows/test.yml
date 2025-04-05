@@ -34,7 +34,7 @@ jobs:
       - name: Test Install 
         run: sudo janet -e '(bundle/install "spork")'
       - name: Run Tests
-        run: cd spork && janet -l ./bundle -e "(check)"
+        run: cd spork && VERBOSE=1 janet -l ./bundle -e "(check)"
 
   test-windows:
     name: Build and test on Windows
