@@ -786,7 +786,7 @@ int main(int argc, const char **argv) {
             (def janeth (path/join headerpath "janet.h"))
             (assert (= (os/stat janeth :mode) :file) "janet.h not found in expected location, possible misconfiguration")
             (assert (= (os/stat libjanet :mode) :file) "libjanet.a not found in expected location, possible misconfiguration")
-            (array/push other-cflags (string "-I" headerpath) (string "-L" libpath))
+            (array/push other-cflags (string "-I" headerpath))
             (array/push dep-libs libjanet)))
 
         (def benv @{cc/*build-dir* bd
