@@ -192,7 +192,9 @@
   (def res @[])
   (array/push res (string "-DJANET_BUILD_TYPE=" (build-type)))
   (eachp [k v] (dyn *defines* [])
-    (array/push res (string "-D" k "=" v)))
+    (if (= v true)
+      (array/push res (string "-D" k))
+      (array/push res (string "-D" k "=" v))))
   (sort res) # for deterministic builds
   res)
 (defn- extra-paths []

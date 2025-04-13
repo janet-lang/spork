@@ -421,11 +421,13 @@
   [&named name source embedded lflags libs cflags
    c++flags defines install nostatic static-libs
    use-rpath use-rdynamic pkg-config-flags dynamic-libs msvc-libs
+   ldflags # alias for libs
    pkg-config-libs smart-libs c-std c++-std target-os]
 
   (def rules (get-rules))
 
   # Defaults
+  (default libs ldflags)
   (default embedded @[])
   (default nostatic false)
   (default defines @{})
@@ -668,8 +670,10 @@ int main(int argc, const char **argv) {
   [&named name entry install headers no-compile no-core defines
    pkg-config-flags target-os deps static
    pkg-config-libs smart-libs c-std c++-std msvc-libs
+   ldflags # alias for libs
    cflags c++flags lflags libs static-libs dynamic-libs use-rpath use-rdynamic]
 
+  (default libs ldflags)
   (default libs @[])
   (default cflags @[])
   (default lflags @[])
