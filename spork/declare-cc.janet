@@ -271,7 +271,8 @@
   (def bd (build-dir))
   (def rules (get-rules))
   # Initialize build rules
-  (build-rules/build-rule rules :install ["build"])
+  (build-rules/build-rule rules :install ["build" "pre-install"])
+  (build-rules/build-rule rules :pre-install [])
   (build-rules/build-rule rules :build [])
   # Add hooks
   (def e (curenv))
@@ -321,10 +322,10 @@
   :prefix can optionally be given to modify the destination path to be
   (string JANET_PATH prefix source)."
   [&named source prefix]
-  (defn dest [s] (if prefix (path/join prefix s) (path/basename s)))
+  (defn dest [s] (def bn (path/basename s)) (if prefix (path/join prefix bn) bn))
   (def sources (if (bytes? source) [source] source))
   (when prefix
-    (rule :install []
+    (rule :pre-install []
           (def manifest (assert (dyn *install-manifest*)))
           (bundle/add-directory manifest prefix)))
   (each s source
@@ -334,10 +335,10 @@
   "Declare headers for a library installation. Installed headers can be used by other native
   libraries."
   [&named headers prefix]
-  (defn dest [s] (if prefix (path/join prefix s) (path/basename s)))
+  (defn dest [s] (def bn (path/basename s)) (if prefix (path/join prefix bn) bn))
   (def headers (if (bytes? headers) [headers] headers))
   (when prefix
-    (rule :install []
+    (rule :pre-install []
           (def manifest (assert (dyn *install-manifest*)))
           (bundle/add-directory manifest prefix)))
   (each s headers
