@@ -20,7 +20,7 @@
 (unless enabled (print "set SPORK_TEST_ALL_PACKAGES=1 to run full pm testing."))
 (when enabled
   (assert true) # smoke test
-  (assert-docs "spork/pm")
+  (assert-docs "/spork/pm")
   (math/seedrandom (os/cryptorand 16))
   (def syspath (randdir))
   (sh/rm syspath)
