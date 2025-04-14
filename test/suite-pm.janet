@@ -6,7 +6,7 @@
 (start-suite)
 
 (assert true) # smoke test
-(assert-docs "spork/pm")
+(assert-docs "/spork/pm")
 
 # Copy since not exposed in boot.janet
 (defn- bundle-rpath
