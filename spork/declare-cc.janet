@@ -8,11 +8,6 @@
 ### is less flexible than raw spork/cc.
 ###
 
-### TODO
-# - MINGW Testing
-# - pkg-config testing and other project.janet feature testing
-# - expanded testing in test suite
-
 (import ./build-rules)
 (import ./cc)
 (import ./path)
@@ -135,17 +130,17 @@
 (defmacro sh-rule
   "Add a rule that invokes a shell command, and fails if the command returns non-zero."
   [target deps & body]
-  ~(,rule-impl ,target ,deps (fn ,(keyword (firstt target)) [] (,sh/exec (,string ,;body)))))
+  ~(,rule-impl ,target ,deps (fn ,(keyword (firstt target)) [] (,sh/exec ,;body))))
 
 (defmacro sh-task
   "Add a task that invokes a shell command, and fails if the command returns non-zero."
   [target deps & body]
-  ~(,rule-impl ,target ,deps (fn ,(keyword (firstt target)) [] (,sh/exec (,string ,;body))) true))
+  ~(,rule-impl ,target ,deps (fn ,(keyword (firstt target)) [] (,sh/exec ,;body)) true))
 
 (defmacro sh-phony
   "Alias for `sh-task`."
   [target deps & body]
-  ~(,rule-impl ,target ,deps (fn ,(keyword (firstt target)) [] (,sh/exec (,string ,;body))) true))
+  ~(,rule-impl ,target ,deps (fn ,(keyword (firstt target)) [] (,sh/exec ;body)) true))
 
 (defn install-file-rule
   "Add install and uninstall rule for moving file from src into destdir."
@@ -274,13 +269,18 @@
   (build-rules/build-rule rules :install ["build" "pre-install"])
   (build-rules/build-rule rules :pre-install [])
   (build-rules/build-rule rules :build [])
+  (build-rules/build-rule rules :pre-build [])
   # Add hooks
   (def e (curenv))
   (defn- prebuild
     []
     (os/mkdir br)
     (os/mkdir bd)
-    (os/mkdir (path/join bd "static")))
+    (os/mkdir (path/join bd "static"))
+    (build-rules/build-run e "pre-build" (dyn :workers)))
+  (defn- precheck
+    []
+    (build-rules/build-run e "pre-check" (dyn :workers)))
   (defn build [&opt man target]
     (prebuild)
     (default target "build")
@@ -291,6 +291,7 @@
       (build-rules/build-run e "install" (dyn :workers))))
   (defn check [&]
     (build)
+    (precheck)
     (run-tests))
   (defn list-rules [&]
     (each k (sorted (filter string? (keys rules)))
