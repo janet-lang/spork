@@ -270,6 +270,7 @@
   (build-rules/build-rule rules :pre-install [])
   (build-rules/build-rule rules :build [])
   (build-rules/build-rule rules :pre-build [])
+  (build-rules/build-rule rules :pre-check [])
   # Add hooks
   (def e (curenv))
   (defn- prebuild
