@@ -25,6 +25,7 @@
 (os/mkdir "tmp")
 (assert (os/mkdir syspath))
 (pm-config/read-env-variables root-env)
+(setdyn :build-dir nil) # jpm test sets this and it messes things up
 (defer (sh/rm "tmp")
   (put root-env *syspath* (bundle-rpath syspath))
   (put root-env :binpath (string syspath "/bin"))
