@@ -172,7 +172,7 @@
 (decl-basename "win32")
 (decl-dirname "win32")
 (decl-parts "win32" "\\")
-(decl-normalize "win32" `\` (set `\/`) (* (? (* (range "AZ" "az") `:`)) `\`))
+(decl-normalize "win32" `\` (set `\/`) (+ (* `\\` (some (if-not `\` 1)) `\`) (* (? (* (range "AZ" "az") `:`)) `\`)))
 (decl-join "win32" "\\")
 (decl-abspath "win32")
 (decl-relpath "win32")
