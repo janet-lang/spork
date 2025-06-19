@@ -389,13 +389,25 @@
                (array/push string-args ~(,get opts ,(keyword (first sym)))))))
   ~(fn [opts] (,string ,;string-args)))
 
-(defmacro- deftemplate
-  "Define a template inline"
-  [template-name body]
-  ~(def ,template-name :private ,(make-template body)))
+(defmacro deftemplate
+  ```
+  Define a inline template as defined by Python PEP292 (shell-like $ substitution),
+  and also allows dashes in indentifiers.
 
-(defn- opt-ask
-  "Ask user for input"
+  It defines new function `template-name` that takes a dictionary `opts` containing
+  substitutions as an argument. Keys should be keywords with the same name (sans :)
+  as the substitution keys.
+
+  Template is parsed from the `body` which should be string and can contain substitutions.
+  ```
+  [template-name body]
+  ~(def ,template-name ,(make-template body)))
+
+(defn opt-ask
+  ```
+  Ask user for the value of the `key`. `input-options` should be a table with default values.
+  If the default value for the `key` is not `nil`, it will return that.
+  ```
   [key input-options]
   (def dflt (get input-options key))
   (if (nil? dflt)
