@@ -398,10 +398,10 @@
   substitutions as an argument. Keys should be keywords with the same name (sans :)
   as the substitution keys.
 
-  Template is parsed from the `body` which should be string and can contain substitutions.
+  Template is parsed from the last element of `body` which should be string and can contain substitutions.
   ```
-  [template-name body]
-  ~(def ,template-name ,(make-template body)))
+  [template-name & body]
+  ~(def ,template-name ,;(drop 1 body) ,(make-template (last body))))
 
 (defn opt-ask
   ```
@@ -415,6 +415,7 @@
     dflt))
 
 (deftemplate project-template
+  :private
   ````
   (declare-project
     :name "$name"
@@ -428,6 +429,7 @@
   ````)
 
 (deftemplate native-project-template
+  :private
   ````
   (declare-project
     :name "$name"
@@ -445,6 +447,7 @@
   ````)
 
 (deftemplate module-c-template
+  :private
   ```
   #include <janet.h>
 
@@ -474,6 +477,7 @@
   ```)
 
 (deftemplate exe-project-template
+  :private
   ````
   (declare-project
     :name "$name"
@@ -488,6 +492,7 @@
   ````)
 
 (deftemplate readme-template
+  :private
   ```
   # ${name}
 
@@ -495,6 +500,7 @@
   ```)
 
 (deftemplate changelog-template
+  :private
   ```
   # Changelog
   All notable changes to this project will be documented in this file.
@@ -505,6 +511,7 @@
   ```)
 
 (deftemplate license-template
+  :private
   ```
   Copyright (c) $year $author and contributors
 
@@ -528,6 +535,7 @@
   ```)
 
 (deftemplate init-template
+  :private
   ```
   (defn hello
     `Evaluates to "Hello!"`
@@ -540,6 +548,7 @@
   ```)
 
 (deftemplate test-template
+  :private
   ```
   (use ../$name/init)
 
@@ -547,6 +556,7 @@
   ```)
 
 (deftemplate native-test-template
+  :private
   ```
   (use ${name}-native)
 
@@ -554,6 +564,7 @@
   ```)
 
 (deftemplate bundle-init-template
+  :private
   ````
   (defn install
     [manifest &]
@@ -590,6 +601,7 @@
   ````)
 
 (deftemplate bundle-info-template
+  :private
   ````
   {:name "$name"
    :description ```$description ```
@@ -644,6 +656,7 @@
       (spit (string name "/project.janet") (project-template template-opts)))))
 
 (deftemplate enter-shell-template
+  :private
     ````
     # . bin/activate
     _OLD_JANET_PATH="$$JANET_PATH";
@@ -678,47 +691,50 @@
     ````)
 
 (deftemplate enter-ps-template
-    ````
-    # . bin/activate.ps1
-    $$global:_OLD_JANET_PATH=$$env:JANET_PATH
-    $$global:_OLD_PATH=$$env:PATH
-    $$env:JANET_PATH="$abspath"
-    $$env:PATH=$$JANET_PATH + "/bin:" + $$env:PATH
-    $$function:old_prompt = $$function:prompt
-    function global:prompt {
-      Write-Host "($name) " -NoNewline
-      & $$function:old_prompt
-    }
-    function deactivate {
-      $$env:PATH=$$global:_OLD_PATH
-      $$env:JANET_PATH=$$global:_OLD_JANET_PATH
-      Remove-Item function:\deactivate
-      $$function:prompt = $$function:old_prompt
-      Remove-Item function:\old_prompt
-    }
-    ````)
+  :private
+  ````
+  # . bin/activate.ps1
+  $$global:_OLD_JANET_PATH=$$env:JANET_PATH
+  $$global:_OLD_PATH=$$env:PATH
+  $$env:JANET_PATH="$abspath"
+  $$env:PATH=$$JANET_PATH + "/bin:" + $$env:PATH
+  $$function:old_prompt = $$function:prompt
+  function global:prompt {
+    Write-Host "($name) " -NoNewline
+    & $$function:old_prompt
+  }
+  function deactivate {
+    $$env:PATH=$$global:_OLD_PATH
+    $$env:JANET_PATH=$$global:_OLD_JANET_PATH
+    Remove-Item function:\deactivate
+    $$function:prompt = $$function:old_prompt
+    Remove-Item function:\old_prompt
+  }
+  ````)
 
 (deftemplate enter-cmd-template
-    ````
-    @rem bin\activate.bat
-    @set _OLD_JANET_PATH=%JANET_PATH%
-    @set _OLD_PATH=%PATH%
-    @set _OLD_PROMPT=%PROMPT%
-    @set JANET_PATH=$abspath
-    @set PATH=%JANET_PATH%\bin;%PATH%
-    @set PROMPT=($path) %PROMPT%
-    ````)
+  :private
+  ````
+  @rem bin\activate.bat
+  @set _OLD_JANET_PATH=%JANET_PATH%
+  @set _OLD_PATH=%PATH%
+  @set _OLD_PROMPT=%PROMPT%
+  @set JANET_PATH=$abspath
+  @set PATH=%JANET_PATH%\bin;%PATH%
+  @set PROMPT=($path) %PROMPT%
+  ````)
 
 (deftemplate exit-cmd-template
-    ````
-    @rem bin\deactivate.bat
-    @set JANET_PATH=%_OLD_JANET_PATH%
-    @set PATH=%_OLD_PATH%
-    @set PROMPT=%_OLD_PROMPT%
-    @set _OLD_JANET_PATH=%PATH%
-    @set _OLD_PATH=%PATH%
-    @set _OLD_PROMPT=%PROMPT%
-    ````)
+  :private
+  ````
+  @rem bin\deactivate.bat
+  @set JANET_PATH=%_OLD_JANET_PATH%
+  @set PATH=%_OLD_PATH%
+  @set PROMPT=%_OLD_PROMPT%
+  @set _OLD_JANET_PATH=%PATH%
+  @set _OLD_PATH=%PATH%
+  @set _OLD_PROMPT=%PROMPT%
+  ````)
 
 (defn scaffold-pm-shell
   "Generate a pm shell with configuration already setup."
