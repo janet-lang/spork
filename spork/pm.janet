@@ -401,7 +401,7 @@
   Template is parsed from the last element of `body` which should be string and can contain substitutions.
   ```
   [template-name & body]
-  ~(def ,template-name ,;(drop 1 body) ,(make-template (last body))))
+  ~(def ,template-name ,;(slice body 0 -2) ,(make-template (last body))))
 
 (defn opt-ask
   ```
