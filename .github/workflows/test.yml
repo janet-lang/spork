@@ -40,7 +40,7 @@ jobs:
     name: Build and test on Windows
     strategy:
       matrix:
-        os: [ windows-2022, windows-2019 ]
+        os: [ windows-2022, windows-latest ]
         janet-version: [ 1.35.2, 1.36.0, 1.37.1, 1.38.0 ]
     runs-on: ${{ matrix.os }}
     steps:
