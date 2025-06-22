@@ -746,8 +746,8 @@
   (def leftovers (search-libraries ;libs))
   (unless (empty? leftovers)
     (errorf "could not find libraries %j" leftovers))
-  (array/concat (getsetdyn *cflags*) cflags)
-  (array/concat (getsetdyn *lflags*) lflags)
+  (array/concat @[] (getsetdyn *cflags*) cflags)
+  (array/concat @[] (getsetdyn *lflags*) lflags)
   nil)
 
 ###
