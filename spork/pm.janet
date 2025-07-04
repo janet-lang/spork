@@ -190,6 +190,10 @@
       ['declare-project & rest] (set ret (table ;rest))))
   (unless ret
     (errorf "no metadata found in %s" path))
+  # Fix the issue of :dependencies having a different meaning in the metadata
+  (def deps (seq [d :in (get ret :dependencies @[])] d))
+  (put ret :jpm-dependencies deps)
+  (put ret :dependencies @["spork"])
   ret)
 
 (def- shimcode
@@ -254,9 +258,6 @@
   (assert (os/stat project :mode) "did not find bundle directory, bundle.janet or project.janet")
   (printf "generating %s" bundle-hook-dir)
   (def meta (load-project-meta dir))
-  (def deps (seq [d :in (get meta :dependencies @[])] d))
-  (put meta :jpm-dependencies deps)
-  (put meta :dependencies @["spork"])
   (os/mkdir bundle-hook-dir)
   (spit bundle-init shimcode)
   (spit bundle-info (string/format "%j" meta))
