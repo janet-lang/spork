@@ -804,11 +804,31 @@ int main(int argc, const char **argv) {
               false)
             static))
 
+        # locally specific distinct to deal with macOS flags like ["-framework" "Cocoa"]
+        (defn distinct-flags [args]
+          (def res @[])
+          (def seen @{})
+          (var item (next args))
+          (while item
+            (def val (args item))
+            (if (or (= val "-framework") (= val "-weak_framework"))
+              (do
+                (set item (next args item))
+                (def combined-flag (string val (args item)))
+                (unless (in seen combined-flag)
+                  (put seen combined-flag true)
+                  (array/push res val (args item))))
+              (unless (in seen val)
+                (put seen val true)
+                (array/push res val)))
+            (set item (next args item)))
+          res)
+
         (def benv @{cc/*build-dir* bd
                     cc/*defines* defines
                     cc/*libs* libs
                     cc/*msvc-libs* (distinct [;msvc-libs-extra ;msvc-libs ;static-libs])
-                    cc/*lflags* (distinct [;lflags ;dep-lflags])
+                    cc/*lflags* (distinct-flags [;lflags ;dep-lflags])
                     cc/*cflags* [;other-cflags ;cflags]
                     cc/*c++flags* (distinct [;other-cflags ;c++flags])
                     cc/*static-libs* (distinct [;dep-libs ;static-libs])
