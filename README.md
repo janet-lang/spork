@@ -57,7 +57,7 @@ Spork's documentation is written using [Mendoza](https://github.com/bakpakin/men
   The docs are most easily read by first building and then serving the .mdz files in `doc/` using Mendoza.
   You can then access the served static site using a browser.
 
-- First, make sure you have [Janet](https://janet-lang.org/) and [jpm](https://janet-lang.org/docs/jpm.html) installed. See [the Janet docs](https://janet-lang.org/introduction.html) for more information on this.
+- First, make sure you have [Janet](https://janet-lang.org/) and [jpm](https://janet-lang.org/docs/jpm.html) installed. See [the Janet docs](https://janet-lang.org/docs/index.html) for more information on this.
 - Next, install Mendoza (to install globally, run `[sudo] jpm install mendoza`). For more information on Mendoza, see [the Mendoza project on GitHub](https://github.com/bakpakin/mendoza).
 - Clone this repo locally (e.g. using `git clone https://github.com/janet-lang/spork.git`).
 - From the spork project root (`cd spork` if you just cloned it) run `mdz build && mdz serve`.
