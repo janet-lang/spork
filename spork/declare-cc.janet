@@ -266,11 +266,15 @@
   (def bd (build-dir))
   (def rules (get-rules))
   # Initialize build rules
-  (build-rules/build-rule rules :install ["build" "pre-install"])
+  (build-rules/build-rule rules :install [])
   (build-rules/build-rule rules :pre-install [])
+  (build-rules/build-rule rules :post-install [])
   (build-rules/build-rule rules :build [])
   (build-rules/build-rule rules :pre-build [])
+  (build-rules/build-rule rules :post-build [])
+  (build-rules/build-rule rules :check [])
   (build-rules/build-rule rules :pre-check [])
+  (build-rules/build-rule rules :post-check [])
   # Add hooks
   (def e (curenv))
   (defn- prebuild
@@ -279,34 +283,59 @@
     (os/mkdir bd)
     (os/mkdir (path/join bd "static"))
     (build-rules/build-run e "pre-build" (dyn :workers)))
+  (defn- postbuild
+    []
+    (build-rules/build-run e "post-build" (dyn :workers)))
   (defn- precheck
     []
     (build-rules/build-run e "pre-check" (dyn :workers)))
+  (defn- postcheck
+    []
+    (build-rules/build-run e "post-check" (dyn :workers)))
+  (defn- preinstall
+    []
+    (build-rules/build-run e "pre-install" (dyn :workers)))
+  (defn- postinstall
+    []
+    (build-rules/build-run e "post-install" (dyn :workers)))
+  (defn- preclean
+    []
+    (build-rules/build-run e "pre-clean" (dyn :workers)))
+  (defn- postclean
+    []
+    (build-rules/build-run e "post-clean" (dyn :workers)))
   (defn build [&opt man target]
     (prebuild)
     (default target "build")
-    (build-rules/build-run e target (dyn :workers)))
+    (build-rules/build-run e target (dyn :workers))
+    (postbuild))
   (defn install [manifest &]
-    (build)
+    # (build) - removed since install in janet/src/boot/boot.janet calls build in the install hook
+    (preinstall)
     (with-dyns [*install-manifest* manifest]
-      (build-rules/build-run e "install" (dyn :workers))))
+      (build-rules/build-run e "install" (dyn :workers)))
+    (postinstall))
   (defn check [&]
     (build)
     (precheck)
-    (run-tests))
+    (run-tests)
+    (postcheck))
   (defn list-rules [&]
     (each k (sorted (filter string? (keys rules)))
       (print k)))
   (defn rule-tree [&]
     (show-rule-tree rules))
   (defn clean [&]
+    (preclean)
     (print "removing directory " bd)
-    (sh/rm bd))
+    (sh/rm bd)
+    (postclean))
   (defn clean-all [&]
+    (preclean)
     (print "removing directory " br)
-    (sh/rm br))
+    (sh/rm br)
+    (postclean))
   (defn run-task [task]
-    (prebuild)
     (build-rules/build-run e task (dyn :workers)))
   (defglobal 'install install)
   (defglobal 'build build)
