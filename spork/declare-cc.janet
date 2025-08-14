@@ -275,6 +275,9 @@
   (build-rules/build-rule rules :check [])
   (build-rules/build-rule rules :pre-check [])
   (build-rules/build-rule rules :post-check [])
+  (build-rules/build-rule rules :clean [])
+  (build-rules/build-rule rules :pre-clean [])
+  (build-rules/build-rule rules :post-clean [])
   # Add hooks
   (def e (curenv))
   (defn- prebuild
