@@ -94,6 +94,7 @@
        (assert (= 2 (length (string/find-all "put root-env :install-time-syspath" (slurp janet-netrepl)))))
 
        # check sub commands work, even without defining pre-/post-
+
        (os/cd "test-bundle")
        (divider "Running janet-pm clean in a project that doesn't define pre-clean/post-clean")
        (def empty-out (sh/exec-slurp-all janet-pm "clean"))
@@ -101,6 +102,7 @@
        (assert (= 0 (count-match "error" (empty-out :err))))
 
        # run janet-pm commands and collect output
+
        (os/cd "../test-project")
 
        # check "build"
