@@ -43,6 +43,20 @@
       (each line err
         (printf line)))))
 
+(def bat (if (= (os/which) :windows) ".bat" ""))
+
+(defn- test-binscript [filename syscount printcount]
+  (assert (sh/exists? filename))
+  (let [contents (slurp filename)]
+    (printf "---------- %s -------------" filename)
+    (loop [line :in (string/split "\n" contents)]
+      (print line))
+    (print "----------------------------")
+    (assert (= syscount (length (string/find-all "put root-env :install-time-syspath" contents))))
+    (assert (= printcount (length (string/find-all "print" contents)))))
+  # and finally make sure the script actually runs
+  (assert (= "hello" (sh/exec-slurp (string filename bat)))))
+
 # Create a temporary directory for our janet tree
 (math/seedrandom (os/cryptorand 16))
 (def syspath (randdir))
@@ -64,18 +78,37 @@
        (pm/pm-install "file::.")
        (assert (= 1 (length (bundle/list))) "bundle/list after install")
 
-       # make sure the right janet-pm is found
+       # make sure the right janet-pm is found and
+       # verify all bin scripts have two copies of hard-coded syspath, one in body
+       # and one in main
        (def binpath (path/join (dyn *syspath*) "bin"))
-       (def janet-pm (path/join binpath (string "janet-pm" (if (= (os/which) :windows) ".exe" ""))))
+       (def janet-pm (path/join binpath (string "janet-pm")))
        (assert (sh/exists? janet-pm))
+       (assert (= 2 (length (string/find-all "put root-env :install-time-syspath" (slurp janet-pm)))))
 
-       (os/cd "test-project")
+       (def janet-format (path/join binpath (string "janet-format")))
+       (assert (sh/exists? janet-format))
+       (assert (= 2 (length (string/find-all "put root-env :install-time-syspath" (slurp janet-format)))))
+
+       (def janet-netrepl (path/join binpath (string "janet-netrepl")))
+       (assert (sh/exists? janet-netrepl))
+       (assert (= 2 (length (string/find-all "put root-env :install-time-syspath" (slurp janet-netrepl)))))
+
+       # check sub commands work, even without defining pre-/post-
+
+       (os/cd "test-bundle")
+       (divider "Running janet-pm clean in a project that doesn't define pre-clean/post-clean")
+       (def empty-out (sh/exec-slurp-all (string janet-pm bat) "clean"))
+       (dump-out empty-out)
+       (assert (= 0 (count-match "error" (empty-out :err))))
 
        # run janet-pm commands and collect output
 
+       (os/cd "../test-project")
+
        # check "build"
        (divider "Running janet-pm build")
-       (def build-out (sh/exec-slurp-all janet-pm "build"))
+       (def build-out (sh/exec-slurp-all (string janet-pm bat) "build"))
        (dump-out build-out)
        (assert (= 1 (count-match "** pre-build" (build-out :out))))
        (assert (= 1 (count-match "** post-build" (build-out :out))))
@@ -83,7 +116,7 @@
 
        # check "install"
        (divider "Running janet-pm install")
-       (def install-out (sh/exec-slurp-all janet-pm "install"))
+       (def install-out (sh/exec-slurp-all (string janet-pm bat) "install"))
        (dump-out install-out)
        # verify proper entries only occur once
        (assert (= 1 (count-match "** pre-build" (install-out :out))))
@@ -98,9 +131,26 @@
        (assert (after? "pre-install" "post-build" (install-out :out)))
        (assert (after? "post-install" "pre-install" (install-out :out)))
 
+       # now we look at the binscripts installed from the test-project
+       # bin-no-main should only have one instance of the hardcoded syspath
+       (def bin-no-main (path/join binpath (string "bin-no-main")))
+       (test-binscript bin-no-main 1 1)
+
+       # bin-with-main should have 2 instances of hardcoded path
+       (def bin-with-main (path/join binpath (string "bin-with-main")))
+       (test-binscript bin-with-main 2 1)
+
+       # bin-with-oneline-main could be tricky
+       (def bin-with-oneline-main (path/join binpath (string "bin-with-oneline-main")))
+       (test-binscript bin-with-oneline-main 2 1)
+
+       # bin-no-hardcode should have zero instances of hardcoded paths
+       (def bin-no-hardcode (path/join binpath (string "bin-no-hardcode")))
+       (test-binscript bin-no-hardcode 0 1)
+
        # check "test"
        (divider "Running janet-pm test")
-       (def test-out (sh/exec-slurp-all janet-pm "test"))
+       (def test-out (sh/exec-slurp-all (string janet-pm bat) "test"))
        (dump-out test-out)
        # verify proper entries only occur once
        (assert (= 1 (count-match "** pre-build" (test-out :out))))
@@ -119,11 +169,11 @@
 
         # check "clean"
        (divider "Running janet-pm clean")
-       (def clean-out (sh/exec-slurp-all janet-pm "clean"))
+       (def clean-out (sh/exec-slurp-all (string janet-pm bat) "clean"))
        (dump-out clean-out)
        # verify proper entries only occur once
        (assert (= 1 (count-match "** pre-clean" (clean-out :out))))
-       (assert (= 1 (count-match "removing directory _build/" (clean-out :out))))
+       (assert (= 1 (count-match "removing directory _build" (clean-out :out))))
        (assert (= 1 (count-match "** post-clean" (clean-out :out))))
        (assert (= 0 (count-match "** pre-build" (clean-out :out))))
        (assert (= 0 (count-match "** post-build" (clean-out :out))))
@@ -138,7 +188,7 @@
 
         # check "clean-all"
        (divider "Running janet-pm clean-all")
-       (def clean-all-out (sh/exec-slurp-all janet-pm "clean-all"))
+       (def clean-all-out (sh/exec-slurp-all (string janet-pm bat) "clean-all"))
        (dump-out clean-all-out)
        # verify proper entries only occur once
        (assert (= 1 (count-match "** pre-clean" (clean-all-out :out))))

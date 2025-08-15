@@ -7,6 +7,26 @@
 (declare-source
   :source @["hello"])
 
+(declare-binscript
+  :main "bin/bin-no-main"
+  :hardcode-syspath true
+  :is-janet true)
+
+(declare-binscript
+  :main "bin/bin-with-main"
+  :hardcode-syspath true
+  :is-janet true)
+
+(declare-binscript
+  :main "bin/bin-with-oneline-main"
+  :hardcode-syspath true
+  :is-janet true)
+
+(declare-binscript
+  :main "bin/bin-no-hardcode"
+  :hardcode-syspath false
+  :is-janet true)
+
 (task "pre-build" ["pre-build-test"])
 (task "post-build" ["post-build-test"])
 
