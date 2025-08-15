@@ -43,6 +43,18 @@
       (each line err
         (printf line)))))
 
+(defn- test-binscript [filename syscount printcount]
+  (assert (sh/exists? filename))
+  (let [contents (slurp filename)]
+    (printf "---------- %s -------------" filename)
+    (loop [line :in (string/split "\n" contents)]
+      (print line))
+    (print "----------------------------")
+    (assert (= syscount (length (string/find-all "put root-env :install-time-syspath" contents))))
+    (assert (= printcount (length (string/find-all "print" contents)))))
+  # and finally make sure the script actually runs
+  (assert (= "hello" (sh/exec-slurp filename))))
+
 # Create a temporary directory for our janet tree
 (math/seedrandom (os/cryptorand 16))
 (def syspath (randdir))
@@ -64,10 +76,22 @@
        (pm/pm-install "file::.")
        (assert (= 1 (length (bundle/list))) "bundle/list after install")
 
-       # make sure the right janet-pm is found
+       # make sure the right janet-pm is found and
+       # verify all bin scripts have two copies of hard-coded syspath, one in body
+       # and one in main
        (def binpath (path/join (dyn *syspath*) "bin"))
-       (def janet-pm (path/join binpath (string "janet-pm" (if (= (os/which) :windows) ".exe" ""))))
+       (def exe (if (= (os/which) :windows) ".exe" ""))
+       (def janet-pm (path/join binpath (string "janet-pm" exe)))
        (assert (sh/exists? janet-pm))
+       (assert (= 2 (length (string/find-all "put root-env :install-time-syspath" (slurp janet-pm)))))
+
+       (def janet-format (path/join binpath (string "janet-format" exe)))
+       (assert (sh/exists? janet-format))
+       (assert (= 2 (length (string/find-all "put root-env :install-time-syspath" (slurp janet-format)))))
+
+       (def janet-netrepl (path/join binpath (string "janet-netrepl" exe)))
+       (assert (sh/exists? janet-netrepl))
+       (assert (= 2 (length (string/find-all "put root-env :install-time-syspath" (slurp janet-netrepl)))))
 
        # check sub commands work, even without defining pre-/post-
        (os/cd "test-bundle")
@@ -103,6 +127,23 @@
        (assert (after? "post-build" "pre-build" (install-out :out)))
        (assert (after? "pre-install" "post-build" (install-out :out)))
        (assert (after? "post-install" "pre-install" (install-out :out)))
+
+       # now we look at the binscripts installed from the test-project
+       # bin-no-main should only have one instance of the hardcoded syspath
+       (def bin-no-main (path/join binpath (string "bin-no-main" exe)))
+       (test-binscript bin-no-main 1 1)
+
+       # bin-with-main should have 2 instances of hardcoded path
+       (def bin-with-main (path/join binpath (string "bin-with-main" exe)))
+       (test-binscript bin-with-main 2 1)
+
+       # bin-with-oneline-main could be tricky
+       (def bin-with-oneline-main (path/join binpath (string "bin-with-oneline-main" exe)))
+       (test-binscript bin-with-oneline-main 2 1)
+
+       # bin-no-hardcode should have zero instances of hardcoded paths
+       (def bin-no-hardcode (path/join binpath (string "bin-no-hardcode" exe)))
+       (test-binscript bin-no-hardcode 0 1)
 
        # check "test"
        (divider "Running janet-pm test")
