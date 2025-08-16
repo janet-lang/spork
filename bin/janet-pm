@@ -5,6 +5,19 @@
 (import spork/pm)
 (import spork/pm-config)
 (import spork/sh)
+
+# Fix for janet without assertf
+(compwhen (not (dyn 'assertf))
+  (defmacro- assertf
+    "Convenience macro that combines `assert` and `string/format`."
+    [x fmt & args]
+    (def v (gensym))
+    ~(do
+       (def ,v ,x)
+       (if ,v
+         ,v
+         (,errorf ,fmt ,;args)))))
+
 # Do not import declare-cc here - keep a clean separation for faster load times
 
 (def help-text
