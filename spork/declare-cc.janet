@@ -140,7 +140,7 @@
 (defmacro sh-phony
   "Alias for `sh-task`."
   [target deps & body]
-  ~(,rule-impl ,target ,deps (fn ,(keyword (firstt target)) [] (,sh/exec ;body)) true))
+  ~(,rule-impl ,target ,deps (fn ,(keyword (firstt target)) [] (,sh/exec ,;body)) true))
 
 (defn install-file-rule
   "Add install and uninstall rule for moving file from src into destdir."
