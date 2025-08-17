@@ -314,10 +314,10 @@
     (postbuild))
   (defn install [manifest &]
     # (build) - removed since install in janet/src/boot/boot.janet calls build in the install hook
-    (preinstall)
     (with-dyns [*install-manifest* manifest]
-      (build-rules/build-run e "install" (dyn :workers)))
-    (postinstall))
+      (preinstall)
+      (build-rules/build-run e "install" (dyn :workers))
+      (postinstall)))
   (defn check [&]
     (build)
     (precheck)
