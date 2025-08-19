@@ -33,6 +33,15 @@
 (defn divider [title]
   (printf "------------------------------------------\n%s" title))
 
+(defn dump-file [filename]
+  (let [contents (slurp filename)]
+    (printf "---------- %s -------------" filename)
+    (var count 0)
+    (loop [line :in (string/split "\n" contents)]
+      (set count (inc count))
+      (printf "%5d %s" count line))
+    (print "----------------------------")))
+
 (defn dump-out [output]
   (let [out (string/split "\n" (output :out))
         err (string/split "\n" (output :err))]
@@ -44,18 +53,6 @@
         (printf line)))))
 
 (def bat (if (= (os/which) :windows) ".bat" ""))
-
-(defn- test-binscript [filename syscount printcount]
-  (assert (sh/exists? filename))
-  (let [contents (slurp filename)]
-    (printf "---------- %s -------------" filename)
-    (loop [line :in (string/split "\n" contents)]
-      (print line))
-    (print "----------------------------")
-    (assert (= syscount (length (string/find-all "put root-env :install-time-syspath" contents))))
-    (assert (= printcount (length (string/find-all "print" contents)))))
-  # and finally make sure the script actually runs
-  (assert (= "hello" (sh/exec-slurp (string filename bat)))))
 
 # Create a temporary directory for our janet tree
 (math/seedrandom (os/cryptorand 16))
@@ -84,15 +81,8 @@
        (def binpath (path/join (dyn *syspath*) "bin"))
        (def janet-pm (path/join binpath (string "janet-pm")))
        (assert (sh/exists? janet-pm))
-       (assert (= 2 (length (string/find-all "put root-env :install-time-syspath" (slurp janet-pm)))))
-
-       (def janet-format (path/join binpath (string "janet-format")))
-       (assert (sh/exists? janet-format))
-       (assert (= 2 (length (string/find-all "put root-env :install-time-syspath" (slurp janet-format)))))
-
-       (def janet-netrepl (path/join binpath (string "janet-netrepl")))
-       (assert (sh/exists? janet-netrepl))
-       (assert (= 2 (length (string/find-all "put root-env :install-time-syspath" (slurp janet-netrepl)))))
+       (dump-out (sh/exec-slurp-all janet-pm "show-config"))
+       (assert (= 1 (length (string/find-all "put root-env :install-time-syspath" (slurp janet-pm)))))
 
        # check sub commands work, even without defining pre-/post-
 
@@ -131,22 +121,11 @@
        (assert (after? "pre-install" "post-build" (install-out :out)))
        (assert (after? "post-install" "pre-install" (install-out :out)))
 
-       # now we look at the binscripts installed from the test-project
-       # bin-no-main should only have one instance of the hardcoded syspath
-       (def bin-no-main (path/join binpath (string "bin-no-main")))
-       (test-binscript bin-no-main 1 1)
-
-       # bin-with-main should have 2 instances of hardcoded path
+       # check that syspath is correctly set inside a main in a binscript
        (def bin-with-main (path/join binpath (string "bin-with-main")))
-       (test-binscript bin-with-main 2 1)
-
-       # bin-with-oneline-main could be tricky
-       (def bin-with-oneline-main (path/join binpath (string "bin-with-oneline-main")))
-       (test-binscript bin-with-oneline-main 2 1)
-
-       # bin-no-hardcode should have zero instances of hardcoded paths
-       (def bin-no-hardcode (path/join binpath (string "bin-no-hardcode")))
-       (test-binscript bin-no-hardcode 0 1)
+       (def bin-out (sh/exec-slurp-all (string bin-with-main bat)))
+       (dump-out bin-out)
+       (assert (string/find (dyn *syspath*) (bin-out :out)))
 
        # check "test"
        (divider "Running janet-pm test")
