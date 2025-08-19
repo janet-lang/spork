@@ -125,7 +125,7 @@
        (def bin-with-main (path/join binpath (string "bin-with-main")))
        (def bin-out (sh/exec-slurp-all (string bin-with-main bat)))
        (dump-out bin-out)
-       (assert (string/find (dyn *syspath*) (bin-out :out)))
+       (assert (string/find (path/basename (dyn *syspath*)) (bin-out :out)))
 
        # check "test"
        (divider "Running janet-pm test")
