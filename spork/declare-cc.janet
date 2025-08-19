@@ -383,19 +383,6 @@
   [&named main]
   (install-rule main "bin" 8r755 (mkbin)))
 
-(defn- main-replacer [dynamic-syspath hardcode-syspath l2 l3 l4]
-  (def parts @[])
-  (if (or dynamic-syspath hardcode-syspath) (array/push parts (string "\n  " l2)))
-  (if hardcode-syspath (array/push parts (string "  " l3)))
-  (if hardcode-syspath (array/push parts (string "  " l4)))
-  (fn [m & args] (string m (string/join parts "") "\n")))
-
-(defn- hardcode-syspath-in-main [dynamic-syspath hardcode-syspath contents l2 l3 l4]
-  (def patt (peg/compile '{:ws (some (choice :a :d :s "[" "&"))
-                           :defn (sequence "(defn" (any "-") :s "main" :ws "]" (any (choice " " "\n")))
-                           :main :defn}))
-  (peg/replace patt (main-replacer dynamic-syspath hardcode-syspath l2 l3 l4) contents))
-
 (defn declare-binscript
   ``Declare a janet file to be installed as an executable script. Creates
   a shim on windows. If hardcode is true, will insert code into the script
@@ -420,10 +407,7 @@
               (if (or dynamic-syspath hardcode-syspath) second-line)
               (if hardcode-syspath third-line)
               (if hardcode-syspath fourth-line)
-              (if hardcode-syspath
-                (hardcode-syspath-in-main dynamic-syspath hardcode-syspath rest second-line third-line fourth-line)
-                rest)
-              (if dynamic-syspath last-line))))
+              rest)))
   (install-buffer contents dest 8r755 (mkbin))
   (when (is-win-or-mingw)
     (def absdest (path/join (dyn *syspath*) dest))

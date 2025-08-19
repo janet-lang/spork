@@ -4,4 +4,4 @@
 
 (defn- main
   [&]
-  (printf "hello"))
+  (printf (root-env :syspath)))
