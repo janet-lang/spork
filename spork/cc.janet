@@ -223,10 +223,10 @@
   (def eg (if (smart-libs) ["-Wl,--end-group"] []))
   (def bs (if (not= (target-os) :macos) ["-Wl,-Bstatic"] []))
   (def bd (if (not= (target-os) :macos) ["-Wl,-Bdynamic"] []))
-  [;(lflags)
+  [;sg
+   ;(lflags)
    ;(if static ["-static"] [])
    ;dl
-   ;sg
    ;(default-libs)
    ;bs
    ;(static-libs)
