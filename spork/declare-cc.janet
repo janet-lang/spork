@@ -802,7 +802,6 @@ int main(int argc, const char **argv) {
         (def image (marshal main mdict))
         (create-buffer-c image cimage-dest "janet_payload_image")
         (spit cimage-dest (make-bin-source declarations lookup-into-invocations no-core) :ab)
-        (def oimage-dest (cc/out-path cimage-dest ".o"))
 
         # Extra command line options for building executable statically linked with libjanet
         (def msvc-libs-extra @[])
@@ -887,6 +886,7 @@ int main(int argc, const char **argv) {
             (if has-cpp cc/link-executable-c++ cc/link-executable-c)))
         (unless no-compile
           (with-env benv
+            (def oimage-dest (cc/out-path cimage-dest ".o"))
             (cc/search-libraries "m" "rt" "dl")
             (flush)
             (compile-c cimage-dest oimage-dest)
