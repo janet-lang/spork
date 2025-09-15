@@ -698,7 +698,7 @@
   $$global:_OLD_JANET_PATH=$$env:JANET_PATH
   $$global:_OLD_PATH=$$env:PATH
   $$env:JANET_PATH="$abspath"
-  $$env:PATH=$$JANET_PATH + "/bin:" + $$env:PATH
+  $$env:PATH=$$env:JANET_PATH + "\bin:" + $$env:PATH
   $$function:old_prompt = $$function:prompt
   function global:prompt {
     Write-Host "($name) " -NoNewline
