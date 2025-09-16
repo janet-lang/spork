@@ -41,9 +41,12 @@
           @["c d \" f" " y z" "a" "b" "a b" "--cflags"]))
 
 (def new-dir ["assets" "18"])
-(defer (do (os/rm (path/join base-path ;new-dir "test.file"))
+(sh/create-dirs (path/join base-path ;new-dir))
+(defer (do
+         (os/rm (path/join base-path ;new-dir "test.file"))
          (os/rmdir (path/join base-path ;new-dir)))
   (sh/copy (path/join base-path ;assets-dir "test.file")
-           (path/join base-path ;new-dir "test.file"))
+           (path/join base-path ;new-dir))
   (assert (= :file (os/stat (path/join base-path ;new-dir "test.file") :mode))))
+
 (end-suite)
