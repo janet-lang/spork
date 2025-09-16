@@ -159,11 +159,11 @@
   (if (= :windows (os/which))
     (let [end (last (path/posix/parts src))
           isdir (= (os/stat src :mode) :directory)]
-      (os/shell (string "C:\\Windows\\System32\\xcopy.exe"
-                        " "
-                        (path/win32/join ;(path/posix/parts src))
-                        (path/win32/join ;(if isdir [;(path/posix/parts dest) end] (path/posix/parts dest)))
-                        "/y /s /e /i > nul")))
+      (os/shell (string/join
+                  ["C:\\Windows\\System32\\xcopy.exe"
+                   (path/win32/join ;(path/posix/parts src))
+                   (path/win32/join ;(if isdir [;(path/posix/parts dest) end] (path/posix/parts dest)))
+                   "/y /s /e /i /-i > nul"] " ")))
     (os/execute ["cp" "-rf" src dest] :px)))
 
 (def- shlex-grammar (peg/compile ~{:ws (set " \t\r\n")
