@@ -21,7 +21,7 @@
 # Do not import declare-cc here - keep a clean separation for faster load times
 
 (def help-text
-    ```
+  ```
     usage: janet-pm [--key=value, --flag] ... [subcommand] [args] ...
 
     Run from a directory containing a project.janet file to perform
@@ -47,6 +47,9 @@
         List packages in the remote package listing that contain the
         string search. If no search pattern is given, prints the
         entire package listing.
+
+    list-installed
+        List installed packages in the current syspath.
 
     env name
         Create an environment with which one can install Janet
@@ -107,6 +110,15 @@
 
     load-lockfile (src)
         Install all bundles in the given lockfile.
+
+    rules
+        List rules available with run.
+
+    rule-tree (root rule) (depth)
+        Print a nice tree to see what rules depend on other rules.
+        Optionally provide a root rule to start printing from, and a
+        max depth to print. Without these options, all rules will
+        print their full dependency tree.
 
     ENVIRONMENT VARIABLES:
 
@@ -180,6 +192,14 @@
   [task]
   (pm/local-hook "run" task))
 
+(defn list-rules
+  []
+  (pm/local-hook "list-rules"))
+
+(defn rule-tree
+  [&opt root-rule depth]
+  (pm/local-hook "rule-tree" root-rule depth))
+
 (defn clean
   []
   (pm/local-hook "clean" @{}))
@@ -228,6 +248,11 @@
       p))
   (sort ps)
   (each p ps (print p)))
+
+(defn list-installed
+  [&]
+  (each item (bundle/list)
+    (print item)))
 
 (defn update-pkgs
   []
@@ -304,8 +329,11 @@
    "save-lockfile" save-lockfile
    "quickbin" quickbin
    "list-pkgs" list-pkgs
+   "list-installed" list-installed
    "clear-cache" clear-cache
    "run" run
+   "rules" list-rules
+   "rule-tree" rule-tree
    "prune" bundle/prune
    "show-config" show-config
    "update-pkgs" update-pkgs
