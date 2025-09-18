@@ -111,10 +111,14 @@
     load-lockfile (src)
         Install all bundles in the given lockfile.
 
+    run rule
+        Run a rule. Can also run custom rules added via `(task "task"
+        [deps...] ...)` or `(rule "output.file" [deps...] ...)`.
+
     rules
         List rules available with run.
 
-    rule-tree (root rule) (depth)
+    rule-tree (root) (depth)
         Print a nice tree to see what rules depend on other rules.
         Optionally provide a root rule to start printing from, and a
         max depth to print. Without these options, all rules will
