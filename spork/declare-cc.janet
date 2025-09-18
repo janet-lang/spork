@@ -326,8 +326,8 @@
   (defn list-rules [&]
     (each k (sorted (filter string? (keys rules)))
       (print k)))
-  (defn rule-tree [&]
-    (show-rule-tree rules))
+  (defn rule-tree [&opt root depth]
+    (show-rule-tree rules root depth))
   (defn clean [&]
     (preclean)
     (print "removing directory " bd)

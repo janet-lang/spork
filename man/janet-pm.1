@@ -39,6 +39,10 @@ string search. If no search pattern is given, prints the
 entire package listing.
 
 .TP
+.BR list-installed
+List installed packages in the current syspath.
+
+.TP
 .BR env\ name
 Create an environment with which one can install Janet dependencies
 and scripts in an isolated manner.
@@ -106,6 +110,22 @@ Save all currently installed bundles to a lockfile.
 .TP
 .BR load-lockfile\ [\fBsource\fR]
 Install all bundles in the given lockfile.
+
+.TP
+.BR run\ rule
+Run a rule. Can also run custom rules added via `(task "task"
+[deps...] ...)` or `(rule "output.file" [deps...] ...)`.
+
+.TP
+.BR rules
+List rules available with run.
+
+.TP
+.BR rule-tree\ [root]\ [depth]
+Print a nice tree to see what rules depend on other rules.
+Optionally provide a root rule to start printing from, and a
+max depth to print. Without these options, all rules will
+print their full dependency tree.
 
 .SH ENVIRONMENT VARIABLES
 
