@@ -400,7 +400,6 @@
       (def second-line (string/format "(put root-env :original-syspath (os/realpath (dyn *syspath*))) # auto generated\n"))
       (def third-line (string/format "(put root-env :syspath %v) # auto generated\n" (dyn *syspath*)))
       (def fourth-line (string/format "(put root-env :install-time-syspath %v) # auto generated\n" (dyn *syspath*)))
-      (def last-line "\n(put root-env :syspath (get root-env :original-syspath)) # auto generated\n")
       (def rest (:read f :all))
       (string (if auto-shebang (string "#!/usr/bin/env janet\n"))
               first-line
