@@ -96,6 +96,9 @@
 
        (os/cd "../test-project")
 
+       # clean up any remaining bits from previous runs
+       (sh/rm "./bundle")
+
        # check "build"
        (divider "Running janet-pm build")
        (def build-out (sh/exec-slurp-all (string janet-pm bat) "build"))
