@@ -660,34 +660,44 @@
   :private
     ````
     # . bin/activate
-    _OLD_JANET_PATH="$$JANET_PATH";
-    _OLD_PATH="$$PATH";
-    _OLD_PS1="$$PS1";
-    JANET_PATH="$abspath";
-    PATH="$$JANET_PATH"/bin:"$$PATH";
-    PS1="("$name") $${PS1:-}"
-    export _OLD_JANET_PATH;
-    export _OLD_PATH;
-    export _OLD_PS1;
-    export JANET_PATH;
-    export PATH;
-    export PS1;
-    deactivate() {
-      PATH="$$_OLD_PATH";
-      JANET_PATH="$$_OLD_JANET_PATH";
-      PS1="$$_OLD_PS1";
-      export JANET_PATH;
-      export PATH;
-      export PS1;
-      unset _OLD_JANET_PATH;
-      unset _OLD_PATH;
-      unset _OLD_PS1;
-      unset -f deactivate;
+    if [ -n "$${_OLD_JANET_PATH+set}" ]; then
+      echo 'An environment is already active, please run `deactivate()` first.';
+    else
+      _OLD_JANET_PATH="$$JANET_PATH";
+      _OLD_JANET_PATH_SET="$${JANET_PATH+set}";
+      _OLD_PATH="$$PATH";
+      _OLD_PS1="$$PS1";
+      JANET_PATH="$abspath";
+      PATH="$$JANET_PATH"/bin:"$$PATH";
+      PS1="("$name") $${PS1:-}";
       export _OLD_JANET_PATH;
       export _OLD_PATH;
       export _OLD_PS1;
-      hash -r 2> /dev/null;
-    }
+      export JANET_PATH;
+      export PATH;
+      export PS1;
+      deactivate() {
+        PATH="$$_OLD_PATH";
+        if [ -n "$$_OLD_JANET_PATH_SET" ]; then
+          JANET_PATH="$$_OLD_JANET_PATH";
+        else
+          unset JANET_PATH;
+        fi
+        PS1="$$_OLD_PS1";
+        export JANET_PATH;
+        export PATH;
+        export PS1;
+        unset _OLD_JANET_PATH;
+        unset _OLD_JANET_PATH;
+        unset _OLD_PATH;
+        unset _OLD_PS1;
+        unset -f deactivate;
+        export _OLD_JANET_PATH;
+        export _OLD_PATH;
+        export _OLD_PS1;
+        hash -r 2> /dev/null;
+      }
+    fi
     hash -r 2> /dev/null;
     ````)
 
