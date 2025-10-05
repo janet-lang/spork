@@ -661,7 +661,7 @@
     ````
     # . bin/activate
     if [ -n "$${_OLD_JANET_PATH+set}" ]; then
-      echo 'An environment is already active, please run `deactivate()` first.';
+      echo 'An environment is already active, please run `deactivate` first.';
     else
       _OLD_JANET_PATH="$$JANET_PATH";
       _OLD_JANET_PATH_SET="$${JANET_PATH+set}";
