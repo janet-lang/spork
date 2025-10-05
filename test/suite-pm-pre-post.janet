@@ -75,14 +75,15 @@
        (pm/pm-install "file::.")
        (assert (= 1 (length (bundle/list))) "bundle/list after install")
 
+       # invoking janet-pm via the shell needs JANET_PATH set to
+       # know about our custom syspath
+       (os/setenv "JANET_PATH" (dyn *syspath*))
+
        # make sure the right janet-pm is found and
-       # verify all bin scripts have two copies of hard-coded syspath, one in body
-       # and one in main
        (def binpath (path/join (dyn *syspath*) "bin"))
        (def janet-pm (path/join binpath (string "janet-pm")))
        (assert (sh/exists? janet-pm))
        (dump-out (sh/exec-slurp-all (string janet-pm bat) "show-config"))
-       (assert (= 1 (length (string/find-all "put root-env :install-time-syspath" (slurp janet-pm)))))
 
        # check sub commands work, even without defining pre-/post-
 
