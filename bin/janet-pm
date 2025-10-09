@@ -277,7 +277,8 @@
     (require (if (dyn :install-time-syspath)
                "@install-time-syspath/spork/declare-cc"
                "spork/declare-cc")))
-  (def quickbin-fn (module/value module "quickbin"))
+  (def quickbin-fn (module/value module 'quickbin))
+  (assert quickbin-fn)
   (quickbin-fn entry output))
 
 (defn show-config
