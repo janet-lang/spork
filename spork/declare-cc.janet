@@ -68,12 +68,14 @@
     "c++"))
 
 (defn- install-rule
-  [src dest &opt chmod-mode thunk]
+  [src dest &opt chmod-mode thunk is-exe]
   (def rules (get-rules))
   (build-rules/build-rule
     rules :install [src]
     (def manifest (assert (dyn *install-manifest*)))
-    (put manifest :has-bin-script true)
+    (when is-exe
+      (put manifest :has-bin-script true) # remove eventually
+      (put manifest :has-exe true))
     (when thunk (thunk))
     (bundle/add manifest src dest chmod-mode))
   dest)
@@ -85,7 +87,8 @@
   (build-rules/build-rule
     rules :install []
     (def manifest (assert (dyn *install-manifest*)))
-    (put manifest :has-bin-script true)
+    (put manifest :has-bin-script true) # remove eventually
+    (put manifest :has-exe true)
     (def files (get manifest :files @[]))
     (put manifest :files files)
     (def absdest (path/join (dyn *syspath*) dest))
@@ -144,8 +147,8 @@
 
 (defn install-file-rule
   "Add install and uninstall rule for moving file from src into destdir."
-  [src dest]
-  (install-rule src dest))
+  [src dest &opt chmod-mode thunk is-exe]
+  (install-rule src dest chmod-mode thunk is-exe))
 
 ###
 ### Misc. utilities
@@ -381,7 +384,7 @@
 (defn declare-bin
   "Declare a generic file to be installed as an executable."
   [&named main]
-  (install-rule main "bin" 8r755 (mkbin)))
+  (install-rule main "bin" 8r755 (mkbin) true))
 
 (defn declare-binscript
   ``Declare a janet file to be installed as an executable script. Creates
@@ -728,7 +731,7 @@ int main(int argc, const char **argv) {
   (def bd (build-dir))
   (def dest (path/join bd name))
   (def cimage-dest (string dest ".c"))
-  (when install (install-rule dest (path/join "bin" name) nil (mkbin)))
+  (when install (install-rule dest (path/join "bin" name) nil (mkbin) true))
   (def target (if no-compile cimage-dest dest))
   (rule :build [target])
   (rule target [entry ;headers ;deps]
