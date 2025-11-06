@@ -14,11 +14,11 @@
            {:dst false :hours 15 :minutes 49 :month 11 :month-day 15 :seconds 28 :week-day 1 :year 2024 :year-day 350}))
 (assert (= (try (date/assert-date (thaw (os/date))) ([_] "errored")) "errored"))
 
-# `date/compare`, `date/lt`, and `date/gt`
+# `date/compare-dates`, `date/lt`, and `date/gt`
 
-(assert (= (date/compare (os/date 1734364168) (os/date 1734364168)) 0))
-(assert (= (date/compare (os/date 1734364160) (os/date 1734364168)) -1))
-(assert (= (date/compare (os/date 1734364168) (os/date 1734364160)) 1))
+(assert (= (date/compare-dates (os/date 1734364168) (os/date 1734364168)) 0))
+(assert (= (date/compare-dates (os/date 1734364160) (os/date 1734364168)) -1))
+(assert (= (date/compare-dates (os/date 1734364168) (os/date 1734364160)) 1))
 
 (assert (deep= (sort @[(os/date 1734364160) (os/date 1734364168)] date/lt)
                @[{:dst false :hours 15 :minutes 49 :month 11 :month-day 15 :seconds 20 :week-day 1 :year 2024 :year-day 350}
