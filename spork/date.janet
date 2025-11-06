@@ -9,7 +9,7 @@
 
 (import ./schema)
 
-(setdyn :doc "Utility wrappers around `os/time` and `os/date` for doing simple time-intelligent work with dates.")
+(setdyn :doc "Utility wrappers around `os/time` and `os/date` for working with dates, particularly formatting them as strings (with `date/to-string`) and reading dates from strings (with `date/from-string`).")
 
 (def- date-schema
   ~(and :struct
@@ -26,6 +26,10 @@
 
 (def date?
   ``
+  (`date?` `date`)
+
+  Returns a boolean indicating whether `date` is a well-formed date.
+
   A `date` is a struct that contains at least the following keys: 
 
   - `:dst`
@@ -44,6 +48,11 @@
 
 (def assert-date
   ``
+  (`assert-date` `date`)
+
+  Raises an error if `date` is not a well-formed date. Otherwise,
+  returns `date` unmodified.
+
   A `date` is a struct that contains at least the following keys: 
 
   - `:dst`
@@ -76,7 +85,7 @@
   []
   (os/date nil true))
 
-(defn compare
+(defn compare-dates
   ``
   Compares `date` values (`d1` and `d2`).
 
@@ -92,7 +101,9 @@
 
 (defn lt
   ``
-  Equivalent to `(< ;(map os/mktime [d1 d2]))`.
+  Check if `dates` is in ascending order. Returns a boolean.
+    
+  Equivalent to `(< ;(map os/mktime dates))`.
   ``
   [& dates]
   (each date dates (assert-date date))
@@ -100,41 +111,44 @@
 
 (defn gt
   ``
-  Equivalent to `(> ;(map os/mktime [d1 d2]))`.
+  Check if `dates` is in descending order. Returns a boolean.
+    
+  Equivalent to `(> ;(map os/mktime dates))`.
   ``
   [& dates]
   (each date dates (assert-date date))
   (> ;(map os/mktime dates)))
 
-(def- format-peg
-  ~{:y2 (/ '"yy" :y2)
-    :y4 (/ '"yyyy" :y4)
-    :y (+ :y4 :y2)
-    :m1 (/ '"M" :m1)
-    :m2 (/ '"MM" :m2)
-    :m3 (/ '"MMM" :m3)
-    :m4 (/ '"MMMM" :m4)
-    :m (+ :m4 :m3 :m2 :m1)
-    :d1 (/ '"d" :d1)
-    :d2 (/ '"dd" :d2)
-    :d (+ :d2 :d1)
-    :h1 (/ '"h" :h1)
-    :h2 (/ '"hh" :h2)
-    :h (+ :h2 :h1)
-    :H1 (/ '"H" :H1)
-    :H2 (/ '"HH" :H2)
-    :H (+ :H2 :H1)
-    :min (/ '"mm" :min)
-    :sec (/ '"ss" :sec)
-    :am (/ '(+ "am" "pm" "AM" "PM") :am)
-    :sep (/ '1 :sep)
-    :main (some (+ :y :d :h :H :min :sec :m :am :sep))})
+(def- from-format-peg
+  (peg/compile
+    ~{:y2 (/ '"yy" :y2)
+      :y4 (/ '"yyyy" :y4)
+      :y (+ :y4 :y2)
+      :m1 (/ '"M" :m1)
+      :m2 (/ '"MM" :m2)
+      :m3 (/ '"MMM" :m3)
+      :m4 (/ '"MMMM" :m4)
+      :m (+ :m4 :m3 :m2 :m1)
+      :d1 (/ '"d" :d1)
+      :d2 (/ '"dd" :d2)
+      :d (+ :d2 :d1)
+      :h1 (/ '"h" :h1)
+      :h2 (/ '"hh" :h2)
+      :h (+ :h2 :h1)
+      :H1 (/ '"H" :H1)
+      :H2 (/ '"HH" :H2)
+      :H (+ :H2 :H1)
+      :min (/ '"mm" :min)
+      :sec (/ '"ss" :sec)
+      :am (/ '(+ "am" "pm" "AM" "PM") :am)
+      :sep (/ '1 :sep)
+      :main (some (+ :y :d :h :H :min :sec :m :am :sep))}))
 
-(def- short-month-map
+(def- short-months
   ["jan" "feb" "mar" "apr" "may" "jun"
    "jul" "aug" "sep" "oct" "nov" "dec"])
 
-(def- long-month-map
+(def- long-months
   ["january" "february" "march" "april" "may" "june"
    "july" "august" "september" "october" "november" "december"])
 
@@ -167,10 +181,10 @@
        :m2 (/ (number (2 :d)) ,|[:month (dec $)])
        :m3 (/ (accumulate (3 ':w))
               ,|[:month (index-of (string/ascii-lower $)
-                                  short-month-map)])
+                                  short-months)])
        :m4 (/ (accumulate (at-most 9 ':w))
               ,|[:month (index-of (string/ascii-lower $)
-                                  long-month-map)])
+                                  long-months)])
        :d1 (/ (number (at-most 2 :d)) ,|[:month-day (dec $)])
        :d2 (/ (number (2 :d)) ,|[:month-day (dec $)])
        :h1 (/ (number (at-most 2 :d)) ,|[:hours-12 $])
@@ -183,7 +197,7 @@
        :sep 1})
 
   (def format-code
-    (peg/match format-peg format-str))
+    (peg/match from-format-peg format-str))
 
   (put date-peg :main ['* ;format-code -1])
 
@@ -217,9 +231,34 @@
        (string (string/ascii-upper (string/slice ,$str 0 1))
                (string/slice ,$str 1)))))
 
+(def- to-format-peg
+  (peg/compile
+    ~{:y2 (/ '"yy" :y2)
+      :y4 (/ '"yyyy" :y4)
+      :y (+ :y4 :y2)
+      :m1 (/ '"M" :m1)
+      :m2 (/ '"MM" :m2)
+      :m3 (/ '"MMM" :m3)
+      :m4 (/ '"MMMM" :m4)
+      :m (+ :m4 :m3 :m2 :m1)
+      :d1 (/ '"d" :d1)
+      :d2 (/ '"dd" :d2)
+      :d (+ :d2 :d1)
+      :h1 (/ '"h" :h1)
+      :h2 (/ '"hh" :h2)
+      :h (+ :h2 :h1)
+      :H1 (/ '"H" :H1)
+      :H2 (/ '"HH" :H2)
+      :H (+ :H2 :H1)
+      :min (/ '"mm" :min)
+      :sec (/ '"ss" :sec)
+      :am (/ '(+ "am" "pm" "AM" "PM") :am)
+      :sep (/ '1 ,|[:sep $])
+      :main (some (+ :y :d :h :H :min :sec :m :am :sep))}))
+
 (defn to-string
   ``
-  Convert a well-formed `date` (`date`) to a string, using a string 
+  Convert a well-formed date (`date`) to a string, using a string 
   (`format-str`) to indicate the expected output format. Returns a 
   string representing the formatted date.
 
@@ -236,17 +275,11 @@
 
   Any other characters (e.g. `:`, ` `, `,`, `-` or `/`) will be 
   treated as separators and preserved identically.
-
-  Well-formatted `dates` are structs as returned by the built-in 
-  function `os/date`. Verify that a struct is well-formed using the 
-  `date?` validation function.
   ``
   [date format-str]
   (assert-date date)
 
-  (def my-format-peg (struct/to-table format-peg))
-  (put my-format-peg :sep ['/ '(<- 1) |[:sep $]])
-  (def format-code (peg/match my-format-peg format-str))
+  (def format-code (peg/match to-format-peg format-str))
 
   (def out-arr @[])
 
@@ -258,8 +291,8 @@
         :y4 (string/format "%04d" (date :year))
         :m1 (string (inc (date :month)))
         :m2 (string/format "%02d" (inc (date :month)))
-        :m3 (string/ascii-upper (short-month-map (date :month)))
-        :m4 (capitalize (long-month-map (date :month)))
+        :m3 (string/ascii-upper (short-months (date :month)))
+        :m4 (capitalize (long-months (date :month)))
         :d1 (string (inc (date :month-day)))
         :d2 (string/format "%02d" (inc (date :month-day)))
         :h1 (string (if (= 0 (date :hours)) 12 (% (date :hours) 12)))
@@ -273,7 +306,12 @@
 
   (string/join out-arr))
 
-(defn- leap-year? [year]
+(defn leap-year?
+  ``
+  Given a numeric `year`, returns a boolean indicating whether 
+  that year is a leap year according to the Gregorian rules.
+  ``
+  [year]
   (cond
     (= (% year 400) 0) true
     (= (% year 100) 0) false
