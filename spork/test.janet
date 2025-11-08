@@ -152,5 +152,5 @@
                  (peg/match '(* (+ (* "(" (thru ")\n\n"))
                                    (not "("))
                                 (some 1) -1)
-                            (get val :doc "")))
+                            (string/replace-all "\r" "" (get val :doc ""))))
             (string sym " does not have proper doc"))))
