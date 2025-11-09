@@ -223,7 +223,10 @@
       (and (= "am" am/pm) (= hours 12))
       (put parsed-date :hours 0)))
 
-  (os/date (os/mktime (struct/with-proto (os/date 0) ;(kvs parsed-date)))))
+  (def date-struct (-> (struct/with-proto (os/date 0) ;(kvs parsed-date))
+                       os/mktime os/date))
+  (struct :date-str date-str :format-str format-str 
+          ;(kvs date-struct)))
 
 (defmacro- capitalize [str]
   (with-syms [$str]
