@@ -53,6 +53,21 @@
          (if (zero? p) "./" (string/slice path 0 p)))
        path)))
 
+(defmacro- decl-parent
+  [pre]
+  ~(defn ,(symbol pre "/parent")
+     "Gets the parent directory name of a path."
+     [path]
+     (if-let [m (peg/match
+                  ,(symbol pre "/last-sep-peg")
+                  path
+                  (length path))]
+       (let [[p] m]
+         (cond (zero? p) ""
+           (and (= p 1) (= (string/slice path 0 1) "/")) "/"
+           true (string/slice path 0 (- p 1))))
+       path)))
+
 (defmacro- decl-basename
   [pre]
   ~(defn ,(symbol pre "/basename")
@@ -148,6 +163,7 @@
 (decl-last-sep "posix" "/")
 (decl-basename "posix")
 (decl-dirname "posix")
+(decl-parent "posix")
 (decl-parts "posix" "/")
 (decl-normalize "posix" "/" "/" "/")
 (decl-join "posix" "/")
@@ -171,6 +187,7 @@
 (decl-last-sep "win32" (set "\\/"))
 (decl-basename "win32")
 (decl-dirname "win32")
+(decl-parent "win32")
 (decl-parts "win32" "\\")
 (decl-normalize "win32" `\` (set `\/`) (+ (* `\\` (some (if-not `\` 1)) `\`) (* (? (* (range "AZ" "az") `:`)) `\`)))
 (decl-join "win32" "\\")
@@ -187,6 +204,7 @@
 (def delim nil)
 (def basename nil)
 (def dirname nil)
+(def parent nil)
 (def abspath? nil)
 (def abspath nil)
 (def parts nil)
@@ -203,6 +221,7 @@
    "delim"
    "basename"
    "dirname"
+   "parent"
    "abspath?"
    "abspath"
    "parts"

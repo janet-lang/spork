@@ -47,6 +47,15 @@
 (aeq (path/posix/dirname "abc/") "abc/")
 (aeq (path/posix/basename "abc") "abc")
 (aeq (path/posix/dirname "abc") "./")
+(aeq (path/posix/dirname "/") "/")
+(aeq (path/posix/dirname ".") "./")
+(aeq (path/posix/dirname "..") "./")
+
+(aeq (path/posix/parent "abc/def") "abc")
+(aeq (path/posix/parent (path/posix/parent "/abc/def/xyz")) "/abc")
+(aeq (path/posix/parent "abc/") "abc")
+(aeq (path/posix/parent "abc") "")
+(aeq (path/posix/parent "/") "/")
 
 (aeq (path/posix/ext "project.janet") ".janet")
 (aeq (path/posix/ext "/home/pork/work/project.janet") ".janet")
