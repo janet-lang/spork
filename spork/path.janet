@@ -174,22 +174,93 @@
 # Windows
 #
 
-(def- abs-pat '(* (? (* (range "AZ" "az") `:`)) `\`))
-(def- abs-peg (peg/compile abs-pat))
+(def- win-prefix-peg
+  (peg/compile ~{:drive (* (range "AZ" "az") `:` (any (choice `\` `/`)) ($))
+                 :unc (* `\\` (some (if-not `\` 1)) `\` (some (if-not `\` 1)) (any `\`) ($))
+                 :main (+ :drive :unc)}))
+
 (defn win32/abspath?
   "Check if a path is absolute."
   [path]
-  (not (not (peg/match abs-peg path))))
+  (not (nil? (peg/match win-prefix-peg path))))
+
+(defn- win32-path-prefix [path]
+  (if-let [m (peg/match win-prefix-peg path)]
+    (let [[p] m]
+      p)
+    0))
+
+# need to use a peg to allow for mixed `\` and `/` in the
+# same Windows path.
+(def- all-sep-peg (peg/compile ~{:main (any (+ (some (* ($) (choice `\` `/`) 1)) 1))}))
+(defn- sep-split
+  "Split string based on separator peg"
+  [path]
+  (let [locs (peg/match all-sep-peg path)
+        parts @[]]
+    (var start 0)
+    (each l locs
+      (array/concat parts (string/slice path start l))
+      (set start (inc l)))
+    (when (< start (length path))
+      (array/concat parts (string/slice path start)))
+    (filter |(> (length $) 0) parts)))
+
+# if there is a prefix (drive letter or unc location),
+# add it to output then split the rest else just split the whole thing
+(defmacro- decl-win32-parts
+  [pre sep]
+  ~(defn ,(symbol pre "/parts")
+     "Split a path into its parts."
+     [path]
+     (let [start (win32-path-prefix path)
+           rest-path (string/slice path start)]
+       (if (zero? start)
+         (sep-split path)
+         (array/concat @[(string/slice path 0 start)] (sep-split rest-path))))))
+
+(defmacro- decl-win32-dirname
+  [pre]
+  ~(defn ,(symbol pre "/dirname")
+     "Gets the directory name of a path."
+     [path]
+     (if-let [m (peg/match
+                  ,(symbol pre "/last-sep-peg")
+                  path
+                  (length path))]
+       (let [[p] m
+             prefix-end (win32-path-prefix path)]
+         (if (zero? p)
+           (if (> prefix-end 0) path `.\`)
+           (if (> prefix-end p) path (string/slice path 0 p))))
+       path)))
+
+(defmacro- decl-win32-parent
+  [pre]
+  ~(defn ,(symbol pre "/parent")
+     "Gets the parent directory name of a path."
+     [path]
+     (if-let [m (peg/match
+                  ,(symbol pre "/last-sep-peg")
+                  path
+                  (length path))]
+       (let [[p] m
+             prefix-end (win32-path-prefix path)]
+         (cond (and (zero? prefix-end) (zero? p)) ""
+           (and (zero? prefix-end) (not (zero? p))) (string/slice path 0 (dec p))
+           (and (not (zero? prefix-end)) (zero? p)) path
+           true (if (= prefix-end (length path)) path (string/slice path 0 (if (= p prefix-end) p (dec p))))))
+       path)))
 
 (redef "ext" "win32/ext")
 (decl-sep "win32" "\\")
 (decl-delim "win32" ";")
 (decl-last-sep "win32" (set "\\/"))
 (decl-basename "win32")
-(decl-dirname "win32")
-(decl-parent "win32")
-(decl-parts "win32" "\\")
+(decl-win32-dirname "win32")
+(decl-win32-parent "win32")
 (decl-normalize "win32" `\` (set `\/`) (+ (* `\\` (some (if-not `\` 1)) `\`) (* (? (* (range "AZ" "az") `:`)) `\`)))
+(decl-win32-parts "win32" "\\")
 (decl-join "win32" "\\")
 (decl-abspath "win32")
 (decl-relpath "win32")
