@@ -9,6 +9,7 @@
 (import ./sh)
 (import ./path)
 (import ./pm-config)
+(import ./cc)
 
 (defdyn *gitpath* "What git command to use to fetch dependencies")
 (defdyn *tarpath* "What tar command to use to fetch dependencies")
@@ -748,11 +749,15 @@
   ````)
 
 (defn scaffold-pm-shell
-  "Generate a pm shell with configuration already setup."
+  "Generate a pm shell with configuration already setup. If `copy-janet` is truthy, the Janet executable file
+   will be bundled in the new environment"
   [path]
   (os/mkdir path)
   (os/mkdir (path/join path "bin"))
   (os/mkdir (path/join path "man"))
+  (os/mkdir (path/join path "include"))
+  (os/mkdir (path/join path "pkgconfig"))
+  (os/mkdir (path/join path "lib"))
   (def opts {:path path :abspath (path/abspath path) :name (path/basename path)})
   (spit (path/join path "bin" "activate") (enter-shell-template opts))
   (spit (path/join path "bin" "activate.ps1") (enter-ps-template opts))
@@ -762,3 +767,56 @@
   (print "(PowerShell) run `. " path "/bin/activate.ps1` to enter the new environment, then `deactivate` to exit.")
   (print "(CMD)        run `" path "\\bin\\activate` to enter the new environment, then `deactivate` to exit.")
   (print "(Unix sh)    run `. " path "/bin/activate` to enter the new environment, then `deactivate` to exit."))
+
+(defn- try-copy
+    [src dest]
+    (unless (sh/exists? src) (break false))
+    (sh/copy src dest)
+    true)
+
+(defn vendor-binaries-pm-shell
+  ```
+  Copy the Janet interpreter, shared libraries, and other installation files directly into the new shell environment. This allows
+  updates and changes to the system configuration without breaking the shell.
+  ```
+  [path]
+  (def is-win (= :windows (os/which)))
+  (def exec-name (dyn *executable* "janet"))
+  (def executable (sh/which exec-name))
+  (assert (sh/exists? executable) "unable to resolve location of the janet binary. Is it on your path?")
+  (def exe-ext (if is-win ".exe" ""))
+  (def dest (string (path/join path "bin" "janet") exe-ext))
+  (sh/copy executable dest)
+
+  # Copy shared objects, DLLs, static archives, and janet.h into path
+  (def [has-prefix prefix] (protect (cc/get-unix-prefix)))
+  (when has-prefix
+    (def lib (string prefix "/lib"))
+    (def include (string prefix "/include"))
+    (def parts (string/split "." janet/version))
+    (def majorminor (string (in parts 0) "." (in parts 1)))
+
+    # Copy libjanet.so (with correct symlinks and versions)
+    (def libjanet-so-with-version (string "libjanet.so." majorminor))
+    (def libjanet-so-with-full-version (string "libjanet.so." janet/version))
+    (when (try-copy (path/join lib libjanet-so-with-full-version) (path/join path "lib" libjanet-so-with-full-version))
+      (os/link libjanet-so-with-full-version (path/join path "lib" libjanet-so-with-version) true)
+      (os/link libjanet-so-with-full-version (path/join path "lib" "libjanet.so") true))
+
+    # Copy libjanet.a (try versioned file first)
+    (def libjanet-static-full (string "libjanet.a." janet/version))
+    (if
+      (try-copy (path/join lib libjanet-static-full) (path/join path "lib" libjanet-static-full))
+      (os/link (path/join path libjanet-static-full) (path/join path "lib" "libjanet.a") true)
+      (try-copy (path/join lib "libjanet.a") (path/join path "lib" "libjanet.a")))
+
+    # Copy janet.h
+    (os/mkdir (path/join path "include" "janet"))
+    (try-copy (path/join include "janet" "janet.h") (path/join path "include" "janet" "janet.h"))
+    (try-copy (path/join include "janet.h") (path/join path "include" "janet.h"))
+
+    # pkgconfig TODO
+    nil)
+
+  # TODO - msvc/windows install
+  nil)
