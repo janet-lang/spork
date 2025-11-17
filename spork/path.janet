@@ -170,9 +170,11 @@
 (decl-abspath "posix")
 (decl-relpath "posix")
 
+###########################################################################
 #
 # Windows
 #
+###########################################################################
 
 (def- win-prefix-peg
   (peg/compile ~{:drive (* (range "AZ" "az") `:` (any (choice `\` `/`)) ($))
@@ -219,6 +221,24 @@
          (sep-split path)
          (array/concat @[(string/slice path 0 start)] (sep-split rest-path))))))
 
+(defmacro- decl-win32-basename
+  [pre]
+  ~(defn ,(symbol pre "/basename")
+     "Gets the base file name of a path."
+     [path]
+     (if-let [m (peg/match
+                  ,(symbol pre "/last-sep-peg")
+                  path
+                  (length path))]
+       (let [[p] m
+             prefix-end (win32-path-prefix path)]
+         (if (zero? prefix-end)
+           (string/slice path p)
+           (if (> prefix-end p)
+             "" # last separator is inside the prefix, so basename is blank
+             (string/slice path p))))
+       path)))
+
 (defmacro- decl-win32-dirname
   [pre]
   ~(defn ,(symbol pre "/dirname")
@@ -256,7 +276,7 @@
 (decl-sep "win32" "\\")
 (decl-delim "win32" ";")
 (decl-last-sep "win32" (set "\\/"))
-(decl-basename "win32")
+(decl-win32-basename "win32")
 (decl-win32-dirname "win32")
 (decl-win32-parent "win32")
 (decl-normalize "win32" `\` (set `\/`) (+ (* `\\` (some (if-not `\` 1)) `\`) (* (? (* (range "AZ" "az") `:`)) `\`)))

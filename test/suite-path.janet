@@ -26,10 +26,20 @@
 (aeq (path/win32/abspath? `\\wsl$\Debian\`) true)
 (aeq (path/win32/abspath? `\\wsl$\Debian\foo\bar`) true)
 
+# join
+
 (aeq (path/abspath "home") (path/join (os/cwd) "home"))
 (aeq (path/posix/join "1" "2" "3") "1/2/3")
 (aeq (path/posix/join "1" ".." "2" ".." "3") "3")
 (aeq (path/posix/join "/home/" "for") "/home/for")
+
+(aeq (path/win32/join "1" "2" "3") `1\2\3`)
+(aeq (path/win32/join "1" ".." "2" ".." "3") "3")
+(aeq (path/win32/join `c:` "foo" "bar") `c:\foo\bar`)
+(aeq (path/win32/join `c:\` "foo" "bar") `c:\foo\bar`)
+(aeq (path/win32/join `\\wsl$\Debian\` "foo" "bar") `\\wsl$\Debian\foo\bar`)
+(aeq (path/win32/join `\\wsl$\\Debian` "foo" "bar") `\\wsl$\Debian\foo\bar`)
+
 
 # normalize
 
@@ -56,11 +66,30 @@
 (aeq (path/win32/normalize `\\.\abc\abc\..`) `\\.\abc`)
 (aeq (path/win32/normalize `\\.\abc\abc\..\.`) `\\.\abc`)
 
+# basename
+
+(aeq (path/posix/basename "abc/def") "def")
+(aeq (path/posix/basename "abc") "abc")
+(aeq (path/posix/basename "abc/") "")
+(aeq (path/posix/basename "/home/abc/foo.txt") "foo.txt")
+(aeq (path/posix/basename "/") "")
+
+(aeq (path/win32/basename "abc/def") "def")
+(aeq (path/win32/basename `abc\def`) `def`)
+(aeq (path/win32/basename "abc") "abc")
+(aeq (path/win32/basename `c:\foo\bar\baz`) "baz")
+(aeq (path/win32/basename `D:\foo.txt`) "foo.txt")
+(aeq (path/win32/basename `c:\`) "")
+(aeq (path/win32/basename `D:`) "")
+(aeq (path/win32/basename `\\wsl$\Debian\home\abc`) `abc`)
+(aeq (path/win32/basename `\\wsl$\Debian\home abc`) `home abc`)
+(aeq (path/win32/basename `\\wsl$\Debian\`) "")
+(aeq (path/win32/basename `\\wsl$\Debian`) "")
+
 # dirname
 
 (aeq (path/posix/dirname "abc/def") "abc/")
 (aeq (path/posix/dirname "abc/") "abc/")
-(aeq (path/posix/basename "abc") "abc")
 (aeq (path/posix/dirname "abc") "./")
 (aeq (path/posix/dirname "/") "/")
 (aeq (path/posix/dirname ".") "./")
@@ -70,7 +99,6 @@
 (aeq (path/win32/dirname "abc/def") "abc/")
 (aeq (path/win32/dirname `abc\`) `abc\`)
 (aeq (path/win32/dirname "abc/") "abc/")
-(aeq (path/win32/basename "abc") "abc")
 (aeq (path/win32/dirname "abc") `.\`)
 (aeq (path/win32/dirname `c:\`) `c:\`)
 (aeq (path/win32/dirname `c:/`) `c:/`)
@@ -85,6 +113,8 @@
 
 # parent
 
+(aeq (path/posix/parent "/abc/def") "/abc")
+(aeq (path/posix/parent "/abc/def/") "/abc/def")
 (aeq (path/posix/parent "abc/def") "abc")
 (aeq (path/posix/parent (path/posix/parent "/abc/def/xyz")) "/abc")
 (aeq (path/posix/parent "abc/") "abc")
@@ -100,10 +130,10 @@
 (aeq (path/win32/parent `abc\`) `abc`)
 (aeq (path/posix/parent "abc/") "abc")
 (aeq (path/win32/parent "abc") "")
-(aeq (path/win32/parent `c:\`) "c:\\")
+(aeq (path/win32/parent `c:\`) `c:\`)
 (aeq (path/win32/parent "C:/") "C:/")
 (aeq (path/win32/parent `d:`) `d:`)
-(aeq (path/win32/parent `c:\foo`) "c:\\")
+(aeq (path/win32/parent `c:\foo`) `c:\`)
 (aeq (path/win32/parent ".") "")
 (aeq (path/win32/parent "..") "")
 (aeq (path/win32/parent `\\wsl$\Debian\foo`) `\\wsl$\Debian\`)
@@ -112,13 +142,14 @@
 (aeq (path/win32/parent `\\wsl$\Debian`) `\\wsl$\Debian`)
 (aeq (path/win32/parent `\\.\xyz\def`) `\\.\xyz\`)
 (aeq (path/win32/parent `\\.\abc`) `\\.\abc`)
+
+
 # ext
 
 (aeq (path/posix/ext "project.janet") ".janet")
 (aeq (path/posix/ext "/home/pork/work/project.janet") ".janet")
 
 # parts
-# 
 
 (aeq (path/posix/parts "/home/pork/.local/share")
      @["" "home" "pork" ".local" "share"] true)
@@ -146,6 +177,22 @@
   (aeq (path/win32/abspath "C:\\home\\pork") "C:\\home\\pork")
   (aeq (path/win32/abspath "q:\\home\\pork") "q:\\home\\pork")
   (aeq (path/win32/abspath "..\\home\\pork") "D:\\Users\\home\\pork"))
+
+
+# split then join should return original path. String matches only
+# if input is already normalized.
+
+(def- posix-orig "/home/foo/bar/baz")
+(aeq (reduce2 path/posix/join (path/posix/parts posix-orig)) posix-orig)
+
+(def- posix-orig "/home/foo/bar/baz/")
+(aeq (reduce2 path/posix/join (path/posix/parts posix-orig)) posix-orig)
+
+(def- win32-orig `c:\home\pork\.local\share`)
+(aeq (reduce2 path/win32/join (path/win32/parts win32-orig)) win32-orig)
+
+(def- win32-orig `c:\home\pork\.local\share\`)
+(aeq (reduce2 path/win32/join (path/win32/parts win32-orig)) win32-orig)
 
 # relpath
 
