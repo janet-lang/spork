@@ -803,6 +803,13 @@
       (os/link libjanet-so-with-full-version (path/join path "lib" libjanet-so-with-version) true)
       (os/link libjanet-so-with-full-version (path/join path "lib" "libjanet.so") true))
 
+    # Copy libjanet.dylib (with correct symlinks and versions)
+    (def libjanet-dylib-with-version (string "libjanet.dylib." majorminor))
+    (def libjanet-dylib-with-full-version (string "libjanet.dylib." janet/version))
+    (when (try-copy (path/join lib libjanet-dylib-with-full-version) (path/join path "lib" libjanet-dylib-with-full-version))
+      (os/link libjanet-dylib-with-full-version (path/join path "lib" libjanet-dylib-with-version) true)
+      (os/link libjanet-dylib-with-full-version (path/join path "lib" "libjanet.dylib") true))
+
     # Copy libjanet.a (try versioned file first)
     (def libjanet-static-full (string "libjanet.a." janet/version))
     (if
@@ -818,5 +825,11 @@
     # pkgconfig TODO
     nil)
 
-  # TODO - msvc/windows install
+  # Copy shared objects, DLLs, static archives, and janet.h into path
+  (def [has-winprefix win-prefix] (protect (cc/get-msvc-prefix)))
+  (when has-winprefix
+    (each name ["janet.lib" "janet.h" "janet.exp" "janet.c" "libjanet.lib"]
+      (try-copy (path/win32/join win-prefix "C" name) (path/win32/join path "C" name))))
+
+  (print "Copied janet binaries and shared libraries into " path)
   nil)
