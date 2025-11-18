@@ -81,10 +81,40 @@
 (aeq (path/win32/basename `D:\foo.txt`) "foo.txt")
 (aeq (path/win32/basename `c:\`) "")
 (aeq (path/win32/basename `D:`) "")
+
 (aeq (path/win32/basename `\\wsl$\Debian\home\abc`) `abc`)
 (aeq (path/win32/basename `\\wsl$\Debian\home abc`) `home abc`)
 (aeq (path/win32/basename `\\wsl$\Debian\`) "")
 (aeq (path/win32/basename `\\wsl$\Debian`) "")
+(aeq (path/win32/basename `\\.\home\xyz`) `xyz`)
+(aeq (path/win32/basename `\\.\homeabc`) "")
+(aeq (path/win32/basename `\\.\`) "")
+(aeq (path/win32/basename `\\?\`) "")
+(aeq (path/win32/basename `\\.\c:\temp\test-file.txt`) "test-file.txt")
+(aeq (path/win32/basename `\\?\c:\temp\test-file.txt`) "test-file.txt")
+(aeq (path/win32/basename `\\.\c:\temp`) "temp")
+(aeq (path/win32/basename `\\?\c:\temp`) "temp")
+(aeq (path/win32/basename `\\.\c:\`) "")
+(aeq (path/win32/basename `\\?\D:\`) "")
+(aeq (path/win32/basename `\\.\c:`) "")
+(aeq (path/win32/basename `\\?\D:`) "")
+
+(aeq (path/win32/basename `\\.\Volume{b75e2c83-0000-0000-0000-602f00000000}\Test\Foo.txt`) "Foo.txt")
+(aeq (path/win32/basename `\\.\Volume{b75e2c83-0000-0000-0000-602f00000000}\Test\`) "")
+(aeq (path/win32/basename `\\.\Volume{b75e2c83-0000-0000-0000-602f00000000}\`) "")
+(aeq (path/win32/basename `\\.\Volume{b75e2c83-0000-0000-0000-602f00000000}`) "")
+
+(aeq (path/win32/basename `\\?\Volume{b75e2c83-0000-0000-0000-602f00000000}\Test\Foo.txt`) "Foo.txt")
+(aeq (path/win32/basename `\\?\Volume{b75e2c83-0000-0000-0000-602f00000000}\Test\`) "")
+(aeq (path/win32/basename `\\?\Volume{b75e2c83-0000-0000-0000-602f00000000}\`) "")
+(aeq (path/win32/basename `\\?\Volume{b75e2c83-0000-0000-0000-602f00000000}`) "")
+
+(aeq (path/win32/basename `\\.\UNC\Localhost\c$\foo.txt`) `foo.txt`)
+(aeq (path/win32/basename `\\.\UNC\Localhost\c$\`) "")
+(aeq (path/win32/basename `\\.\UNC\Localhost\c$`) "")
+(aeq (path/win32/basename `\\?\UNC\Localhost\c$\foo.txt`) `foo.txt`)
+(aeq (path/win32/basename `\\?\UNC\Localhost\c$\`) "")
+(aeq (path/win32/basename `\\?\UNC\Localhost\c$`) "")
 
 # dirname
 
@@ -110,6 +140,34 @@
 (aeq (path/win32/dirname `\\wsl$\Debian`) `\\wsl$\Debian`)
 (aeq (path/win32/dirname `\\.\abc\def`) `\\.\abc\`)
 (aeq (path/win32/dirname `\\.\abc`) `\\.\abc`)
+
+(aeq (path/win32/dirname `\\.\c:\temp\test-file.txt`) `\\.\c:\temp\`)
+(aeq (path/win32/dirname `\\?\c:\temp\test-file.txt`) `\\?\c:\temp\`)
+(aeq (path/win32/dirname `\\.\c:\temp\`) `\\.\c:\temp\`)
+(aeq (path/win32/dirname `\\?\c:\temp\`) `\\?\c:\temp\`)
+(aeq (path/win32/dirname `\\.\c:\temp`) `\\.\c:\`)
+(aeq (path/win32/dirname `\\?\c:\temp`) `\\?\c:\`)
+(aeq (path/win32/dirname `\\.\X:\`) `\\.\X:\`)
+(aeq (path/win32/dirname `\\?\Y:\`) `\\?\Y:\`)
+(aeq (path/win32/dirname `\\.\x:`) `\\.\x:`)
+(aeq (path/win32/dirname `\\?\y:`) `\\?\y:`)
+
+(aeq (path/win32/dirname `\\.\Volume{b75e2c83-0000-0000-0000-602f00000000}\Test\Foo.txt`) `\\.\Volume{b75e2c83-0000-0000-0000-602f00000000}\Test\`)
+(aeq (path/win32/dirname `\\.\Volume{b75e2c83-0000-0000-0000-602f00000000}\Test\`) `\\.\Volume{b75e2c83-0000-0000-0000-602f00000000}\Test\`)
+(aeq (path/win32/dirname `\\.\Volume{b75e2c83-0000-0000-0000-602f00000000}\`) `\\.\Volume{b75e2c83-0000-0000-0000-602f00000000}\`)
+(aeq (path/win32/dirname `\\.\Volume{b75e2c83-0000-0000-0000-602f00000000}`) `\\.\Volume{b75e2c83-0000-0000-0000-602f00000000}`)
+
+(aeq (path/win32/dirname `\\?\Volume{b75e2c83-0000-0000-0000-602f00000000}\Test\Foo.txt`) `\\?\Volume{b75e2c83-0000-0000-0000-602f00000000}\Test\`)
+(aeq (path/win32/dirname `\\?\Volume{b75e2c83-0000-0000-0000-602f00000000}\Test\`) `\\?\Volume{b75e2c83-0000-0000-0000-602f00000000}\Test\`)
+(aeq (path/win32/dirname `\\?\Volume{b75e2c83-0000-0000-0000-602f00000000}\`) `\\?\Volume{b75e2c83-0000-0000-0000-602f00000000}\`)
+(aeq (path/win32/dirname `\\?\Volume{b75e2c83-0000-0000-0000-602f00000000}`) `\\?\Volume{b75e2c83-0000-0000-0000-602f00000000}`)
+
+(aeq (path/win32/dirname `\\.\UNC\Localhost\c$\foo.txt`) `\\.\UNC\Localhost\c$\`)
+(aeq (path/win32/dirname `\\.\UNC\Localhost\c$\`) `\\.\UNC\Localhost\c$\`)
+(aeq (path/win32/dirname `\\.\UNC\Localhost\c$`) `\\.\UNC\Localhost\c$`)
+(aeq (path/win32/dirname `\\?\UNC\Localhost\c$\foo.txt`) `\\?\UNC\Localhost\c$\`)
+(aeq (path/win32/dirname `\\?\UNC\Localhost\c$\`) `\\?\UNC\Localhost\c$\`)
+(aeq (path/win32/dirname `\\?\UNC\Localhost\c$`) `\\?\UNC\Localhost\c$`)
 
 # parent
 
@@ -143,6 +201,26 @@
 (aeq (path/win32/parent `\\.\xyz\def`) `\\.\xyz\`)
 (aeq (path/win32/parent `\\.\abc`) `\\.\abc`)
 
+(aeq (path/win32/parent `\\.\X:\`) `\\.\X:\`)
+(aeq (path/win32/parent `\\?\Y:\`) `\\?\Y:\`)
+(aeq (path/win32/parent `\\.\x:`) `\\.\x:`)
+(aeq (path/win32/parent `\\?\y:`) `\\?\y:`)
+
+(aeq (path/win32/parent `\\.\Volume{b75e2c83-0000-0000-0000-602f00000000}\Test\Foo.txt`) `\\.\Volume{b75e2c83-0000-0000-0000-602f00000000}\Test`)
+(aeq (path/win32/parent `\\.\Volume{b75e2c83-0000-0000-0000-602f00000000}\Test\`) `\\.\Volume{b75e2c83-0000-0000-0000-602f00000000}\Test`)
+(aeq (path/win32/parent `\\.\Volume{b75e2c83-0000-0000-0000-602f00000000}\`) `\\.\Volume{b75e2c83-0000-0000-0000-602f00000000}\`)
+(aeq (path/win32/parent `\\.\Volume{b75e2c83-0000-0000-0000-602f00000000}`) `\\.\Volume{b75e2c83-0000-0000-0000-602f00000000}`)
+
+(aeq (path/win32/parent `\\?\Volume{b75e2c83-0000-0000-0000-602f00000000}\Test\Foo.txt`) `\\?\Volume{b75e2c83-0000-0000-0000-602f00000000}\Test`)
+(aeq (path/win32/parent `\\?\Volume{b75e2c83-0000-0000-0000-602f00000000}\Test\`) `\\?\Volume{b75e2c83-0000-0000-0000-602f00000000}\Test`)
+(aeq (path/win32/parent `\\?\Volume{b75e2c83-0000-0000-0000-602f00000000}\`) `\\?\Volume{b75e2c83-0000-0000-0000-602f00000000}\`)
+(aeq (path/win32/parent `\\?\Volume{b75e2c83-0000-0000-0000-602f00000000}`) `\\?\Volume{b75e2c83-0000-0000-0000-602f00000000}`)
+
+(aeq (path/win32/parent `\\.\UNC\Localhost\c$\foo.txt`) `\\.\UNC\Localhost\c$\`)
+(aeq (path/win32/parent `\\.\UNC\Localhost\c$\`) `\\.\UNC\Localhost\c$\`)
+(aeq (path/win32/parent `\\.\UNC\Localhost\c$`) `\\.\UNC\Localhost\c$`)
+(aeq (path/win32/parent `\\?\UNC\Localhost\c$\foo.txt`) `\\?\UNC\Localhost\c$\`)
+(aeq (path/win32/parent `\\?\UNC\Localhost\c$`) `\\?\UNC\Localhost\c$`)
 
 # ext
 
