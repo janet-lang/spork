@@ -179,6 +179,8 @@
 (aeq (path/posix/parent "abc") "")
 (aeq (path/posix/parent "/") "/")
 (aeq (path/posix/parent "./") ".")
+(aeq (path/posix/parent ".") "")
+(aeq (path/posix/parent "..") "")
 
 (aeq (path/win32/parent `abc\def`) `abc`)
 (aeq (path/win32/parent "abc/def") "abc")
