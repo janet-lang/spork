@@ -178,8 +178,10 @@
 
 (def- win-prefix-peg
   (peg/compile ~{:drive (* (range "AZ" "az") `:` (any (choice `\` `/`)) ($))
+                 :dos-unc (* `\\` (choice "." "?") `\UNC\` (some (if-not `\` 1)) `\` (some (if-not `\` 1)) (any `\`) ($))
+                 :dos (* `\\` (choice "." "?") `\` (some (if-not `\` 1)) (any `\`) ($))
                  :unc (* `\\` (some (if-not `\` 1)) `\` (some (if-not `\` 1)) (any `\`) ($))
-                 :main (+ :drive :unc)}))
+                 :main (+ :drive :dos-unc :dos :unc)}))
 
 (defn win32/abspath?
   "Check if a path is absolute."
