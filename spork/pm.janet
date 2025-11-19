@@ -828,6 +828,7 @@
   # Copy shared objects, DLLs, static archives, and janet.h into path
   (def [has-winprefix win-prefix] (protect (cc/get-msvc-prefix)))
   (when has-winprefix
+    (os/mkdir (path/join path "C"))
     (each name ["janet.lib" "janet.h" "janet.exp" "janet.c" "libjanet.lib"]
       (try-copy (path/win32/join win-prefix "C" name) (path/win32/join path "C" name))))
 
