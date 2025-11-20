@@ -774,6 +774,12 @@
     (sh/copy src dest)
     true)
 
+(defn- try-copy-file
+    [src dest]
+    (unless (sh/exists? src) (break false))
+    (sh/copy-file src dest)
+    true)
+
 (defn vendor-binaries-pm-shell
   ```
   Copy the Janet interpreter, shared libraries, and other installation files directly into the new shell environment. This allows
@@ -786,7 +792,9 @@
   (assert (sh/exists? executable) "unable to resolve location of the janet binary. Is it on your path?")
   (def exe-ext (if is-win ".exe" ""))
   (def dest (string (path/join path "bin" "janet") exe-ext))
-  (sh/copy executable dest)
+  (if is-win
+    (sh/copy-file executable dest)
+    (sh/copy executable dest))
 
   # Copy shared objects, DLLs, static archives, and janet.h into path
   (def [has-prefix prefix] (protect (cc/get-unix-prefix)))
@@ -830,7 +838,7 @@
   (when has-winprefix
     (os/mkdir (path/join path "C"))
     (each name ["janet.lib" "janet.h" "janet.exp" "janet.c" "libjanet.lib"]
-      (try-copy (path/win32/join win-prefix "C" name) (path/win32/join path "C" name))))
+      (try-copy-file (path/win32/join win-prefix "C" name) (path/win32/join path "C" name))))
 
   (print "Copied janet binaries and shared libraries into " path)
   nil)
