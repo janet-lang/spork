@@ -756,8 +756,8 @@
   (os/mkdir (path/join path "bin"))
   (os/mkdir (path/join path "man"))
   (os/mkdir (path/join path "include"))
-  (os/mkdir (path/join path "pkgconfig"))
   (os/mkdir (path/join path "lib"))
+  (os/mkdir (path/join path "lib" "pkgconfig"))
   (def opts {:path path :abspath (path/abspath path) :name (path/basename path)})
   (spit (path/join path "bin" "activate") (enter-shell-template opts))
   (spit (path/join path "bin" "activate.ps1") (enter-ps-template opts))
@@ -822,7 +822,25 @@
     (try-copy (path/join include "janet" "janet.h") (path/join path "include" "janet" "janet.h"))
     (try-copy (path/join include "janet.h") (path/join path "include" "janet.h"))
 
-    # pkgconfig TODO
+    # pkgconfig
+    (def [has-pkgconfig pkgconfig-in] (protect (slurp (path/join prefix "lib" "pkgconfig" "janet.pc"))))
+    (when has-pkgconfig # we need to rewrite the pkgconfig file from the default install with new paths
+      (def new-values
+        {"prefix" (path/abspath path)
+         "includedir" (path/abspath (path/join path "include" "janet"))
+         "libdir" (path/abspath (path/join path "lib"))})
+      (defn do-assignment [key old-value]
+        (def new-value (get new-values key old-value))
+        (string key "=" new-value))
+      (def peg
+        ~{:assignment (* '(some (range "az" "AZ" "09" "__")) "=" '(to (+ -1 "\n")))
+          :remap (/ :assignment ,do-assignment)
+          :main (accumulate (any (+ :remap '1)))})
+      (def result (peg/match peg pkgconfig-in))
+      (when result
+        (spit (path/join path "lib" "pkgconfig" "janet.pc") (first result))))
+
+    # End unix prefix code
     nil)
 
   # Copy shared objects, DLLs, static archives, and janet.h into path
