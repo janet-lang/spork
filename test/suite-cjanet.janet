@@ -9,7 +9,9 @@
 ### JIT funcitonality
 ###
 
-(begin-jit)
+(begin-jit
+  :build-type :release
+  :cflags ["-Werror"])
 
 (typedef Bill
   (struct
@@ -28,6 +30,7 @@
   add-two
   "Add 2 integers together"
   [x:int y:int] -> int
+  (def bob:Bob (struct x x y y z 1))
   (return (+ x y)))
 
 (cfunction

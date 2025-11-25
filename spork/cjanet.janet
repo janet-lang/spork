@@ -15,7 +15,7 @@
 
 (def- mangle-peg
   (peg/compile
-    ~{:valid (range "az" "AZ" "__")
+    ~{:valid (range "az" "AZ" "__" "..")
       :one (+ (/ "-" "_") ':valid (/ '1 ,|(string "_X" ($ 0))))
       :main (% (* :one (any (+ ':d :one))))}))
 
@@ -30,8 +30,10 @@
 (def- uops {'bnot "~" 'not "!" 'neg "-" '! "!" '++ "++" '-- "--"})
 
 (defn mangle
-  "Convert any sequence of bytes to a valid C identifier in a way that is unlikely to collide.
-  `print-ir` will not mangle symbols for you."
+  ``
+  Convert any sequence of bytes to a valid C identifier in a way that is unlikely to collide. The period character
+  is left unchanged even though it is not a valid identifier to allow for easy access into structs.
+  ``
   [token]
   (first (peg/match mangle-peg token)))
 
@@ -94,19 +96,19 @@
 (defn- emit-struct-union-def
   [which name args defname]
   (when (or (nil? args) (empty? args))
-    (prin which " " name)
-    (if defname (prin " " defname))
+    (prin which " " (mangle name))
+    (if defname (prin " " (mangle defname)))
     (break))
   (assert (even? (length args)) (string/format "expected even number of arguments, got %j" args))
   (prin which " ")
-  (if name (prin name " "))
+  (if name (prin (mangle name) " "))
   (emit-block-start)
   (each [field ftype] (partition 2 args)
     (emit-indent)
     (emit-type ftype field)
     (print ";"))
   (emit-block-end)
-  (if defname (prin " " defname)))
+  (if defname (prin " " (mangle defname))))
 
 (defn- emit-struct-def
   [name args defname]
@@ -119,7 +121,7 @@
 (defn- emit-enum-def
   [name args defname]
   (prin "enum ")
-  (if name (prin name " "))
+  (if name (prin (mangle name) " "))
   (emit-block-start)
   (each x args
     (emit-indent)
@@ -130,13 +132,13 @@
         (print ","))
       (print x ",")))
   (emit-block-end)
-  (if defname (prin " " defname)))
+  (if defname (prin " " (mangle defname))))
 
 (defn- emit-fn-pointer-type
   [ret-type args defname]
   (prin "(")
   (emit-type ret-type)
-  (prin ")(*" defname ")(")
+  (prin ")(*" (mangle defname) ")(")
   (var is-first true)
   (each x args
     (unless is-first (prin ", "))
@@ -150,25 +152,25 @@
   [x alias]
   (emit-type x)
   (prin " *")
-  (if alias (prin alias)))
+  (if alias (prin (mangle alias))))
 
 (defn- emit-ptr-ptr-type
   [x alias]
   (emit-type x)
   (prin " **")
-  (if alias (prin alias)))
+  (if alias (prin (mangle alias))))
 
 (defn- emit-const-type
   [x alias]
   (prin "const ")
   (emit-type x)
-  (if alias (prin " " alias)))
+  (if alias (prin " " (mangle alias))))
 
 (defn- emit-array-type
   [x n alias]
   (if-not alias (prin "("))
   (emit-type x)
-  (if alias (prin " " alias))
+  (if alias (prin " " (mangle alias)))
   (prin "[")
   (when n
     (emit-expression n true))
@@ -822,13 +824,17 @@
 (defdyn *jit-context* "A context value for storing the current state of compilation, including buffers, flags, and tool paths.")
 
 (defn begin-jit
-  "Begin C Janet JIT context."
-  [& opts]
+  ``
+  Begin C Janet JIT context. Optionally pass in options to configure compilation. The `options` argument
+  will be passed to the `spork/cc` module to compile generated C code.
+  ``
+  [&keys options]
   (def compilation-unit @"#include <janet.h>\n")
   (def cont
     {:buffer compilation-unit
      :build-dir "_cjanet"
-     :module-name (string "_cjanet" (gensym))})
+     :opts options
+     :module-name (get options :module-name "_cjanet")})
   (setdyn *jit-context* cont)
   (os/mkdir "_cjanet")
   (setdyn *out* compilation-unit)
@@ -841,6 +847,8 @@
   (def ccontext (assert (dyn *jit-context*)))
   (def module-name (assert (get ccontext :module-name)))
   (def builddir (assert (get ccontext :build-dir)))
+  (def opts (get ccontext :opts {}))
+  (def buf (assert (get ccontext :buffer)))
   # 1. Create module entry
   (emit-module-entry module-name)
   # 2. Reset old context
@@ -848,18 +856,25 @@
   (setdyn *out* nil)
   # 3. Emit C source code
   (os/mkdir builddir)
-  (def temp-name (string builddir "/" module-name "_" (os/getpid)))
+  # TODO - better temp name
+  (def temp-name (string builddir "/" module-name "_temp"))
   (def temp-c-source (string temp-name ".c"))
   (def temp-so (string temp-name ".so"))
-  (spit temp-c-source (get ccontext :buffer))
-  (print (get ccontext :buffer)) # debug
+  (def [has-old old-source] (protect (slurp temp-c-source)))
+  (unless (deep= old-source buf)
+    (spit temp-c-source buf))
+  (when (get opts :verbose) (eprint buf)) # debug
+  (buffer/clear buf)
+  (buffer/trim buf) # save mem
   # 4. Compile to shared object
   # TODO - do library search once and cache
   (cc/search-static-libraries "m" "rt" "dl")
   (cc/search-dynamic-libraries "janet")
-  (with-dyns [cc/*defines* {"CJANET_JIT" "1"}
-              cc/*build-dir* builddir
-              cc/*visit* cc/visit-execute-if-stale]
+  (with-dyns []
+    (eachp [k v] opts (setdyn k v))
+    # These cannot be overriden
+    (setdyn cc/*visit* cc/visit-execute-if-stale)
+    (setdyn cc/*build-dir* builddir)
     (cc/compile-and-link-shared temp-so temp-c-source))
   # 5. Import shared object
   (native temp-so (curenv)))
