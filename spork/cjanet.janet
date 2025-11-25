@@ -11,6 +11,8 @@
 ### subset of valid C 99.
 ###
 
+(import ./cc)
+
 (def- mangle-peg
   (peg/compile
     ~{:valid (range "az" "AZ" "__")
@@ -176,7 +178,7 @@
 (varfn emit-type
   [definition &opt alias]
   (match definition
-    (d (bytes? d)) (do (prin d) (if alias (prin " " alias)))
+    (d (bytes? d)) (do (prin (mangle d)) (if alias (prin " " (mangle alias))))
     (t (tuple? t))
     (match t
       ['struct & body] (emit-struct-def nil body alias)
@@ -293,7 +295,7 @@
 (varfn emit-expression
   [form &opt noparen]
   (match form
-    (f (or (symbol? f) (keyword? f))) (prin f)
+    (f (or (symbol? f) (keyword? f))) (prin (mangle f))
     (n (number? n)) (prinf "%.17g" n)
     (s (string? s)) (prinf "%v" s) # todo - better match escape codes
     (a (array? a)) (do
@@ -812,3 +814,52 @@
   "Call this at the end of a cjanet module to add a module entry function."
   [name]
   (emit-module-entry name))
+
+###
+### "JIT" functionality for use in repl and to reduce boilerplate
+###
+
+(defdyn *jit-context* "A context value for storing the current state of compilation, including buffers, flags, and tool paths.")
+
+(defn begin-jit
+  "Begin C Janet JIT context."
+  [& opts]
+  (def compilation-unit @"#include <janet.h>\n")
+  (def cont
+    {:buffer compilation-unit
+     :build-dir "_cjanet"
+     :module-name (string "_cjanet" (gensym))})
+  (setdyn *jit-context* cont)
+  (os/mkdir "_cjanet")
+  (setdyn *out* compilation-unit)
+  cont)
+
+(defn end-jit
+  "End current compilation context, compile all buffered code, and then load it into the current process."
+  [&]
+  # 0. Unpack context
+  (def ccontext (assert (dyn *jit-context*)))
+  (def module-name (assert (get ccontext :module-name)))
+  (def builddir (assert (get ccontext :build-dir)))
+  # 1. Create module entry
+  (emit-module-entry module-name)
+  # 2. Reset old context
+  (setdyn *jit-context* nil)
+  (setdyn *out* nil)
+  # 3. Emit C source code
+  (os/mkdir builddir)
+  (def temp-name (string builddir "/" module-name "_" (os/getpid)))
+  (def temp-c-source (string temp-name ".c"))
+  (def temp-so (string temp-name ".so"))
+  (spit temp-c-source (get ccontext :buffer))
+  (print (get ccontext :buffer)) # debug
+  # 4. Compile to shared object
+  # TODO - do library search once and cache
+  (cc/search-static-libraries "m" "rt" "dl")
+  (cc/search-dynamic-libraries "janet")
+  (with-dyns [cc/*defines* {"CJANET_JIT" "1"}
+              cc/*build-dir* builddir
+              cc/*visit* cc/visit-execute-if-stale]
+    (cc/compile-and-link-shared temp-so temp-c-source))
+  # 5. Import shared object
+  (native temp-so (curenv)))
