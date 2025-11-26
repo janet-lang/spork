@@ -2,21 +2,22 @@
 ### Use cjanet JIT to use libpng
 ###
 
-(import ../spork/cjanet :as c)
+(use ../spork/cjanet)
 
-(c/begin-jit
+(begin-jit
   :module-name "pngexample"
   :cflags ["-Werror"]
   :lflags ["-lpng" "-lz"]
   :quiet true
   :build-type :release)
 
-(c/include <stdio.h>)
-(c/include <stdlib.h>)
-(c/include <png.h>)
+(include <stdio.h>)
+(include <stdlib.h>)
+(include <png.h>)
 
-(c/cfunction
+(cfunction
   make-png
+  "Write a PNG to a file `out` with a specified width and height"
   [out:cstring width:int height:int] -> int
   (def bit-depth:int 32)
   (def byte-depth:int (/ bit-depth 8))
@@ -37,7 +38,6 @@
       (set (aref (aref rows y) (+ (* 4 x) 3)) 0xFF)))
 
   # Now write out PNG
-
   (def (fp (* FILE)) (fopen out "wb"))
   (if (not fp)
     (do
@@ -61,14 +61,14 @@
   (png-write-image png rows)
   (png-write-end png NULL)
 
+  # Clean up
   (free rows)
   (free data)
-
   (fclose fp)
 
   (return 0))
 
-(c/end-jit)
+(end-jit) # creates and loads shared object
 
 # Now use it
 (os/mkdir "tmp")

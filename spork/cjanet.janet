@@ -12,6 +12,7 @@
 ###
 
 (import ./cc)
+(import ./pm-config)
 
 (def- mangle-peg
   (peg/compile
@@ -825,41 +826,51 @@
 (defdyn *jit-context* "A context value for storing the current state of compilation, including buffers, flags, and tool paths.")
 
 (defn begin-jit
-  ``
+  ```
   Begin C Janet JIT context. Optionally pass in options to configure compilation. The `options` argument
-  will be passed to the `spork/cc` module to compile generated C code.
-  ``
+  will be passed to the `spork/cc` module to compile generated C code. Generated intermediates will be created
+  in the _cjanet/ directory.
+  ```
   [&keys options]
   (def compilation-unit @"#include <janet.h>\n")
   (def cont
     {:buffer compilation-unit
      :build-dir "_cjanet"
      :opts options
-     :module-name (get options :module-name "_cjanet")})
+     :module-name (get options :module-name (string "cjanet_" (os/getpid)))})
   (setdyn *jit-context* cont)
   (os/mkdir "_cjanet")
   (setdyn *out* compilation-unit)
   cont)
 
 (defn end-jit
-  "End current compilation context, compile all buffered code, and then load it into the current process."
+  ```
+  End current compilation context, compile all buffered code, and then by default load it into the current process.
+  The `no-load` argument controls whether or not the compiled code is loaded. If `no-load` is truthy, then
+  this function will return the path to the compiled shared object and skip loading.
+  If `cache` is truthy, this function will use a previously compiled shared object or DLL if it exists and the source code matches.
+  ```
   [&named no-load cache]
+
   # 0. Unpack context
   (def ccontext (assert (dyn *jit-context*)))
   (def module-name (assert (get ccontext :module-name)))
   (def builddir (assert (get ccontext :build-dir)))
   (def opts (get ccontext :opts {}))
   (def buf (assert (get ccontext :buffer)))
+  (def toolchain (pm-config/detect-toolchain (curenv)))
+
   # 1. Create module entry
   (emit-module-entry module-name)
+
   # 2. Reset old context
   (setdyn *jit-context* nil)
   (setdyn *out* nil)
+
   # 3. Emit C source code
   (os/mkdir builddir)
   (def name (string builddir "/" module-name))
   (def c-source (string name ".c"))
-  (def so (string name ".so"))
   (if cache
     (do
       (def [has-old old-source] (protect (slurp c-source)))
@@ -869,16 +880,24 @@
   (when (get opts :verbose) (eprint buf)) # debug
   (buffer/clear buf)
   (buffer/trim buf) # save mem
+
   # 4. Compile to shared object
-  # TODO - do library search once and cache
-  (cc/search-static-libraries "m" "rt" "dl")
-  (cc/search-dynamic-libraries "janet")
+  (var so (string name ".so"))
   (with-dyns []
+    (def env (curenv))
     (eachp [k v] opts (setdyn k v))
     # These cannot be overriden
     (setdyn cc/*visit* cc/visit-execute-if-stale)
     (setdyn cc/*build-dir* builddir)
-    (cc/compile-and-link-shared so c-source))
+    (if (= :msvc toolchain)
+      (do
+        (set so (string name ".dll"))
+        (put env cc/*lflags* @[;(get env cc/*lflags* @[]) "/NOIMPLIB"])
+        (cc/msvc-compile-and-link-shared so c-source))
+      (do
+        (cc/compile-and-link-shared so c-source))))
+
   # 5. Import shared object
-  (unless no-load
+  (if no-load
+    so
     (native so (curenv))))
