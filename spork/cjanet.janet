@@ -15,8 +15,8 @@
 
 (def- mangle-peg
   (peg/compile
-    ~{:valid (range "az" "AZ" "__" "..")
-      :one (+ (/ "-" "_") ':valid (/ '1 ,|(string "_X" ($ 0))))
+    ~{:valid (range "az" "AZ" "__")
+      :one (+ '"->" (/ "-" "_") ':valid '"." (/ '1 ,|(string "_X" ($ 0))))
       :main (% (* :one (any (+ ':d :one))))}))
 
 (def- bops
@@ -317,7 +317,8 @@
         [(bs (uops bs)) & rest] (emit-unop (uops bs) ;rest)
         ['literal l] (prin (string l))
         ['quote q] (prin (string q))
-        ['aref v i] (emit-aindex v i)
+        ['aref v i & more]
+          (do (assert (empty? more) "aref expects two arguments") (emit-aindex v i))
         ['call & args] (emit-funcall args)
         ['set v i] (emit-set v i)
         ['deref v] (emit-deref v)
@@ -422,7 +423,7 @@
   [init cond step body]
   (emit-indent)
   (prin "for (")
-  (emit-expression init true)
+  (emit-statement init)
   (prin "; ")
   (emit-expression cond true)
   (prin "; ")
@@ -842,7 +843,7 @@
 
 (defn end-jit
   "End current compilation context, compile all buffered code, and then load it into the current process."
-  [&]
+  [&named no-load cache]
   # 0. Unpack context
   (def ccontext (assert (dyn *jit-context*)))
   (def module-name (assert (get ccontext :module-name)))
@@ -856,13 +857,15 @@
   (setdyn *out* nil)
   # 3. Emit C source code
   (os/mkdir builddir)
-  # TODO - better temp name
-  (def temp-name (string builddir "/" module-name "_temp"))
-  (def temp-c-source (string temp-name ".c"))
-  (def temp-so (string temp-name ".so"))
-  (def [has-old old-source] (protect (slurp temp-c-source)))
-  (unless (deep= old-source buf)
-    (spit temp-c-source buf))
+  (def name (string builddir "/" module-name))
+  (def c-source (string name ".c"))
+  (def so (string name ".so"))
+  (if cache
+    (do
+      (def [has-old old-source] (protect (slurp c-source)))
+      (unless (deep= old-source buf)
+        (spit c-source buf)))
+    (spit c-source buf))
   (when (get opts :verbose) (eprint buf)) # debug
   (buffer/clear buf)
   (buffer/trim buf) # save mem
@@ -875,6 +878,7 @@
     # These cannot be overriden
     (setdyn cc/*visit* cc/visit-execute-if-stale)
     (setdyn cc/*build-dir* builddir)
-    (cc/compile-and-link-shared temp-so temp-c-source))
+    (cc/compile-and-link-shared so c-source))
   # 5. Import shared object
-  (native temp-so (curenv)))
+  (unless no-load
+    (native so (curenv))))

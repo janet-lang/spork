@@ -623,7 +623,7 @@
       (flush)
       (exec-linebuffered cmd))
     (do
-      (print message)
+      (unless (dyn :quiet) (print message))
       (with [proc (os/spawn cmd :p {:out :pipe :err :pipe})]
         (def [out err exit] (ev/gather
                               (ev/read (proc :out) :all)

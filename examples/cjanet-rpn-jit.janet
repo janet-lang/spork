@@ -1,6 +1,9 @@
 (import spork/cjanet :as c)
 
-(c/begin-jit :module-name "rpn")
+(c/begin-jit
+  :module-name "rpn"
+  :cflags ["-Werror"]
+  :build-type :release)
 
 (defn- make-binop
   [op]

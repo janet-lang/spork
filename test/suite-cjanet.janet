@@ -9,9 +9,7 @@
 ### JIT funcitonality
 ###
 
-(begin-jit
-  :build-type :release
-  :cflags ["-Werror"])
+(begin-jit)
 
 (typedef Bill
   (struct
