@@ -269,7 +269,9 @@
 
 (defn- emit-cast
   [ctype expr]
-  (prin "(" ctype ")")
+  (prin "(")
+  (emit-type ctype)
+  (prin ")")
   (emit-expression expr))
 
 (defn- emit-struct-ctor
