@@ -5,9 +5,10 @@
 (start-suite)
 
 (def base-path "test")
+(def assets-dir ["assets" "17"])
 
 (do
-  (assert (deep= (os/dir (path/join base-path "assets/17"))
+  (assert (deep= (os/dir (path/join base-path ;assets-dir))
                  @["test.file"])
           "test files are wrong, assets/17 should only contain test.file")
   (sh/copy-file (path/join base-path "assets/17/test.file")
@@ -35,8 +36,18 @@
              nil)
           "sh/rm didn't work correctly"))
 
-(assert (deep= 
+(assert (deep=
           (sh/split ` "c d \" f" ' y z'  a b a\ b --cflags `)
           @["c d \" f" " y z" "a" "b" "a b" "--cflags"]))
+
+(def new-dir ["assets" "18"])
+(sh/create-dirs (path/join base-path ;new-dir))
+(defer (do
+         (os/rm (path/join base-path ;new-dir "test.file"))
+         (os/rmdir (path/join base-path ;new-dir)))
+  (sh/copy (path/join base-path ;assets-dir "test.file")
+           (path/join base-path ;new-dir))
+  (assert (= :file (os/stat (path/join base-path ;new-dir "test.file") :mode))
+          "directory with file should be copied"))
 
 (end-suite)
