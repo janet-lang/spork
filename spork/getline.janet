@@ -350,6 +350,8 @@
             (set hindex (history-move hindex 1))
             17 # ctrl-q
             (do (set more-input false) (set ret-value :cancel) (clear-lines))
+            21 # ctrl-u
+            (do (buffer/blit buf buf 0 pos) (buffer/popn buf pos) (set pos 0) (clear-lines) (refresh))
             23 # ctrl-w
             (kbackw)
             26 # ctrl-z
