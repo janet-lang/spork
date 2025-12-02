@@ -14,6 +14,7 @@
     (os/getenv "MSVC") :msvc
     (os/getenv "GCC") :gcc
     (os/getenv "CLANG") :clang
+    (os/getenv "TCC") :tcc
     (os/getenv "CC") :cc # any posix compatible compiler accessed via `cc`
     (= :windows (os/which)) :msvc
     (os/compiler)))

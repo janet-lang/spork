@@ -18,7 +18,7 @@
   (peg/compile
     ~{:valid (range "az" "AZ" "__")
       :one (+ '"->" (/ "-" "_") ':valid '"." (/ '1 ,|(string "_X" ($ 0))))
-      :main (% (* :one (any (+ ':d :one))))}))
+      :main (% (* (? "@") :one (any (+ ':d :one))))}))
 
 (def- bops
   {'+ '+ '- '- '* '* '/ '/ '% '% '< '<
@@ -67,6 +67,20 @@
     (let [[v t d] (assert (peg/match type-split-dflt-peg x))]
       [(symbol v) (symbol t) (parse d)])
     (errorf "expected symbol (symbol type dflt) tuple, got %j" x)))
+
+# Macros
+# We need to be judicious with macros as they can obscure real C functions. In practice we can get
+# around this with mangling magic - add a leading "@" to the symbol and it will not match a macro name
+
+(def- block-macros @{})
+(defn- register-block-macro
+  [name value]
+  (put block-macros (symbol name) value))
+
+(register-block-macro 'when when)
+(register-block-macro 'if-not if-not)
+(register-block-macro 'unless unless)
+(register-block-macro 'let let)
 
 ###
 ### Emitting C
@@ -350,6 +364,8 @@
   [form]
   (match form
     ['def & args] (emit-declaration ;args)
+    ['var & args] (emit-declaration ;args)
+    nil (prin ";")
     (emit-expression form true)))
 
 # Blocks
@@ -357,6 +373,7 @@
 (defn emit-blocks
   "Emit a number of statements in a bracketed block"
   [statements]
+  (default statements [])
   (when (one? (length statements))
     (emit-block (get statements 0))
     (break))
@@ -371,8 +388,9 @@
   [args]
   (assert (>= (length args) 2) "expected at least 2 arguments to if")
   (var is-first true)
-  (each [condition branch] (partition 2 args)
-    (if (= nil branch)
+  (each chunk (partition 2 args)
+    (def [condition branch] chunk)
+    (if (= 1 (length chunk))
       (do
         (prin " else ")
         (emit-block condition))
@@ -444,6 +462,8 @@
 
 (varfn emit-block
   [form &opt nobracket]
+  (when-let [mac (and (tuple? form) (get block-macros (first form)))]
+    (break (emit-block (mac ;(drop 1 form)) nobracket)))
   (unless nobracket
     (emit-block-start))
   (match form

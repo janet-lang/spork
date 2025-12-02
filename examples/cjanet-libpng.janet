@@ -4,11 +4,36 @@
 
 (use ../spork/cjanet)
 
+# Define the pixel shader up here - takes x and y
+(def madelbrot
+  '(do
+     (def xfloat:double (+ -2.00 (/ (cast double x) width 0.4)))
+     (def yfloat:double (+ -1.25 (/ (cast double y) height 0.4)))
+     (var xx:double 0.0)
+     (var yy:double 0.0)
+     (for [(def i:int 0) (< i 20) (++ i)]
+       (def xnext:double (+ xfloat (- (* xx xx) (* yy yy))))
+       (def ynext:double (+ yfloat (* 2 xx yy)))
+       (set xx xnext)
+       (set yy ynext))
+     (def mag2:double (+ (* xx xx) (* yy yy)))
+     (cond
+       (> 1.0 mag2) (set color 0x000000FF)
+       (> 5 mag2) (set color 0x771100FF)
+       (> 15 mag2) (set color 0xbb5500FF)
+       (> 100 mag2) (set color 0xee8800FF)
+       (> 1000 mag2) (set color 0xFFFF00FF)
+       (set color 0xFFFFFFFF))))
+
 (begin-jit
   :module-name "pngexample"
   :cflags ["-Werror"]
   :lflags ["-lpng" "-lz"]
-  :quiet true
+  :cache true
+  #:smart-libs false
+  #:cc "tcc" - doesn't quite work on linux due to executable stack issue
+  #:verbose true
+  #:quiet true
   :build-type :release)
 
 (include <stdio.h>)
@@ -23,8 +48,9 @@
   (def byte-depth:int (/ bit-depth 8))
 
   # Generate pixel data
-  (def data:png_bytep (malloc (* byte-depth width height)))
-  (def rows:png_bytepp (malloc (* height (sizeof png_bytep))))
+  (printf "generating %s\n" out)
+  (def data:png-bytep (malloc (* byte-depth width height)))
+  (def rows:png-bytepp (malloc (* height (sizeof png-bytep))))
 
   (for [(def i:int 0) (< i height) (++ i)]
     (set (aref rows i) (+ data (* i width byte-depth))))
@@ -32,20 +58,22 @@
   # Paint it red
   (for [(def y:int 0) (< y height) (++ y)]
     (for [(def x:int 0) (< x width) (++ x)]
-      (set (aref (aref rows y) (+ (* 4 x) 0)) 0xFF)
-      (set (aref (aref rows y) (+ (* 4 x) 1)) 0)
-      (set (aref (aref rows y) (+ (* 4 x) 2)) 0)
-      (set (aref (aref rows y) (+ (* 4 x) 3)) 0xFF)))
+      (var color:uint32_t 0)
+      ,madelbrot # inline "pixel shader" program
+      (set (aref (aref rows y) (+ (* 4 x) 0)) (band 0xFF (>> color 24)))
+      (set (aref (aref rows y) (+ (* 4 x) 1)) (band 0xFF (>> color 16)))
+      (set (aref (aref rows y) (+ (* 4 x) 2)) (band 0xFF (>> color 8)))
+      (set (aref (aref rows y) (+ (* 4 x) 3)) (band 0xFF color))))
 
   # Now write out PNG
+  (printf "writing %s\n" out)
   (def (fp (* FILE)) (fopen out "wb"))
-  (if (not fp)
-    (do
-      (perror "error opening file for writing")
-      (exit 1)))
+  (unless fp
+    (perror "error opening file for writing")
+    (exit 1))
 
-  (def png:png_structp (png-create-write-struct PNG_LIBPNG_VER_STRING NULL NULL NULL))
-  (def info:png_infop (png-create-info-struct png))
+  (def png:png-structp (png-create-write-struct PNG-LIBPNG-VER-STRING NULL NULL NULL))
+  (def info:png-infop (png-create-info-struct png))
 
   (if (setjmp (png-jmpbuf png))
     (do
@@ -55,8 +83,8 @@
   (png-init-io png fp)
   (png-set-IHDR
     png info width height
-    8 PNG_COLOR_TYPE_RGBA PNG_INTERLACE_NONE
-    PNG_COMPRESSION_TYPE_DEFAULT PNG_FILTER_TYPE_DEFAULT)
+    8 PNG-COLOR-TYPE-RGBA PNG-INTERLACE-NONE
+    PNG-COMPRESSION-TYPE-DEFAULT PNG-FILTER-TYPE-DEFAULT)
   (png-write-info png info)
   (png-write-image png rows)
   (png-write-end png NULL)
@@ -72,6 +100,6 @@
 
 # Now use it
 (os/mkdir "tmp")
-(make-png "tmp/out.png" 100 100)
+(make-png "tmp/out.png" 4096 4096)
 
 # janet examples/cjanet-libpng.janet && feh tmp/out.png

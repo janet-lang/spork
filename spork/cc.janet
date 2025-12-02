@@ -221,17 +221,19 @@
   (def dl (if (= (target-os) :macos) ["-undefined" "dynamic_lookup"] []))
   (def sg (if (smart-libs) ["-Wl,--start-group"] []))
   (def eg (if (smart-libs) ["-Wl,--end-group"] []))
-  (def bs (if (not= (target-os) :macos) ["-Wl,-Bstatic"] []))
-  (def bd (if (not= (target-os) :macos) ["-Wl,-Bdynamic"] []))
+  (def slibs (static-libs))
+  (def dlibs (dynamic-libs))
+  (def bs (if (and (next slibs) (not= (target-os) :macos)) ["-Wl,-Bstatic"] []))
+  (def bd (if (and (next dlibs) (not= (target-os) :macos)) ["-Wl,-Bdynamic"] []))
   [;sg
    ;(lflags)
    ;(if static ["-static"] [])
    ;dl
    ;(default-libs)
    ;bs
-   ;(static-libs)
+   ;slibs
    ;bd
-   ;(dynamic-libs)
+   ;dlibs
    ;(if static bs []) # put back to static linking so the -static flag works.
    ;eg
    ;(rpath)])
