@@ -26,6 +26,11 @@
      :default netrepl/default-port
      :kind :option}
 
+    "unix-socket"
+    {:short "U"
+     :help (string "Unix socket path to serve the repl at.")
+     :kind :option}
+
     "client"
     {:short "c"
      :kind :flag
@@ -63,8 +68,9 @@
 
   # Break on help text
   (unless ap (break))
-  (def host (ap "host"))
-  (def port (ap "port"))
+  (def [host port] (if-let [path (ap "unix-socket")]
+                     [:unix path]
+                     [(ap "host") (ap "port")]))
   (def dof (ap "dofile"))
   (def msg (ap "message"))
   (def msg-file (ap "message-file"))
