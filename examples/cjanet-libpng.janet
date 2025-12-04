@@ -1,5 +1,5 @@
 ###
-### Use cjanet JIT to use libpng
+### Use cjanet JIT and libpng to generate a large fractal.
 ###
 
 (use ../spork/cjanet)
@@ -7,22 +7,25 @@
 # Define the pixel shader up here - takes x and y
 (def madelbrot
   '(do
+     (def iterations:int 40)
      (def xfloat:double (+ -2.00 (/ (cast double x) width 0.4)))
      (def yfloat:double (+ -1.25 (/ (cast double y) height 0.4)))
-     (var xx:double 0.0)
-     (var yy:double 0.0)
-     (for [(def i:int 0) (< i 20) (++ i)]
-       (def xnext:double (+ xfloat (- (* xx xx) (* yy yy))))
-       (def ynext:double (+ yfloat (* 2 xx yy)))
-       (set xx xnext)
-       (set yy ynext))
-     (def mag2:double (+ (* xx xx) (* yy yy)))
+     (def c:complex (+ xfloat (* I yfloat)))
+     (var X:complex 0.0)
+     (for [(def i:int 0) (< i iterations) (++ i)]
+       (set X (+ (* X X) c)))
+     (def mag2:double (pow (cabs X) 0.01))
      (cond
+       #(> 0.9 mag2) (set color 0x000000FF)
        (> 1.0 mag2) (set color 0x000000FF)
+       (> 2 mag2) (set color 0x330700FF)
        (> 5 mag2) (set color 0x771100FF)
        (> 15 mag2) (set color 0xbb5500FF)
        (> 100 mag2) (set color 0xee8800FF)
        (> 1000 mag2) (set color 0xFFFF00FF)
+       (> 10000 mag2) (set color 0xFFFF33FF)
+       (> 100000 mag2) (set color 0xFFFF66FF)
+       (> 1000000 mag2) (set color 0xFFFF99FF)
        (set color 0xFFFFFFFF))))
 
 (begin-jit
@@ -39,6 +42,8 @@
 (include <stdio.h>)
 (include <stdlib.h>)
 (include <png.h>)
+(include <complex.h>)
+(include <math.h>)
 
 (cfunction
   make-png
@@ -47,11 +52,10 @@
   (def bit-depth:int 32)
   (def byte-depth:int (/ bit-depth 8))
 
-  # Generate pixel data
+  # Allocate pixel data
   (printf "generating %s\n" out)
   (def data:png-bytep (malloc (* byte-depth width height)))
   (def rows:png-bytepp (malloc (* height (sizeof png-bytep))))
-
   (for [(def i:int 0) (< i height) (++ i)]
     (set (aref rows i) (+ data (* i width byte-depth))))
 
@@ -75,10 +79,9 @@
   (def png:png-structp (png-create-write-struct PNG-LIBPNG-VER-STRING NULL NULL NULL))
   (def info:png-infop (png-create-info-struct png))
 
-  (if (setjmp (png-jmpbuf png))
-    (do
-      (fprintf stderr "failed writing png")
-      (exit 1)))
+  (when (setjmp (png-jmpbuf png))
+    (fprintf stderr "failed writing png")
+    (exit 1))
 
   (png-init-io png fp)
   (png-set-IHDR
