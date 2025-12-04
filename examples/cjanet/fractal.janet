@@ -1,6 +1,8 @@
 ###
 ### Use cjanet JIT and libpng to generate a large fractal.
 ###
+### Requires a c compiler and libpng installed.
+###
 
 (use ../spork/cjanet)
 
@@ -16,7 +18,6 @@
        (set X (+ (* X X) c)))
      (def mag2:double (pow (cabs X) 0.01))
      (cond
-       #(> 0.9 mag2) (set color 0x000000FF)
        (> 1.0 mag2) (set color 0x000000FF)
        (> 2 mag2) (set color 0x330700FF)
        (> 5 mag2) (set color 0x771100FF)
