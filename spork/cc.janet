@@ -735,7 +735,7 @@
   (def pkp (string "--with-path=" (path/join pkg-config-path "pkgconfig")))
   (def extra (dyn *pkg-config-flags* []))
   (def output (sh/exec-slurp "pkg-config" wp pkp ;extra ;cmd))
-  (string/split " " (string/trim output)))
+  (filter next (string/split " " (string/trim output))))
 
 (defn pkg-config
   "Setup defines, cflags, and library flags from pkg-config."
