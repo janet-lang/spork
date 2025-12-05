@@ -4,7 +4,7 @@
 ### Requires a c compiler and libpng installed.
 ###
 
-(use ../spork/cjanet)
+(use ../../spork/cjanet)
 
 # Define the pixel shader up here - takes x and y
 (def madelbrot

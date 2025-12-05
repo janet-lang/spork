@@ -109,6 +109,7 @@
 ### Universal helpers for all toolchains
 ###
 
+(defmacro- notail [x] ~(do (def ,(gensym) ,x)))
 (defn- cflags [] (dyn *cflags* []))
 (defn- c++flags [] (dyn *c++flags* []))
 (defn- lflags [] (dyn *lflags* []))
@@ -151,6 +152,7 @@
 (defn- exec
   "Call the (dyn *visit*) function on commands"
   [cmd inputs outputs message]
+  #(tracev cmd) -> how to find empty strings being passed as arguments
   ((dyn *visit* default-exec) cmd inputs outputs message) cmd)
 
 (defn- getsetdyn
@@ -257,43 +259,50 @@
 (defn compile-c
   "Compile a C source file to an object file. Return the command arguments."
   [from to]
-  (exec [(cc) (ccstd) ;(opt) ;(cflags) ;(extra-paths) "-fPIC" ;(defines) "-c" from "-o" to "-pthread"]
-        [from] [to] (string "compiling " from "...")))
+  (notail
+    (exec [(cc) (ccstd) ;(opt) ;(cflags) ;(extra-paths) "-fPIC" ;(defines) "-c" from "-o" to "-pthread"]
+          [from] [to] (string "compiling " from "..."))))
 
 (defn compile-c++
   "Compile a C++ source file to an object file. Return the command arguments."
   [from to]
-  (exec [(c++) (c++std) ;(opt) ;(c++flags) ;(extra-paths) "-fPIC" ;(defines) "-c" from "-o" to "-pthread"]
-        [from] [to] (string "compiling " from "...")))
+  (notail
+    (exec [(c++) (c++std) ;(opt) ;(c++flags) ;(extra-paths) "-fPIC" ;(defines) "-c" from "-o" to "-pthread"]
+          [from] [to] (string "compiling " from "..."))))
 
 (defn link-shared-c
   "Link a C program to make a shared library. Return the command arguments."
   [objects to]
-  (exec [(cc) (ccstd) ;(opt) ;(cflags) ;(extra-link-paths) "-o" to ;objects "-pthread" ;(libs false) ;(dynamic-libs) "-shared"]
-        objects [to] (string "linking " to "...")))
+  (notail
+    (exec [(cc) (ccstd) ;(opt) ;(cflags) ;(extra-link-paths) "-o" to ;objects "-pthread" ;(libs false) ;(dynamic-libs) "-shared"]
+          objects [to] (string "linking " to "..."))))
 
 (defn link-shared-c++
   "Link a C++ program to make a shared library. Return the command arguments."
   [objects to]
-  (exec [(c++) (c++std) ;(opt) ;(c++flags) ;(extra-link-paths) "-o" to ;objects "-pthread" ;(libs false) ;(dynamic-libs) "-shared"]
-        objects [to] (string "linking " to "...")))
+  (notail
+    (exec [(c++) (c++std) ;(opt) ;(c++flags) ;(extra-link-paths) "-o" to ;objects "-pthread" ;(libs false) ;(dynamic-libs) "-shared"]
+          objects [to] (string "linking " to "..."))))
 
 (defn link-executable-c
   "Link a C program to make an executable. Return the command arguments."
   [objects to &opt make-static]
-  (exec [(cc) (ccstd) ;(opt) ;(cflags) ;(extra-link-paths) "-o" to ;objects ;(rdynamic) "-pthread" ;(libs make-static)]
-        objects [to] (string "linking " to "...")))
+  (notail
+    (exec [(cc) (ccstd) ;(opt) ;(cflags) ;(extra-link-paths) "-o" to ;objects ;(rdynamic) "-pthread" ;(libs make-static)]
+          objects [to] (string "linking " to "..."))))
 
 (defn link-executable-c++
   "Link a C++ program to make an executable. Return the command arguments."
   [objects to &opt make-static]
-  (exec [(c++) (c++std) ;(opt) ;(c++flags) ;(extra-link-paths) "-o" to ;objects ;(rdynamic) "-pthread" ;(libs make-static)]
-        objects [to] (string "linking " to "...")))
+  (notail
+    (exec [(c++) (c++std) ;(opt) ;(c++flags) ;(extra-link-paths) "-o" to ;objects ;(rdynamic) "-pthread" ;(libs make-static)]
+          objects [to] (string "linking " to "..."))))
 
 (defn make-archive
   "Make an archive file. Return the command arguments."
   [objects to]
-  (exec [(ar) "rcs" to ;objects] objects [to] (string "archiving " to "...")))
+  (notail
+    (exec [(ar) "rcs" to ;objects] objects [to] (string "archiving " to "..."))))
 
 # Compound commands
 
@@ -737,7 +746,7 @@
   (def pkp (string "--with-path=" (path/join pkg-config-path "pkgconfig")))
   (def extra (dyn *pkg-config-flags* []))
   (def output (sh/exec-slurp "pkg-config" wp pkp ;extra ;cmd))
-  (string/split " " (string/trim output)))
+  (filter next (string/split " " (string/trim output))))
 
 (defn pkg-config
   "Setup defines, cflags, and library flags from pkg-config."

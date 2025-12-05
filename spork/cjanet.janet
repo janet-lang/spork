@@ -348,6 +348,8 @@
         ['. v f] (emit-indexer "." v f)
         (emit-funcall t))
       (unless noparen (prin ")")))
+
+    (b (boolean? b)) (prinf "%j" form)
     ie (errorf "invalid expression %v" ie)))
 
 # Statements
@@ -494,7 +496,7 @@
   (emit-comment docstring)
   (emit-storage-classes classes)
   (emit-type rtype)
-  (prin " " name "(")
+  (prin " " (mangle name) "(")
   (var is-first true)
   (each arg arglist
     (unless is-first (prin ", "))
@@ -899,7 +901,7 @@
       (unless (deep= old-source buf)
         (spit c-source buf)))
     (spit c-source buf))
-  (when (get opts :verbose) (eprint buf)) # debug
+  (when (get opts :eprint-source) (eprint buf)) # debug
   (buffer/clear buf)
   (buffer/trim buf) # save mem
 
@@ -911,6 +913,8 @@
     # These cannot be overriden
     (setdyn cc/*visit* cc/visit-execute-if-stale)
     (setdyn cc/*build-dir* builddir)
+    (when-let [pc (get opts :pkg-config)]
+      (cc/pkg-config ;pc))
     (if (= :msvc toolchain)
       (do
         (set so (string name ".dll"))
