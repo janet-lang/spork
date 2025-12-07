@@ -45,7 +45,7 @@
 (defdyn *visit* "Optional callback to process each CLI command and its inputs and outputs")
 (defdyn *use-rpath* "Optional setting to enable using `(dyn *syspath*)` as the runtime path to load for Shared Objects. Defaults to true")
 (defdyn *use-rdynamic*
-  ``Optional setting to enable using `-rdynamic` or `-Wl,-export_dynamic` when linking executables.
+  ``Optional setting to enable using `-rdynamic` or `-Wl,-export_dynamic` when linking 
   This is the preferred way on POSIX systems to let an executable load native modules dynamically at runtime.
   Defaults to true``)
 (defdyn *pkg-config-flags* "Extra flags to pass to pkg-config")
@@ -173,6 +173,8 @@
     # object files
     (string/has-suffix? ".o" path) :o
     (string/has-suffix? ".obj" path) :o
+    # janet source - (preprocess)
+    (string/has-suffix? ".janet" path) :janet
     # else
     (errorf "unknown source file type for %v" path)))
 
@@ -304,6 +306,14 @@
   (notail
     (exec [(ar) "rcs" to ;objects] objects [to] (string "archiving " to "..."))))
 
+(defn generic-preprocess
+  "Execute a C generating command as part of the build process. Useful for CJanet or other DSLs."
+  [from to]
+  (notail
+    (exec [(sh/self-exe) "-e" "(put root-env *out* (file/open (get (dyn *args*) 3) :w))" from to]
+          [from] [to]
+          (string "generating C source from " from " to " to "..."))))
+
 # Compound commands
 
 (defn out-path
@@ -337,6 +347,11 @@
       (do
         (set has-cpp true)
         (array/push cmds-into (compile-c++ source o))
+        (array/push objects o))
+      :janet
+      (let [oc (string o ".c")]
+        (array/push cmds-into (generic-preprocess source oc))
+        (array/push cmds-into (compile-c oc o))
         (array/push objects o))
       # else
       (errorf "unknown source file type for %v" source)))
@@ -551,6 +566,11 @@
       :c++
       (do
         (array/push cmds-into (msvc-compile-c++ source o))
+        (array/push objects o))
+      :janet
+      (let [oc (string o ".c")]
+        (array/push cmds-into (generic-preprocess source oc))
+        (array/push cmds-into (msvc-compile-c oc o))
         (array/push objects o))
       # else
       (errorf "unknown source file type for %v" source)))

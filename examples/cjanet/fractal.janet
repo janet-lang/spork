@@ -31,7 +31,7 @@
 
 (begin-jit
   :module-name "pngexample"
-  :cflags ["-Werror"]
+  :cflags ["-Werror" "-march=native" "-O3"]
   :lflags ["-lpng" "-lz"]
   :cache true
   #:smart-libs false

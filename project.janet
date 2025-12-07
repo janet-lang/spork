@@ -70,3 +70,8 @@
 (declare-native
   :name "spork/base64"
   :source @["src/base64.c"])
+
+(declare-native
+  :name "spork/gfx2d"
+  :source @["src/gfx2d.janet"]
+  :cflags @[;default-cflags "-Ideps/stb"])

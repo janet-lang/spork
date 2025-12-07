@@ -28,7 +28,14 @@
    'and "&&" 'or "||" 'band "&" 'bor "|" 'bxor "^" 'set "="
    'blshift "<<" 'brshift ">>"})
 
-(def- uops {'bnot "~" 'not "!" 'neg "-" '! "!" '++ "++" '-- "--"})
+(def- uops {'bnot "~" 'not "!" 'neg "-" '- "-" '! "!" '++ "++" '-- "--"})
+
+(var- outbuf (dyn *out* stdout))
+
+(defn- prin   [& xs] (xprin outbuf ;xs))
+(defn- print  [& xs] (xprint outbuf ;xs))
+(defn- prinf  [& xs] (xprinf outbuf ;xs))
+(defn- printf [& xs] (xprintf outbuf ;xs))
 
 (defn mangle
   ``
@@ -330,7 +337,7 @@
     (do
       (unless noparen (prin "("))
       (match t
-        [(bs (bops bs)) & rest] (emit-binop (bops bs) ;rest)
+        [(bs (bops bs)) arg1 arg2 & rest] (emit-binop (bops bs) arg1 arg2 ;rest)
         [(bs (uops bs)) & rest] (emit-unop (uops bs) ;rest)
         ['literal l] (prin (string l))
         ['quote q] (prin (string q))
@@ -348,7 +355,6 @@
         ['. v f] (emit-indexer "." v f)
         (emit-funcall t))
       (unless noparen (prin ")")))
-
     (b (boolean? b)) (prinf "%j" form)
     ie (errorf "invalid expression %v" ie)))
 
@@ -554,7 +560,11 @@
 
 (defn emit-include
   [path]
-  (emit-preprocess :include path))
+  # Add quoting for you
+  (def path1 (if (or (string/has-prefix? "<" path) (string/has-prefix? `"` path))
+               path
+               (string `"` path `"`)))
+  (emit-preprocess :include path1))
 
 ###
 ### Top-Level code emitting macros (wrappers around emit-* functions). The macro
@@ -606,6 +616,7 @@
     :nat ~(janet_wrap_number ,code)
     :int32 ~(janet_wrap_number ,code)
     :int64 ~(janet_wrap_s64 ,code)
+    :uint32 ~(janet_wrap_number ,code)
     :uint64 ~(janet_wrap_u64 ,code)
     :size ~(janet_wrap_u64 ,code)
     :fiber ~(janet_wrap_fiber ,code)
@@ -637,6 +648,7 @@
    :nat 'int32_t
    :int32 'int32_t
    :int64 'int64_t
+   :uint32 'uint32_t
    :uint64 'uint64_t
    :size 'size_t
    :fiber '(* JanetFiber)
@@ -675,6 +687,7 @@
     :nat ~(def (,v int32_t) (janet_getnat ,argv ,n))
     :int32 ~(def (,v int32_t) (janet_getinteger ,argv ,n))
     :int64 ~(def (,v int64_t) (janet_getinteger64 ,argv ,n))
+    :uint32 ~(def (,v uint32_t) (janet_getuinteger ,argv ,n))
     :uint64 ~(def (,v uint64_t) (janet_getuinteger64 ,argv ,n))
     :size ~(def (,v size_t) (janet_getsize ,argv ,n))
     :fiber ~(def (,v (* JanetFiber)) (janet_getfiber ,argv ,n))
@@ -717,6 +730,7 @@
     :nat ~(def (,v int32_t) (janet_optnat ,argv ,argc ,n ,dflt))
     :int32 ~(def (,v int32_t) (janet_optinteger ,argv ,argc ,n ,dflt))
     :int64 ~(def (,v int64_t) (janet_optinteger64 ,argv ,n))
+    :uint32 ~(def (,v uint32_t) (janet_getuinteger ,argv ,argc ,n ,dflt))
     :uint64 ~(def (,v uint64_t) (janet_getuinteger64 ,argv ,argc ,n ,dflt))
     :size ~(def (,v size_t) (janet_optsize ,argv ,argc ,n ,dflt))
     :array ~(def (,v (* JanetArray)) (janet_optarray ,argv ,argc ,n ,dflt))
@@ -803,7 +817,9 @@
   or janet_fixarity).
   ```
   [name & more]
-  (emit-cfunction name ;more))
+  ~(,emit-cfunction ,;(qq-wrap [name ;more])))
+
+  #(emit-cfunction name ;more))
 
 (defn emit-cdef
   ```
@@ -825,7 +841,7 @@
   It takes care of the docstring.
   ```
   [name & more]
-  (emit-cdef name ;more))
+  ~(,emit-cdef ,;(qq-wrap [name ;more])))
 
 (defn emit-module-entry
   "Call this at the end of a cjanet module to add a module entry function."
@@ -864,7 +880,7 @@
      :module-name (get options :module-name (string "cjanet_" (os/getpid)))})
   (setdyn *jit-context* cont)
   (os/mkdir "_cjanet")
-  (setdyn *out* compilation-unit)
+  (set outbuf compilation-unit)
   cont)
 
 (defn end-jit
@@ -889,7 +905,7 @@
 
   # 2. Reset old context
   (setdyn *jit-context* nil)
-  (setdyn *out* nil)
+  (set outbuf stdout)
 
   # 3. Emit C source code
   (os/mkdir builddir)
