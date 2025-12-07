@@ -320,8 +320,9 @@
   "Run a bundle hook on the local project."
   [hook & args]
   (project-janet-shim ".")
-  (def [ok module] (protect (require "/bundle")))
-  (unless ok (break))
+  (def [fullpath _] (module/find "/bundle"))
+  (unless fullpath (break))
+  (def module (require "/bundle"))
   (def hookf (module/value module (symbol hook)))
   (unless hookf (break))
   (hookf ;args))
