@@ -45,7 +45,7 @@
 (defdyn *visit* "Optional callback to process each CLI command and its inputs and outputs")
 (defdyn *use-rpath* "Optional setting to enable using `(dyn *syspath*)` as the runtime path to load for Shared Objects. Defaults to true")
 (defdyn *use-rdynamic*
-  ``Optional setting to enable using `-rdynamic` or `-Wl,-export_dynamic` when linking 
+  ``Optional setting to enable using `-rdynamic` or `-Wl,-export_dynamic` when linking executables
   This is the preferred way on POSIX systems to let an executable load native modules dynamically at runtime.
   Defaults to true``)
 (defdyn *pkg-config-flags* "Extra flags to pass to pkg-config")
@@ -228,7 +228,7 @@
   (def slibs (static-libs))
   (def dlibs (dynamic-libs))
   (def bs (if (and (next slibs) (not= (target-os) :macos)) ["-Wl,-Bstatic"] []))
-  (def bd (if (and (next dlibs) (not= (target-os) :macos)) ["-Wl,-Bdynamic"] []))
+  (def bd (if (and (or (next slibs) (next dlibs)) (not= (target-os) :macos)) ["-Wl,-Bdynamic"] []))
   [;sg
    ;(lflags)
    ;(if static ["-static"] [])

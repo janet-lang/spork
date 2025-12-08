@@ -30,13 +30,6 @@
 
 (def- uops {'bnot "~" 'not "!" 'neg "-" '- "-" '! "!" '++ "++" '-- "--"})
 
-(var- outbuf (dyn *out* stdout))
-
-(defn- prin   [& xs] (xprin outbuf ;xs))
-(defn- print  [& xs] (xprint outbuf ;xs))
-(defn- prinf  [& xs] (xprinf outbuf ;xs))
-(defn- printf [& xs] (xprintf outbuf ;xs))
-
 (defn mangle
   ``
   Convert any sequence of bytes to a valid C identifier in a way that is unlikely to collide. The period character
@@ -889,14 +882,16 @@
   ```
   [&keys options]
   (def compilation-unit @"#include <janet.h>\n")
+  (def prevout (dyn *out*))
   (def cont
     {:buffer compilation-unit
      :build-dir "_cjanet"
      :opts options
+     :old-out prevout
      :module-name (get options :module-name (string "cjanet_" (os/getpid)))})
   (setdyn *jit-context* cont)
   (os/mkdir "_cjanet")
-  (set outbuf compilation-unit)
+  (setdyn *out* compilation-unit)
   cont)
 
 (defn end-jit
@@ -914,6 +909,7 @@
   (def builddir (assert (get ccontext :build-dir)))
   (def opts (get ccontext :opts {}))
   (def buf (assert (get ccontext :buffer)))
+  (def prevout (get ccontext :old-out))
   (def toolchain (pm-config/detect-toolchain (curenv)))
 
   # 1. Create module entry
@@ -921,7 +917,7 @@
 
   # 2. Reset old context
   (setdyn *jit-context* nil)
-  (set outbuf stdout)
+  (setdyn *out* prevout)
 
   # 3. Emit C source code
   (os/mkdir builddir)
