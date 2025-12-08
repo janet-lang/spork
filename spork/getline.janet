@@ -135,7 +135,10 @@
 
     (def view (rawterm/slice-monowidth buf available-w view-pos))
     (def visual-pos (+ prpt-width (- columns-to-pos shift-right-amnt width-under-cursor)))
-    (buffer/format tmp-buf "\r%s%s%s\e[0K\r\e[%dC" prpt pad view visual-pos)
+    (buffer/format tmp-buf "\r%s%s%s\e[0K\r" prpt pad view)
+    # Different implementations may behave inconsistently regarding to "move 0 column".
+    (if (not (= 0 visual-pos))
+      (buffer/format-at tmp-buf -1 "\e[%dC"  visual-pos))
     (flushs))
 
   (defn- history-move
