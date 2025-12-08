@@ -7,6 +7,29 @@
 ### * Wrappers around stb_image for loading, saving, and modifying images.
 ###
 
+### TODO
+### [x] - save and load to file
+### [x] - rect and circle primitive
+### [x] - image blitting
+### [ ] - image cropping
+### [ ] - testing harness
+### [ ] - text w/ simple font
+### [ ] - ellipses
+### [ ] - arcs
+### [ ] - lines/paths
+### [ ] - blending
+### [ ] - image resizing
+### [ ] - bezier
+### [ ] - flood fill
+### [ ] - triangle strip/fan/list
+### [ ] - LUTs (possibly w/ shaders)
+
+### Stretch TODO
+### [ ] - anti-aliasing w/ MXAA
+### [ ] - shaders using cjanet-jit
+### [ ] - sub-images for rendering / alternatives to JanetBuffer for data storage
+### [ ] - multithreading
+
 (use ../spork/cjanet)
 
 (include <janet.h>)
@@ -77,7 +100,7 @@
   # Package buffer and dimensions in tuple
   (return (wrap-image buf width height c)))
 
-# Generate loaders for each image type
+# Generate image-writing for each image type
 # TODO - hdr
 (each ft ["bmp" "tga" "png" "jpg"]
   (def extra-args
@@ -103,66 +126,94 @@
 
 (def- colors
   {:red     0xFF0000FF
-   :green   0x00FF00FF
-   :blue    0x0000FFFF
+   :green   0xFF00FF00
+   :blue    0xFFFF0000
    :clear   0x00000000
-   :black   0x000000FF
+   :black   0xFF000000
    :white   0xFFFFFFFF
-   :cyan    0x00FFFFFF
-   :yellow  0xFFFF00FF
-   :magenta 0xFF00FFFF})
+   :cyan    0xFFFFFF00
+   :yellow  0xFF00FFFF
+   :magenta 0xFFFF00FF})
 
 (eachp [name value] colors
   (emit-cdef (symbol name) (string "color constant for " name) ~(janet-wrap-number ,value)))
 
 ##
-## drawing functions
+## DRAWING
 ##
 
-# TODO - clipping?
+(defn- bind-image-code
+  :cjanet-spliced-macro
+  "Generate code to unpack an image."
+  [img &opt sym-prefix]
+  (default sym-prefix "")
+  ~[(def ,(symbol sym-prefix 'width:int) 0)
+    (def ,(symbol sym-prefix 'height:int) 0)
+    (def ,(symbol sym-prefix 'channels:int) 0)
+    (def (,(symbol sym-prefix 'buf) (* JanetBuffer)) NULL)
+    (unwrap-image
+      ,img
+      (addr ,(symbol sym-prefix 'buf))
+      (addr ,(symbol sym-prefix 'width))
+      (addr ,(symbol sym-prefix 'height))
+      (addr ,(symbol sym-prefix 'channels)))
+    (def (,(symbol sym-prefix 'data) (* char)) ,(symbol sym-prefix 'buf->data))
+    (def ,(symbol sym-prefix 'stride:int) (* ,(symbol sym-prefix 'channels) ,(symbol sym-prefix 'width)))])
 
+(defn- get-pixel
+  :cjanet-block-macro
+  "extract a pixel"
+  [color-var x y &opt prefix]
+  (default prefix "")
+  (def channels (symbol prefix 'channels))
+  (def data (symbol prefix 'data))
+  (def stride (symbol prefix 'stride))
+  ~(do
+     (var color-accum:uint32_t 0)
+     (for [(def c:int 0) (< c ,channels) (++ c)]
+       (def comp:uint8_t (aref ,data (+ (- ,channels c 1) (* ,x ,channels) (* ,y ,stride))))
+       (set color-accum (+ (cast uint32_t comp) (<< color-accum 8))))
+     (set ,color-var color-accum)))
+
+(defn- set-pixel
+  :cjanet-block-macro
+  "set a pixel"
+  [x y color &opt prefix]
+  (default prefix "")
+  (def channels (symbol prefix 'channels))
+  (def data (symbol prefix 'data))
+  (def stride (symbol prefix 'stride))
+  ~(for [(def c:int 0) (< c ,channels) (++ c)]
+     (set (aref ,data (+ c (* ,x ,channels) (* ,y ,stride)))
+        (band (>> ,color (* c 8)) 0xFF))))
+
+# TODO - remove for clipping
 (function check-bound
   [coord:int imgbound:int (coord-name (* char))] -> void
   (if (or (< coord 0) (>= coord imgbound))
     (janet-panicf "coordinate %s is out of bounds, got %d, expected in range [0, %d)" coord-name coord imgbound)))
 
-(defn- common-draw-prefix
-  "Function body prefix for drawing functions that is boilerplate.
-  Unpacks arguments and does some checks, and creates variables for things
-  like height, width, and pixel data."
-  []
-  ~[(def width:int 0)
-    (def height:int 0)
-    (def channels:int 0)
-    (def (buf (* JanetBuffer)) NULL)
-    (unwrap-image img (addr buf) (addr width) (addr height) (addr channels))
-    (def (data (* char)) buf->data)
-    (def stride:int (* channels width))])
-
-(defn- put-color
-  "code gen for writing colors"
-  [x y color]
-  ~(for [(def c:int 0) (< c channels) (++ c)]
-    (set (aref data (+ c (* ,x channels) (* ,y stride)))
-        (band (>> ,color (- 24 (* c 8))) 0xFF))))
+###
+### C Functions
+###
 
 (cfunction rect
   "Draw a rectangle on an image"
   [img:tuple x1:int y1:int x2:int y2:int color:uint32] -> tuple
-  ,;(common-draw-prefix)
+  ,;(bind-image-code 'img)
   (check-bound x1 width "x1")
   (check-bound x2 width "x2")
   (check-bound y1 height "y1")
   (check-bound y2 height "y2")
   (for [(def y:int y1) (<= y y2) (++ y)]
     (for [(def x:int x1) (<= x x2) (++ x)]
-      ,(put-color 'x 'y 'color)))
+      (set-pixel x y color)))
   (return img))
 
 (cfunction circle
   "Draw a circle"
   [img:tuple x:int y:int r:double color:uint32] -> tuple
-  ,;(common-draw-prefix)
+  ,;(bind-image-code 'img)
   (check-bound x width "x")
   (check-bound y height "y")
   (def fr:int (floor (- r)))
@@ -170,7 +221,55 @@
   (for [(def yy:int fr) (<= yy cr) (++ yy)]
     (for [(def xx:int fr) (<= xx cr) (++ xx)]
       (if (>= (* r r) (+ (* xx xx) (* yy yy)))
-        ,(put-color '(+ x xx) '(+ y yy) 'color))))
+        (set-pixel (+ x xx) (+ y yy) color))))
+  (return img))
+
+(cfunction stamp
+  "Copy one image onto another"
+  [dest:tuple src:tuple dx:int dy:int] -> tuple
+  ,;(bind-image-code 'src "src-")
+  ,;(bind-image-code 'dest "dest-")
+  (if (not= src-channels dest-channels) (janet-panic "image channels don't match"))
+  (if (== src-data dest-data) (janet-panic "cannot stamp self"))
+  (def xmin:int (? (< dx 0) (- dx) 0))
+  (def ymin:int (? (< dy 0) (- dy) 0))
+  (def xoverflow:int (- (+ dx src-width) dest-width))
+  (def yoverflow:int (- (+ dy src-height) dest-height))
+  (def xmax:int (? (< xoverflow 0) src-width (- src-width xoverflow)))
+  (def ymax:int (? (< yoverflow 0) src-height (- src-height yoverflow)))
+  (for [(var y:int ymin) (< y ymax) (++ y)]
+    (for [(var x:int xmin) (< x xmax) (++ x)]
+      (var color:uint32_t 0)
+      (get-pixel color x y "src-")
+      (set-pixel (+ dx x) (+ dy y) color "dest-")))
+  (return dest))
+
+(cfunction crop
+  "Create a smaller sub-image from a larger image"
+  [img:tuple x1:int y1:int new-width:int new-height:int] -> tuple
+  ,;(bind-image-code 'img "img-")
+  (return
+    (stamp
+      (blank new-width new-height img-channels)
+      img (- x1) (- y1))))
+
+(cfunction line
+  "Draw a line from x1,y1 to x2,y2"
+  [img:tuple x1:int y1:int x2:int y2:int color:uint32] -> tuple
+  ,;(bind-image-code 'img "img-")
+  # TODO - add clipping
+  # Use Bresenham's algorithm to draw the line
+  (def dx:int (- x2 x1))
+  (def dy:int (- y2 y1))
+  (def errory:int 0)
+  (def y:int y1)
+  (for [(def x:int x1) (<= x x2) (++ x)]
+    (set-pixel x y color "img-")
+    (set errory (+ errory dy))
+    (if (>= errory 0)
+      (do
+        (++ y)
+        (set errory (- errory dx)))))
   (return img))
 
 (module-entry "spork_gfx2d")

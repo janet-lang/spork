@@ -79,15 +79,27 @@
 # We need to be judicious with macros as they can obscure real C functions. In practice we can get
 # around this with mangling magic - add a leading "@" to the symbol and it will not match a macro name
 
-(def- block-macros @{})
-(defn- register-block-macro
-  [name value]
-  (put block-macros (symbol name) value))
+(def- extra-macros @{})
 
-(register-block-macro 'when when)
-(register-block-macro 'if-not if-not)
-(register-block-macro 'unless unless)
-(register-block-macro 'let let)
+(defn- expand-macro
+  "Expand macros given a specific tag"
+  [macro-tag form]
+  (unless (tuple? form) (break form))
+  (def head (first form))
+  (unless (symbol? head) (break form))
+  (def entry (get extra-macros head (dyn head)))
+  (unless (get entry macro-tag) (break form))
+  (def expand1 ((get entry :value) ;(drop 1 form)))
+  (expand-macro macro-tag expand1))
+
+(defn- register-macro
+  [macro-tag name value]
+  (put extra-macros (symbol name) {macro-tag true :value value}))
+
+(register-macro :cjanet-block-macro 'when when)
+(register-macro :cjanet-block-macro 'if-not if-not)
+(register-macro :cjanet-block-macro 'unless unless)
+(register-macro :cjanet-block-macro 'let let)
 
 ###
 ### Emitting C
@@ -320,6 +332,9 @@
 
 (varfn emit-expression
   [form &opt noparen]
+  #(tracev form)
+  (def form (expand-macro :cjanet-expression-macro form))
+  #(tracev form)
   (match form
     (f (or (symbol? f) (keyword? f))) (prin (mangle f))
     (n (number? n)) (prinf "%.17g" n)
@@ -356,6 +371,7 @@
         (emit-funcall t))
       (unless noparen (prin ")")))
     (b (boolean? b)) (prinf "%j" form)
+    (n (nil? n)) (prin "NULL")
     ie (errorf "invalid expression %v" ie)))
 
 # Statements
@@ -370,6 +386,7 @@
 
 (varfn emit-statement
   [form]
+  (def form (expand-macro :cjanet-statement-macro form))
   (match form
     ['def & args] (emit-declaration ;args)
     ['var & args] (emit-declaration ;args)
@@ -470,8 +487,7 @@
 
 (varfn emit-block
   [form &opt nobracket]
-  (when-let [mac (and (tuple? form) (get block-macros (first form)))]
-    (break (emit-block (mac ;(drop 1 form)) nobracket)))
+  (def form (expand-macro :cjanet-block-macro form))
   (unless nobracket
     (emit-block-start))
   (match form
