@@ -11,7 +11,7 @@
 ### [x] - save and load to file
 ### [x] - rect and circle primitive
 ### [x] - image blitting
-### [ ] - image cropping
+### [x] - image cropping
 ### [ ] - testing harness
 ### [ ] - text w/ simple font
 ### [ ] - ellipses
@@ -257,14 +257,15 @@
   "Draw a line from x1,y1 to x2,y2"
   [img:tuple x1:int y1:int x2:int y2:int color:uint32] -> tuple
   ,;(bind-image-code 'img "img-")
-  # TODO - add clipping
   # Use Bresenham's algorithm to draw the line
   (def dx:int (- x2 x1))
   (def dy:int (- y2 y1))
   (def errory:int 0)
   (def y:int y1)
   (for [(def x:int x1) (<= x x2) (++ x)]
-    (set-pixel x y color "img-")
+    # TODO - more efficient clipping
+    (when (and (>= x 0) (< x img-width) (>= y 0) (< y img-height))
+      (set-pixel x y color "img-"))
     (set errory (+ errory dy))
     (if (>= errory 0)
       (do

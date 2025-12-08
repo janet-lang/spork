@@ -46,3 +46,4 @@
 (import spork/tarray :export true)
 (import spork/utf8 :export true)
 (import spork/zip :export true)
+(import spork/gfx2d :export true)
