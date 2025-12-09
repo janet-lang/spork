@@ -12,17 +12,19 @@
 ### [x] - rect and circle primitive
 ### [x] - image blitting
 ### [x] - image cropping
-### [ ] - testing harness
+### [x] - testing harness
+### [ ] - get/set individual pixels (mostly for testing)
 ### [ ] - text w/ simple font
 ### [ ] - ellipses
 ### [ ] - arcs
-### [ ] - lines/paths
+### [ ] - lines/paths (w/ thickness)
 ### [ ] - blending
 ### [ ] - image resizing
 ### [ ] - bezier
 ### [ ] - flood fill
 ### [ ] - triangle strip/fan/list
 ### [ ] - LUTs (possibly w/ shaders)
+### [ ] - Gradients (possibly w/ shaders)
 
 ### Stretch TODO
 ### [ ] - anti-aliasing w/ MXAA
@@ -197,6 +199,22 @@
 ### C Functions
 ###
 
+(cfunction pixel
+  "Read a pixel. Slow, be careful to use this in a loop."
+  [img:tuple x:int y:int] -> uint32
+  ,;(bind-image-code 'img)
+  (var color:uint32_t 0)
+  (get-pixel color x y)
+  (if (< channels 4) (+= color 0xFF000000))
+  (return color))
+
+(cfunction set-pixel
+  "Set a pixel. Slow, be careful to use this in a loop."
+  [img:tuple x:int y:int color:uint32] -> tuple
+  ,;(bind-image-code 'img)
+  (set-pixel x y color)
+  (return img))
+
 (cfunction rect
   "Draw a rectangle on an image"
   [img:tuple x1:int y1:int x2:int y2:int color:uint32] -> tuple
@@ -258,19 +276,52 @@
   [img:tuple x1:int y1:int x2:int y2:int color:uint32] -> tuple
   ,;(bind-image-code 'img "img-")
   # Use Bresenham's algorithm to draw the line
+  (when (< x2 x1)
+    (def tmpx:int x2)
+    (def tmpy:int y2)
+    (set x2 x1)
+    (set y2 y1)
+    (set x1 tmpx)
+    (set y2 tmpy))
   (def dx:int (- x2 x1))
   (def dy:int (- y2 y1))
   (def errory:int 0)
   (def y:int y1)
   (for [(def x:int x1) (<= x x2) (++ x)]
-    # TODO - more efficient clipping
     (when (and (>= x 0) (< x img-width) (>= y 0) (< y img-height))
       (set-pixel x y color "img-"))
     (set errory (+ errory dy))
-    (if (>= errory 0)
-      (do
-        (++ y)
-        (set errory (- errory dx)))))
+    (when (>= errory 0)
+      (++ y)
+      (set errory (- errory dx))))
   (return img))
+
+(function triangle-impl
+  [img:JanetTuple x1:int y1:int x2:int y2:int x3:int y3:int color:uint32_t] -> JanetTuple
+  # points 1 2 3 are sorted by non-decreasing y
+  ,;(bind-image-code 'img)
+  # 2. Use modified line algorithm for top half
+  (for [(var y:int y1) (<= y y2) (++ y)]
+    (do))
+  # 3. Use modified line algorithm for bottom half
+  (for [(var y:int y2) (<= y y3) (++ y)]
+    (do))
+  (return img))
+
+(cfunction triangle
+    "Fill a triangle"
+    [img:tuple x1:int y1:int x2:int y2:int x3:int y3:int color:uint32] -> tuple
+    # 1. Sort the coordinates by increasing y
+    (if (< y1 y2)
+      (if (< y1 y3)
+        (if (< y2 y3)
+          (return (triangle-impl img x1 y1 x2 y2 x3 y3 color))
+          (return (triangle-impl img x1 y1 x3 y3 x2 y2 color)))
+        (return (triangle-impl img x3 y3 x1 y1 x2 y2 color)))
+      (if (< y2 y3)
+        (if (< y1 y3)
+          (return (triangle-impl img x2 y2 x1 y1 x3 y3 color))
+          (return (triangle-impl img x2 y2 x3 y3 x1 y1 color)))
+        (return (triangle-impl img x3 y3 x2 y2 x1 y1 color)))))
 
 (module-entry "spork_gfx2d")

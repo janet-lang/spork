@@ -93,6 +93,18 @@
 (register-macro :cjanet-block-macro 'if-not if-not)
 (register-macro :cjanet-block-macro 'unless unless)
 (register-macro :cjanet-block-macro 'let let)
+(register-macro :cjanet-statement-macro '+= |~(set ,$0 (+ ,$0 ,$1)))
+(register-macro :cjanet-statement-macro '-= |~(set ,$0 (- ,$0 ,$1)))
+(register-macro :cjanet-statement-macro '*= |~(set ,$0 (* ,$0 ,$1)))
+(register-macro :cjanet-statement-macro '/= |~(set ,$0 (/ ,$0 ,$1)))
+(register-macro :cjanet-statement-macro '^= |~(set ,$0 (bxor ,$0 ,$1)))
+(register-macro :cjanet-statement-macro 'bxor= |~(set ,$0 (bxor ,$0 ,$1)))
+(register-macro :cjanet-statement-macro '&= |~(set ,$0 (band ,$0 ,$1)))
+(register-macro :cjanet-statement-macro 'band= |~(set ,$0 (band ,$0 ,$1)))
+(register-macro :cjanet-statement-macro 'bor= |~(set ,$0 (bor ,$0 ,$1)))
+(register-macro :cjanet-statement-macro '<<= |~(set ,$0 (<< ,$0 ,$1)))
+(register-macro :cjanet-statement-macro '>>= |~(set ,$0 (>> ,$0 ,$1)))
+(register-macro :cjanet-statement-macro '%= |~(set ,$0 (% ,$0 ,$1)))
 
 ###
 ### Emitting C
