@@ -364,7 +364,7 @@
 
 (cfunction triangle
     "Fill a triangle"
-    [img:tuple x1:int y1:int x2:int y2:int x3:int y3:int color:uint32] -> tuple
+    [img:JanetTuple x1:int y1:int x2:int y2:int x3:int y3:int color:uint32] -> JanetTuple
     # 1. Sort the coordinates by increasing y
     (if (< y1 y2)
       (if (< y1 y3)
