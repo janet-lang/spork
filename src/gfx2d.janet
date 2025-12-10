@@ -25,6 +25,7 @@
 ### [ ] - triangle strip/fan/list
 ### [ ] - LUTs (possibly w/ shaders)
 ### [ ] - Gradients (possibly w/ shaders)
+### [ ] - Better 2D point abstraction
 
 ### Stretch TODO
 ### [ ] - anti-aliasing w/ MXAA
@@ -195,6 +196,26 @@
   (if (or (< coord 0) (>= coord imgbound))
     (janet-panicf "coordinate %s is out of bounds, got %d, expected in range [0, %d)" coord-name coord imgbound)))
 
+(defn- sort2
+  :cjanet-block-macro
+  "sort 2 variables such that x is less the y. If not, swap them."
+  [x y typ]
+  ~(when (< ,y ,x)
+     (def (tmp ,typ) ,x)
+     (set ,x ,y)
+     (set ,y tmp)))
+
+###
+### Float math
+###
+
+(function lerp [a:float b:float t:float] -> float (return (+ (* (- 1 t) a) (* t b))))
+(function unlerp [x:float x0:float x1:float] -> float (return (/ (- x x0) (- x1 x0)))) # is this usefule (divide by zero)?
+(function clamp [x:float min_x:float max_x:float] -> float
+          (if (< x min_x) (return min_x))
+          (if (> x max_x) (return max_x))
+          (return x))
+
 ###
 ### C Functions
 ###
@@ -271,41 +292,74 @@
       (blank new-width new-height img-channels)
       img (- x1) (- y1))))
 
+(cfunction diff
+  "Take the difference of two images"
+  [a:tuple b:tuple] -> tuple
+  ,;(bind-image-code 'a "a-")
+  ,;(bind-image-code 'b "b-")
+  (if (not= a-channels b-channels) (janet-panic "images must have the same number of channels"))
+  (if (or (not= a-height b-height) (not= a-width b-width)) (janet-panic "images must have matching dimensions"))
+  (def dest:JanetTuple (blank a-width a-height a-channels))
+  ,;(bind-image-code 'dest "dest-")
+  (for [(var y:int 0) (< y a-height) (++ y)]
+    (for [(var x:int 0) (< x a-width) (++ x)]
+      (var color:uint32_t 0)
+      (for [(var c:int (- a-channels 1)) (>= c 0) (-- c)]
+        (def ac:int (aref a-data (+ c (* x a-channels) (* y a-stride))))
+        (def bc:int (aref b-data (+ c (* x a-channels) (* y a-stride))))
+        (def cc:int (- a b)) # TODO - reuse this
+        (if (> 0x00 cc) (set cc 0x00))
+        (if (< 0xFF cc) (set cc 0xFF))
+        (set color (+ (cast uint32_t cc) (<< color 8))))
+      (set-pixel x y color "dest-")))
+  (return dest))
+
 (cfunction line
   "Draw a line from x1,y1 to x2,y2"
   [img:tuple x1:int y1:int x2:int y2:int color:uint32] -> tuple
   ,;(bind-image-code 'img "img-")
   # Use Bresenham's algorithm to draw the line
-  (when (< x2 x1)
-    (def tmpx:int x2)
-    (def tmpy:int y2)
-    (set x2 x1)
-    (set y2 y1)
-    (set x1 tmpx)
-    (set y2 tmpy))
-  (def dx:int (- x2 x1))
-  (def dy:int (- y2 y1))
-  (def errory:int 0)
-  (def y:int y1)
-  (for [(def x:int x1) (<= x x2) (++ x)]
+  (def dx:int (cast int (abs (- x2 x1))))
+  (def dy:int (- (cast int (abs (- y2 y1)))))
+  (def sx:int (? (< x1 x2) 1 -1))
+  (def sy:int (? (< y1 y2) 1 -1))
+  (def err:int (+ dx dy))
+  (var x:int x1)
+  (var y:int y1)
+  (while 1
     (when (and (>= x 0) (< x img-width) (>= y 0) (< y img-height))
       (set-pixel x y color "img-"))
-    (set errory (+ errory dy))
-    (when (>= errory 0)
-      (++ y)
-      (set errory (- errory dx))))
-  (return img))
+    (when (>= (* 2 err) dy)
+      (if (== x x2) (return img))
+      (+= err dy)
+      (+= x sx))
+    (when (<= (* 2 err) dx)
+      (if (== y y2) (return img))
+      (+= err dx)
+      (+= y sy))))
 
 (function triangle-impl
   [img:JanetTuple x1:int y1:int x2:int y2:int x3:int y3:int color:uint32_t] -> JanetTuple
   # points 1 2 3 are sorted by non-decreasing y
   ,;(bind-image-code 'img)
   # 2. Use modified line algorithm for top half
-  (for [(var y:int y1) (<= y y2) (++ y)]
-    (do))
+  (for [(var y:int y1) (< y y2) (++ y)]
+    (def yt-12:float (unlerp y y1 y2))
+    (def yt-13:float (unlerp y y1 y3))
+    (def x-a:int (cast int (lerp x1 x2 yt-12)))
+    (def x-b:int (cast int (lerp x1 x3 yt-13)))
+    (sort2 x-a x-b int)
+    (for [(var x:int x-a) (<= x x-b) (++ x)]
+      (set-pixel x y color)))
   # 3. Use modified line algorithm for bottom half
-  (for [(var y:int y2) (<= y y3) (++ y)]
-    (do))
+  (for [(var y:int y2) (< y y3) (++ y)]
+    (def yt-23:float (unlerp y y2 y3))
+    (def yt-13:float (unlerp y y1 y3))
+    (def x-a:int (cast int (lerp x2 x3 yt-23)))
+    (def x-b:int (cast int (lerp x1 x3 yt-13)))
+    (sort2 x-a x-b int)
+    (for [(var x:int x-a) (<= x x-b) (++ x)]
+      (set-pixel x y color)))
   (return img))
 
 (cfunction triangle
