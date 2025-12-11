@@ -370,7 +370,7 @@
 ### Generate new projects quickly, ported from jpm
 ###
 
-(def- template-peg
+(def- template-peg :flycheck
   "Extract string pieces to generate a templating function"
   (peg/compile
     ~{:sub (group
