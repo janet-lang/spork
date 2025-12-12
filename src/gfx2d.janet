@@ -13,10 +13,8 @@
 ### [x] - image blitting
 ### [x] - image cropping
 ### [x] - testing harness
-### [ ] - get/set individual pixels (mostly for testing)
+### [x] - get/set individual pixels (mostly for testing)
 ### [ ] - text w/ simple font
-### [ ] - ellipses
-### [ ] - arcs
 ### [ ] - lines/paths (w/ thickness)
 ### [ ] - blending
 ### [ ] - image resizing
@@ -39,12 +37,11 @@
 (include <string.h>)
 (include <math.h>)
 
-(@ define STB_IMAGE_IMPLEMENTATION)
-(@ define STB_IMAGE_WRITE_IMPLEMENTATION)
 (@ define STBIW_WINDOWS_UTF8)
 
 (include "stb_image.h")
 (include "stb_image_write.h")
+(include "stb_image_resize2.h")
 
 ###
 ### Image creation, basic utilties, saving and loading
@@ -91,7 +88,7 @@
   (def width:int 0)
   (def height:int 0)
   (def c:int 0)
-  (def (img (* char)) (stbi-load path (addr width) (addr height) (addr c) 0))
+  (def (img (* char)) (stbi-load path ;width ;height ;c 0))
   (unless img (janet-panic "failed to load image"))
 
   # Copy into buffer
@@ -118,7 +115,7 @@
      (def height:int 0)
      (def channels:int 0)
      (def (buf (* JanetBuffer)) NULL)
-     (unwrap-image img (addr buf) (addr width) (addr height) (addr channels))
+     (unwrap-image img ;buf ;width ;height ;channels)
      (def check:int (,(symbol 'stbi-write- ft) path width height channels buf->data ,;extra-args))
      (if-not check (janet-panic "failed to write image"))
      (return img)))
@@ -190,11 +187,20 @@
      (set (aref ,data (+ c (* ,x ,channels) (* ,y ,stride)))
         (band (>> ,color (* c 8)) 0xFF))))
 
-# TODO - remove for clipping
-(function check-bound
-  [coord:int imgbound:int (coord-name (* char))] -> void
-  (if (or (< coord 0) (>= coord imgbound))
-    (janet-panicf "coordinate %s is out of bounds, got %d, expected in range [0, %d)" coord-name coord imgbound)))
+(defn- case?
+  :cjanet-expression-macro
+  "Make a case statement with the ternary operator"
+  [& cases]
+  (assert (odd? (length cases)))
+  (def case-value (take 2 cases))
+  (def [case value] case-value)
+  (if (> 2 (length case-value))
+    case
+    ~(? ,case ,value ,(case? ;(drop 2 cases)))))
+
+###
+### Math helpers
+###
 
 (defn- sort2
   :cjanet-block-macro
@@ -205,16 +211,51 @@
      (set ,x ,y)
      (set ,y tmp)))
 
-###
-### Float math
-###
-
 (function lerp [a:float b:float t:float] -> float (return (+ (* (- 1 t) a) (* t b))))
 (function unlerp [x:float x0:float x1:float] -> float (return (/ (- x x0) (- x1 x0)))) # is this usefule (divide by zero)?
 (function clamp [x:float min_x:float max_x:float] -> float
           (if (< x min_x) (return min_x))
           (if (> x max_x) (return max_x))
           (return x))
+
+(function clip
+  [xmin:int xmax:int ymin:int ymax:int
+   (x (* int)) (y (* int))] -> void
+  (set 'x (clamp 'x xmin xmax))
+  (set 'y (clamp 'y ymin ymax)))
+
+(function max3z [a:int b:int c:int] -> int
+  (return (? (> a b)
+     (? (> a c) a c)
+     (? (> b c) b c))))
+
+(function min3z [a:int b:int c:int] -> int
+  (return (? (< a b)
+     (? (< a c) a c)
+     (? (< b c) b c))))
+
+(function barycentric
+  "calculate barycentric coordinates in 2d"
+  [px:int py:int x1:int y1:int x2:int y2:int x3:int y3:int (t0 (* float)) (t1 (* float)) (t2 (* float))] -> int
+  (def v0x:int (- x2 x1))
+  (def v0y:int (- y2 y1))
+  (def v1x:int (- x3 x1))
+  (def v1y:int (- y3 y1))
+  (def v2x:int (- px x1))
+  (def v2y:int (- py y1))
+  (def denom_inv:double (/ 1 (cast double (- (* v0x v1y) (* v1x v0y)))))
+  (def v:float (* denom_inv (- (* v2x v1y) (* v1x v2y))))
+  (def w:float (* denom_inv (- (* v0x v2y) (* v2x v0y))))
+  (def u:float (- 1.0 v w))
+  (if t0 (set 't0 v))
+  (if t1 (set 't1 w))
+  (if t2 (set 't2 u))
+  (let [epsilon:float 0.00001
+        lowt:float (- epsilon)
+        hit:float (+ 1 epsilon)]
+    (return (and (>= u lowt) (<= u hit)
+                 (>= v lowt) (<= v hit)
+                 (>= w lowt) (<= w hit)))))
 
 ###
 ### C Functions
@@ -240,10 +281,8 @@
   "Draw a rectangle on an image"
   [img:tuple x1:int y1:int x2:int y2:int color:uint32] -> tuple
   ,;(bind-image-code 'img)
-  (check-bound x1 width "x1")
-  (check-bound x2 width "x2")
-  (check-bound y1 height "y1")
-  (check-bound y2 height "y2")
+  (clip 0 (- width 1) 0 (- height 1) ;x1 ;y1)
+  (clip 0 (- width 1) 0 (- height 1) ;x2 ;y2)
   (for [(def y:int y1) (<= y y2) (++ y)]
     (for [(def x:int x1) (<= x x2) (++ x)]
       (set-pixel x y color)))
@@ -253,12 +292,16 @@
   "Draw a circle"
   [img:tuple x:int y:int r:double color:uint32] -> tuple
   ,;(bind-image-code 'img)
-  (check-bound x width "x")
-  (check-bound y height "y")
   (def fr:int (floor (- r)))
   (def cr:int (ceil r))
-  (for [(def yy:int fr) (<= yy cr) (++ yy)]
-    (for [(def xx:int fr) (<= xx cr) (++ xx)]
+  (var x1:int fr)
+  (var x2:int cr)
+  (var y1:int fr)
+  (var y2:int cr)
+  (clip (- 0 x) (- width x 1) (- 0 y) (- height y 1) ;x1 ;y1)
+  (clip (- 0 x) (- width x 1) (- 0 y) (- height y 1) ;x2 ;y2)
+  (for [(def yy:int y1) (<= yy y2) (++ yy)]
+    (for [(def xx:int x1) (<= xx x2) (++ xx)]
       (if (>= (* r r) (+ (* xx xx) (* yy yy)))
         (set-pixel (+ x xx) (+ y yy) color))))
   (return img))
@@ -269,7 +312,7 @@
   ,;(bind-image-code 'src "src-")
   ,;(bind-image-code 'dest "dest-")
   (if (not= src-channels dest-channels) (janet-panic "image channels don't match"))
-  (if (== src-data dest-data) (janet-panic "cannot stamp self"))
+  (if (= src-data dest-data) (janet-panic "cannot stamp self"))
   (def xmin:int (? (< dx 0) (- dx) 0))
   (def ymin:int (? (< dy 0) (- dy) 0))
   (def xoverflow:int (- (+ dx src-width) dest-width))
@@ -346,8 +389,8 @@
   (for [(var y:int y1) (< y y2) (++ y)]
     (def yt-12:float (unlerp y y1 y2))
     (def yt-13:float (unlerp y y1 y3))
-    (def x-a:int (cast int (lerp x1 x2 yt-12)))
-    (def x-b:int (cast int (lerp x1 x3 yt-13)))
+    (def x-a:int (cast int (floor (lerp x1 x2 yt-12))))
+    (def x-b:int (cast int (ceil (lerp x1 x3 yt-13))))
     (sort2 x-a x-b int)
     (for [(var x:int x-a) (<= x x-b) (++ x)]
       (set-pixel x y color)))
@@ -355,11 +398,17 @@
   (for [(var y:int y2) (< y y3) (++ y)]
     (def yt-23:float (unlerp y y2 y3))
     (def yt-13:float (unlerp y y1 y3))
-    (def x-a:int (cast int (lerp x2 x3 yt-23)))
-    (def x-b:int (cast int (lerp x1 x3 yt-13)))
+    (def x-a:int (cast int (floor (lerp x2 x3 yt-23))))
+    (def x-b:int (cast int (ceil (lerp x1 x3 yt-13))))
     (sort2 x-a x-b int)
     (for [(var x:int x-a) (<= x x-b) (++ x)]
       (set-pixel x y color)))
+  # 4. last row in case y2 == y3
+  (def x-a:int x3)
+  (def x-b:int (? (= y2 y3) x2 x3))
+  (sort2 x-a x-b int)
+  (for [(var x:int x-a) (<= x x-b) (++ x)]
+    (set-pixel x y3 color))
   (return img))
 
 (cfunction triangle
@@ -377,5 +426,39 @@
           (return (triangle-impl img x2 y2 x1 y1 x3 y3 color))
           (return (triangle-impl img x2 y2 x3 y3 x1 y1 color)))
         (return (triangle-impl img x3 y3 x2 y2 x1 y1 color)))))
+
+(cfunction triangle2
+   "Fill a triangle 2"
+   [img:JanetTuple x1:int y1:int x2:int y2:int x3:int y3:int color:uint32_t] -> JanetTuple
+   (def xmin:int (min3z x1 x2 x3))
+   (def xmax:int (max3z x1 x2 x3))
+   (def ymin:int (min3z y1 y2 y3))
+   (def ymax:int (max3z y1 y2 y3))
+   ,;(bind-image-code 'img)
+   (clip 0 (- width 1) 0 (- height 1) ;xmin ;ymin)
+   (clip 0 (- width 1) 0 (- height 1) ;xmax ;ymax)
+   (for [(var y:int ymin) (<= y ymax) (++ y)]
+     (for [(var x:int xmin) (<= x xmax) (++ x)]
+       (when (barycentric x y x1 y1 x2 y2 x3 y3 nil nil nil)
+         (def color1:uint32_t (? (band 1 (+ (>> x 2) (>> y 2))) color 0))
+         (set-pixel x y color1))))
+   (return img))
+
+(cfunction resize
+  "Resize an image, resampling as needed"
+  [input-img:JanetTuple new-width:int new-height:int] -> JanetTuple
+  ,;(bind-image-code 'input-img 'in-)
+  (def new-img:JanetTuple (blank new-width new-height in-channels))
+  ,;(bind-image-code 'new-img 'out-)
+  (def layout:stbir_pixel_layout
+    (case?
+      (= in-channels 1) STBIR-1CHANNEL
+      (= in-channels 2) STBIR-2CHANNEL
+      (= in-channels 3) STBIR-RGB
+      STBIR-4CHANNEL))
+  (stbir-resize-uint8-srgb in-data in-width in-height in-stride
+                           out-data out-width out-height out-stride
+                           layout)
+  (return new-img))
 
 (module-entry "spork_gfx2d")

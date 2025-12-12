@@ -22,7 +22,7 @@
 
 (def- bops
   {'+ '+ '- '- '* '* '/ '/ '% '% '< '<
-   '> '> '<= '<= '>= '>= '== '== '!= '!=
+   '> '> '<= '<= '>= '>= '== '== '= '== '!= '!=
    'not= "!="
    '>> ">>" '<< "<<" '&& "&&" '^ "^"
    'and "&&" 'or "||" 'band "&" 'bor "|" 'bxor "^" 'set "="
@@ -44,9 +44,10 @@
 (defn type-split
   "Extract name and type from a variable. Allow typing variables as both
   (name type) or name:type as a shorthand. If no type is found, default to dflt-type. dflt-type
-  itself defaults to 'auto"
+  itself defaults to '__auto_type"
   [x &opt dflt-type]
-  (default dflt-type 'auto)
+  (default dflt-type '__auto_type)
+  # This needs to be defined based on c compiler - "auto" for msvc and c23+, and __auto_type for clang and GCC on older standards
   (case (type x)
     :tuple x
     :symbol
@@ -360,13 +361,15 @@
         [(bs (bops bs)) arg1 arg2 & rest] (emit-binop (bops bs) arg1 arg2 ;rest)
         [(bs (uops bs)) & rest] (emit-unop (uops bs) ;rest)
         ['literal l] (prin (string l))
-        ['quote q] (prin (string q))
         ['aref v i & more]
           (do (assert (empty? more) "aref expects two arguments") (emit-aindex v i))
         ['call & args] (emit-funcall args)
         ['set v i] (emit-set v i)
         ['deref v] (emit-deref v)
         ['addr v] (emit-address v)
+        ['& v] (emit-address v)
+        ['splice v] (emit-address v) # hack
+        ['quote q] (emit-deref q) # quote looks a bit like "*"
         ['cast t v] (emit-cast t v)
         ['struct & vals] (emit-struct-ctor vals)
         ['array & vals] (emit-array-ctor vals)
