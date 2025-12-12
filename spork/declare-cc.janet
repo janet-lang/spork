@@ -869,7 +869,7 @@ int main(int argc, const char **argv) {
                     cc/*smart-libs* smart-libs
                     cc/*use-rdynamic* use-rdynamic
                     cc/*use-rpath* use-rpath
-                    cc/*pkg-config-flags* pkg-config-flags
+                    cc/*pkg-config-flags* [;pkg-config-flags ;(if static ["--static"] [])]
                     cc/*c-std* c-std
                     cc/*c++-std* c++-std
                     cc/*cc* (toolchain-to-cc toolchain)
