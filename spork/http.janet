@@ -77,7 +77,7 @@
              :error))
       (break))
     (set last-index (max 0 (- (length buf) 4)))
-    (unless (ev/read conn chunk-size buf)
+    (unless (:read conn chunk-size buf)
       (set head :error)
       (break)))
   head)
@@ -213,12 +213,12 @@
     (nil? body)
     (do
       (buffer/push buf "\r\n")
-      (ev/write conn buf))
+      (:write conn buf))
 
     (bytes? body)
     (do
       (buffer/format buf "Content-Length: %d\r\n\r\n%V" (length body) body)
-      (ev/write conn buf))
+      (:write conn buf))
 
     # default - iterate chunks
     (do
@@ -226,10 +226,10 @@
       (each chunk body
         (assert (bytes? chunk) "expected byte chunk")
         (buffer/format buf "%x\r\n%V\r\n" (length chunk) chunk)
-        (ev/write conn buf)
+        (:write conn buf)
         (buffer/clear buf))
       (buffer/format buf "0\r\n\r\n")
-      (ev/write conn buf)))
+      (:write conn buf)))
   (buffer/clear buf))
 
 (defn- read-until
@@ -242,7 +242,7 @@
     (break pos))
   (prompt :exit
     (forever
-      (unless (ev/read conn 1 buf)
+      (unless (:read conn 1 buf)
         (error "end of stream"))
       (when-let [pos (peg/find needle buf start-index)]
         (return :exit pos)))))
@@ -261,7 +261,7 @@
     (def content-length (scan-number cl))
     (def remaining (- content-length (length buf)))
     (when (pos? remaining)
-      (ev/chunk conn remaining buf))
+      (:chunk conn remaining buf))
     (put req :body buf)
     (break buf))
 
@@ -300,8 +300,8 @@
         # Basic case: the buffer has been exhausted and hereonout we can read
         # from the socket directly.
         (do
-          (ev/chunk conn chunk-length body)
-          (unless (ev/read conn 2 buf) # trailing CRLF (not included in chunk length proper)
+          (:chunk conn chunk-length body)
+          (unless (:read conn 2 buf) # trailing CRLF (not included in chunk length proper)
             (error "end of stream"))
           # Clear buffer out. We ain't gonna need it no more.
           (buffer/clear buf)
@@ -425,7 +425,7 @@
   * `:method` - HTTP method, as a string.``
   [conn handler]
   (def handler (middleware handler))
-  (defer (ev/close conn)
+  (defer (:close conn)
 
     # Get request header
     (def buf (buffer/new chunk-size))
@@ -462,16 +462,17 @@
 ###
 
 (def- url-peg-source
-  ~{:main (* :protocol :fqdn :port :path)
-    :protocol "http://" # currently no https support
+  ~{:main (* (+ :https :http) :fqdn :port :path)
+    :https (* (constant "https") "https://")
+    :http (* (constant "http") "http://")
     :fqdn '(some (range "az" "AZ" "09" ".." "--"))
-    :port (+ (* ":" ':d+) (constant "80"))
+    :port (+ (* ":" ':d+) (constant nil))
     :path-chr (range "az" "AZ" "09" "!!" "$9" ":;" "==" "?@" "~~" "__")
     :path (+ '(some :path-chr) (constant "/"))})
 
 (def url-grammar
-  "Grammar to parse a URL into domain, port, and path triplet. Only supports
-  the http:// protocol."
+  "Grammar to parse a URL into scheme, domain, port, and path. Supports
+  both http:// and https:// protocols. Returns [scheme host port path]."
   (peg/compile url-peg-source))
 
 (defn request
@@ -483,27 +484,46 @@
   * `:buffer` - the buffer instance that may contain extra bytes.
   * `:status` - HTTP status code as an integer.
   * `:message` - HTTP status message.
-  * `:body` - Bytes of the response body.``
+  * `:body` - Bytes of the response body.
+  
+  Options:
+  * `:body` - Request body content
+  * `:headers` - Request headers table
+  * `:stream-factory` - Function to create connection stream. Defaults to net/connect.
+    Signature: (stream-factory host port stream-opts)
+  * `:stream-opts` - Options table passed to stream-factory``
   [method url &keys
    {:body body
-    :headers headers}]
+    :headers headers
+    :stream-factory stream-factory
+    :stream-opts stream-opts}]
   (def x (peg/match url-grammar url))
   (assert x (string "invalid url: " url))
-  (def [host port path] x)
+  (def [scheme host raw-port path] x)
+  # Default port based on scheme
+  (def port (or raw-port (if (= scheme "https") "443" "80")))
   (def buf @"")
   (buffer/format buf "%s %s HTTP/1.1\r\nHost: %s:%s\r\n" method path host port)
   (when headers
     (eachp [k v] headers
       (buffer/format buf "%s: %s\r\n" k v)))
-  (with [conn (net/connect host port)]
 
-    # Make request
-    (write-body conn buf body)
+  # Use custom stream-factory or default to net/connect
+  (let [make-conn (or stream-factory net/connect)
+        conn (if stream-opts
+               (make-conn host port stream-opts)
+               (make-conn host port))]
+    (with [conn conn]
 
-    # Parse response pure janet
-    (def res (read-response conn buf))
-    (when (= :error res) (error res))
-    (read-body res)
+      # Make request
+      (write-body conn buf body)
 
-    # TODO - handle redirects with Location header
-    res))
+      # Parse response pure janet
+      (def res (read-response conn buf))
+      (when (= :error res) (error res))
+      # HEAD responses have no body per HTTP spec, skip read-body
+      (unless (= method "HEAD")
+        (read-body res))
+
+      # TODO - handle redirects with Location header
+      res)))
