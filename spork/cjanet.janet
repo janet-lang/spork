@@ -232,6 +232,7 @@
       ['fn n & body] (emit-fn-pointer-type n body alias)
       ['ptr val] (emit-ptr-type val alias)
       ['* val] (emit-ptr-type val alias)
+      ['quote val] (emit-ptr-type val alias) # shorthand
       ['ptrptr val] (emit-ptr-ptr-type val alias)
       ['** val] (emit-ptr-ptr-type (definition 1) alias)
       ['const t] (emit-const-type t alias)

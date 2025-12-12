@@ -187,16 +187,16 @@
      (set (aref ,data (+ c (* ,x ,channels) (* ,y ,stride)))
         (band (>> ,color (* c 8)) 0xFF))))
 
-(defn- case?
+(defn- cond-expression
   :cjanet-expression-macro
-  "Make a case statement with the ternary operator"
+  "Cond but as an expression"
   [& cases]
   (assert (odd? (length cases)))
   (def case-value (take 2 cases))
   (def [case value] case-value)
   (if (> 2 (length case-value))
     case
-    ~(? ,case ,value ,(case? ;(drop 2 cases)))))
+    ~(? ,case ,value ,(cond-expression ;(drop 2 cases)))))
 
 ###
 ### Math helpers
@@ -212,15 +212,30 @@
      (set ,y tmp)))
 
 (function lerp [a:float b:float t:float] -> float (return (+ (* (- 1 t) a) (* t b))))
-(function unlerp [x:float x0:float x1:float] -> float (return (/ (- x x0) (- x1 x0)))) # is this usefule (divide by zero)?
+(function unlerp [x:float x0:float x1:float] -> float (return (/ (- x x0) (- x1 x0)))) # is this useful (divide by zero)?
 (function clamp [x:float min_x:float max_x:float] -> float
           (if (< x min_x) (return min_x))
           (if (> x max_x) (return max_x))
           (return x))
+(function clampz [x:int min_x:int max_x:int] -> int
+          (if (< x min_x) (return min_x))
+          (if (> x max_x) (return max_x))
+          (return x))
+
+(function colorsplit
+  [color:uint32_t (r 'int) (g 'int) (b 'int) (a 'int)] -> void
+  (set 'r (band color 0xFF))
+  (set 'g (band (>> color 8) 0xFF))
+  (set 'g (band (>> color 16) 0xFF))
+  (set 'g (band (>> color 24) 0xFF)))
+
+(function colorjoin
+  [r:int g:int b:int a:int] -> uint32_t
+  (return (+ r (<< g 8) (<< b 16) (<< a 24))))
 
 (function clip
   [xmin:int xmax:int ymin:int ymax:int
-   (x (* int)) (y (* int))] -> void
+   (x 'int) (y 'int)] -> void
   (set 'x (clamp 'x xmin xmax))
   (set 'y (clamp 'y ymin ymax)))
 
@@ -256,6 +271,34 @@
     (return (and (>= u lowt) (<= u hit)
                  (>= v lowt) (<= v hit)
                  (>= w lowt) (<= w hit)))))
+
+###
+### Blending modes
+###
+
+(function blend-default [dest:uint32_t src:uint32_t] -> uint32_t
+          (return src))
+
+# Blend operators
+(each [name op] [['add '+] ['sub '-] ['mul '*]]
+  (function ,(symbol 'blend- name)
+      ,(string "Blending function for dest = dest " op " src ")
+      [dest:uint32_t src:uint32_t] -> uint32_t
+      (var dest-r:int 0)
+      (var dest-g:int 0)
+      (var dest-b:int 0)
+      (var dest-a:int 0)
+      (var src-r:int 0)
+      (var src-g:int 0)
+      (var src-b:int 0)
+      (var src-a:int 0)
+      (colorsplit dest ;dest-r ;dest-g ;dest-b ;dest-a)
+      (colorsplit src ;src-r ;src-g ;src-b ;src-a)
+      (def r:int (clampz (,op dest-r src-r) 0 0xFF))
+      (def g:int (clampz (,op dest-g src-g) 0 0xFF))
+      (def b:int (clampz (,op dest-b src-b) 0 0xFF))
+      (def a:int (clampz (,op dest-a src-a) 0 0xFF))
+      (return (colorjoin r g b a))))
 
 ###
 ### C Functions
@@ -451,7 +494,7 @@
   (def new-img:JanetTuple (blank new-width new-height in-channels))
   ,;(bind-image-code 'new-img 'out-)
   (def layout:stbir_pixel_layout
-    (case?
+    (cond-expression
       (= in-channels 1) STBIR-1CHANNEL
       (= in-channels 2) STBIR-2CHANNEL
       (= in-channels 3) STBIR-RGB
