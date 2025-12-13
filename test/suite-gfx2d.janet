@@ -13,8 +13,15 @@
 (defn check-image
   "Either save image to a directory or compare against the existing image"
   [img file-name]
+  (def fullpath (path/join "test" "gold" file-name))
   (if (os/getenv "GOLD")
-    (save-png (path/join "test" "gold" file-name) img)
+    (case (path/ext file-name)
+      ".png" (save-png fullpath img)
+      ".jpeg" (save-jpg fullpath img 100) # Testing against jpeg is risky - lossy format.
+      ".jpg" (save-jpg fullpath img 100)
+      ".bmp" (save-bmp fullpath img)
+      ".tga" (save-tga fullpath img)
+      (errorf "unknown image format of %s" file-name))
     (do
       (def reference (load (path/join "test" "gold" file-name)))
       (assert (deep= reference img) (string "reference not identical to test image " file-name)))))
@@ -25,7 +32,9 @@
   (rect img 16 16 112 112 red)
   (rect img 32 32 96 96 blue)
   (circle img 64 64 30.5 yellow)
-  (check-image img "target1.png"))
+  (check-image img "target1.png")
+  (check-image img "target1.bmp")
+  (check-image img "target1.tga"))
 
 (test-image-1)
 
@@ -48,7 +57,7 @@
     (stamp dest img x y))
   (check-image dest "stamp1.png")
   (def smaller (resize dest 128 128))
-  (check-image smaller "small_stamp1.png"))
+  (check-image smaller "small_stamp1.bmp"))
 
 (test-stamp)
 
@@ -73,7 +82,7 @@
   (def empty1 (diff cop img))
   (def empty2 (diff img img))
   (check-image empty1 "empty.png")
-  (check-image empty2 "empty2.png"))
+  (check-image empty2 "empty2.tga"))
 
 (test-copy)
 

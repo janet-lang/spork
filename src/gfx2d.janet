@@ -103,14 +103,18 @@
 # Generate image-writing for each image type
 # TODO - hdr
 (each ft ["bmp" "tga" "png" "jpg"]
+  (def extra-params
+    (case ft
+      "jpg" ['quality:int] # - jpeg quality
+      []))
   (def extra-args
     (case ft
       "png" ['(* width channels)]
-      "jpg" [100] # - jpeg quality
+      "jpg" ['quality] # - jpeg quality
       []))
   (cfunction ,(symbol 'save- ft)
      ,(string "Save an image to a file as a " ft)
-     [path:cstring img:tuple] -> tuple
+     [path:cstring img:tuple ,;extra-params] -> tuple
      (def width:int 0)
      (def height:int 0)
      (def channels:int 0)
