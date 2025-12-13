@@ -136,6 +136,7 @@
    :magenta 0xFFFF00FF})
 
 (eachp [name value] colors
+  (@ define ,name ,value)
   (emit-cdef (symbol name) (string "color constant for " name) ~(janet-wrap-number ,value)))
 
 ##
@@ -345,8 +346,11 @@
   (clip (- 0 x) (- width x 1) (- 0 y) (- height y 1) ;x2 ;y2)
   (for [(def yy:int y1) (<= yy y2) (++ yy)]
     (for [(def xx:int x1) (<= xx x2) (++ xx)]
-      (if (>= (* r r) (+ (* xx xx) (* yy yy)))
-        (set-pixel (+ x xx) (+ y yy) color))))
+      (when (>= (* r r) (+ (* xx xx) (* yy yy)))
+        (var dest-color:uint32_t 0)
+        (get-pixel dest-color (+ x xx) (+ y yy))
+        (def final-color:uint32_t (blend-default dest-color color))
+        (set-pixel (+ x xx) (+ y yy) final-color))))
   (return img))
 
 (cfunction stamp

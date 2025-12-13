@@ -115,7 +115,7 @@
   Can set the number of workers
   for parallel execution. The graph is represented as a table
   mapping nodes to arrays of child nodes. Each node will only be evaluated
-  after all children have been evaluated. Modifying `dag` inside `f` 
+  after all children have been evaluated. Modifying `dag` inside `f`
   will not affect the scheduling of workers.
   Returns a table mapping each node
   to the result of `(f node)`."

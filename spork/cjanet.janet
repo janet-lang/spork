@@ -17,7 +17,13 @@
 (def- mangle-peg
   (peg/compile
     ~{:valid (range "az" "AZ" "__")
-      :one (+ '"->" (/ "-" "_") ':valid '"." (/ '1 ,|(string "_X" ($ 0))))
+      :one (+ '"->" (/ "-" "_") ':valid '"." '":" (/ '1 ,|(string "_X" ($ 0))))
+      :main (% (* (? "@") :one (any (+ ':d :one))))}))
+
+(def- mangle-strict-peg
+  (peg/compile
+    ~{:valid (range "az" "AZ" "__")
+      :one (+ (/ "-" "_") ':valid (/ '1 ,|(string "_X" ($ 0))))
       :main (% (* (? "@") :one (any (+ ':d :one))))}))
 
 (def- bops
@@ -37,6 +43,13 @@
   ``
   [token]
   (first (peg/match mangle-peg token)))
+
+(defn mangle-strict
+  ``
+  Same as `mangle` but only emit proper C identifiers (no ., :,  or -> allowed).
+  ``
+  [token]
+  (first (peg/match mangle-strict-peg token)))
 
 (def- type-split-peg
   (peg/compile '(* (? (* '(to ":") ":")) '(any 1))))
@@ -499,14 +512,14 @@
     ['do & body] (emit-blocks body)
     ['while cond stm & body] (emit-while cond stm body)
     ['for [init cond step] & body] (emit-for init cond step body)
-    ['switch cond & body] (emit-switch cond body)
     ['if & body] (emit-cond body)
+    ['switch cond & body] (emit-switch cond body)
     ['cond & body] (emit-cond body)
     ['return val] (emit-return val)
     ['break] (do (unless noindent (emit-indent)) (print "break;"))
     ['continue] (do (unless noindent (emit-indent)) (print "continue;"))
-    ['label lab] (print "label " lab ":")
-    ['goto lab] (do (unless noindent (emit-indent)) (print "goto " (form 1)))
+    ['label lab] (print (mangle-strict lab) ":")
+    ['goto lab] (do (unless noindent (emit-indent)) (print "goto " (mangle-strict (form 1))))
     stm (do (unless noindent (emit-indent)) (emit-statement stm) (print ";")))
   (unless nobracket (emit-block-end)))
 
@@ -764,7 +777,8 @@
   (buffer/push signature ")")
   # Generate function for use in C
   (emit-function-impl docstring classes mangledname cparams (get alias-to-ctype ret-type ret-type)
-                      (eval (qq-wrap body)))
+                      body)
+                      # (eval (qq-wrap body)))
   # Generate wrapper for use in Janet
   (def cfun_name (mangle (string "_generated_cfunction_" mangledname)))
   (print "\nJANET_FN(" cfun_name ",")
