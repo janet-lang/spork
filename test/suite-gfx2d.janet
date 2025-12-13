@@ -6,6 +6,10 @@
 
 (assert true)
 
+##
+## Please keep gold images small on disk to avoid large repository sizes
+##
+
 (defn check-image
   "Either save image to a directory or compare against the existing image"
   [img file-name]
@@ -13,7 +17,7 @@
     (save-png (path/join "test" "gold" file-name) img)
     (do
       (def reference (load (path/join "test" "gold" file-name)))
-      (assert (deep= reference img) "reference not identical to test image"))))
+      (assert (deep= reference img) (string "reference not identical to test image " file-name)))))
 
 (defn test-image-1
   []
@@ -48,6 +52,13 @@
 
 (test-stamp)
 
+(defn test-blank
+  []
+  (def img (blank 154 113 3))
+  (check-image img "blank.png"))
+
+(test-blank)
+
 (defn test-copy
   []
   (defn copy [img]
@@ -58,9 +69,10 @@
   (circle img 16 16 1000 cyan) # oob circle
   (rect img 32 32 96 96 blue)
   (def cop (copy img))
-  (def empty (diff cop img))
+  (assert (deep= cop img))
+  (def empty1 (diff cop img))
   (def empty2 (diff img img))
-  (check-image empty "empty.png")
+  (check-image empty1 "empty.png")
   (check-image empty2 "empty2.png"))
 
 (test-copy)

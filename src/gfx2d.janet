@@ -227,8 +227,8 @@
   [color:uint32_t (r 'int) (g 'int) (b 'int) (a 'int)] -> void
   (set 'r (band color 0xFF))
   (set 'g (band (>> color 8) 0xFF))
-  (set 'g (band (>> color 16) 0xFF))
-  (set 'g (band (>> color 24) 0xFF)))
+  (set 'b (band (>> color 16) 0xFF))
+  (set 'a (band (>> color 24) 0xFF)))
 
 (function colorjoin
   [r:int g:int b:int a:int] -> uint32_t
@@ -393,14 +393,11 @@
   ,;(bind-image-code 'dest "dest-")
   (for [(var y:int 0) (< y a-height) (++ y)]
     (for [(var x:int 0) (< x a-width) (++ x)]
-      (var color:uint32_t 0)
-      (for [(var c:int (- a-channels 1)) (>= c 0) (-- c)]
-        (def ac:int (aref a-data (+ c (* x a-channels) (* y a-stride))))
-        (def bc:int (aref b-data (+ c (* x a-channels) (* y a-stride))))
-        (def cc:int (- a b)) # TODO - reuse this
-        (if (> 0x00 cc) (set cc 0x00))
-        (if (< 0xFF cc) (set cc 0xFF))
-        (set color (+ (cast uint32_t cc) (<< color 8))))
+      (var acolor:uint32_t 0)
+      (var bcolor:uint32_t 0)
+      (get-pixel acolor x y "a-")
+      (get-pixel bcolor x y "b-")
+      (def color:uint32_t (blend-sub acolor bcolor))
       (set-pixel x y color "dest-")))
   (return dest))
 
@@ -487,8 +484,8 @@
    (for [(var y:int ymin) (<= y ymax) (++ y)]
      (for [(var x:int xmin) (<= x xmax) (++ x)]
        (when (barycentric x y x1 y1 x2 y2 x3 y3 nil nil nil)
-         (def color1:uint32_t (? (band 1 (+ (>> x 2) (>> y 2))) color 0))
-         (set-pixel x y color1))))
+         # (def color:uint32_t (? (band 1 (+ (>> x 2) (>> y 2))) color 0))
+         (set-pixel x y color))))
    (return img))
 
 (cfunction resize
