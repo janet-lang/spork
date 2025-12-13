@@ -586,6 +586,11 @@
   (emit-declaration binding v)
   (print ";"))
 
+(defn emit-extern
+  "Emit a declaration of a variable or constant."
+  [binding]
+  (emit-declare binding "extern" nil))
+
 (defn emit-typedef
   "Emit a type declaration (C typedef)."
   [name definition]
@@ -613,6 +618,7 @@
 (defmacro preprocess [& args] ~(,emit-preprocess ,;(qq-wrap args)))
 (defmacro @ [& args] ~(,emit-preprocess ,;(qq-wrap args)))
 (defmacro declare [& args] ~(,emit-declare ,;(qq-wrap args)))
+(defmacro extern [& args] ~(,emit-extern ,;(qq-wrap args)))
 (defmacro typedef [& args] ~(,emit-typedef ,;(qq-wrap args)))
 (defmacro block [& args] ~(,emit-blocks ,(qq-wrap args)))
 (defmacro include [path] ~(,emit-include ,;(qq-wrap [path])))

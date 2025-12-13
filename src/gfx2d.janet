@@ -36,12 +36,16 @@
 (include <janet.h>)
 (include <string.h>)
 (include <math.h>)
+(include <assert.h>)
 
 (@ define STBIW_WINDOWS_UTF8)
 
 (include "stb_image.h")
 (include "stb_image_write.h")
 (include "stb_image_resize2.h")
+
+# Defines default font data
+(include "cp437_font.h")
 
 ###
 ### Image creation, basic utilties, saving and loading
@@ -229,10 +233,10 @@
 
 (function colorsplit
   [color:uint32_t (r 'int) (g 'int) (b 'int) (a 'int)] -> void
-  (set 'r (band color 0xFF))
-  (set 'g (band (>> color 8) 0xFF))
-  (set 'b (band (>> color 16) 0xFF))
-  (set 'a (band (>> color 24) 0xFF)))
+  (set 'r (cast int (band color 0xFF)))
+  (set 'g (cast int (band (>> color 8) 0xFF)))
+  (set 'b (cast int (band (>> color 16) 0xFF)))
+  (set 'a (cast int (band (>> color 24) 0xFF))))
 
 (function colorjoin
   [r:int g:int b:int a:int] -> uint32_t
@@ -508,5 +512,35 @@
                            out-data out-width out-height out-stride
                            layout)
   (return new-img))
+
+(cfunction draw-simple-text
+  "Draw text with a default, bitmap on an image"
+  [img:JanetTuple x:int y:int text:cstring color:uint32_t] -> JanetTuple
+  ,;(bind-image-code 'img)
+  (def gw:int 8)
+  (def gh:int 8)
+  (def bytes-per-row:int (/ (+ 7 gw) 8))
+  (def bytes-per-char:int (* bytes-per-row gh))
+  # TODO - convert UTF8 to cp437
+  (var xx:int x)
+  (var yy:int y)
+  (for [(var (c (const (* uint8_t))) (cast (const (* uint8_t)) text)) 'c (++ c)]
+    (if (= 'c ,(chr "\n")) (do (set yy (+ yy 1 gh)) (set xx x) (continue)))
+    (for [(var row:int 0) (< row gw) (++ row)]
+      (def glyph-row:unsigned 0)
+      # Collect glyph row into bits, up to 32 bit wide
+      (for [(var index:int 0) (< index bytes-per-row) (++ index)]
+        (set glyph-row (bor (<< glyph-row 8) 
+          (cast unsigned (aref cp437-font-data (+ (* bytes-per-char (cast int 'c)) (* row bytes-per-row) index))))))
+      # Rasterize row
+      (for [(var col:int (- gh 1)) (>= col 0) (-- col)]
+        (def xxx:int (+ col xx))
+        (def yyy:int (+ row yy))
+        (if (and (>= xxx 0) (>= yyy 0) (< xxx width) (< yyy height))
+          (if (band 1 glyph-row)
+            (set-pixel xxx yyy color)))
+        (set glyph-row (>> glyph-row 1))))
+    (set xx (+ xx gw)))
+  (return img))
 
 (module-entry "spork_gfx2d")

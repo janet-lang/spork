@@ -74,4 +74,5 @@
 (declare-native
   :name "spork/gfx2d"
   :source @["src/gfx2d.janet" "src/stb.janet"]
-  :cflags @[;default-cflags "-Ideps/stb"])
+  :headers @["deps/cp437_font.h"]
+  :cflags @[;default-cflags "-Ideps/stb" "-Ideps"])

@@ -459,6 +459,7 @@
    c++flags defines install nostatic static-libs
    use-rpath use-rdynamic pkg-config-flags dynamic-libs msvc-libs
    ldflags # alias for libs
+   headers
    pkg-config-libs smart-libs c-std c++-std target-os]
 
   (def rules (get-rules))
@@ -470,6 +471,7 @@
   (default defines @{})
   (default smart-libs false)
   (default msvc-libs @[])
+  (default headers @[])
   (def toolchain (get-toolchain))
 
   (def msvc-libs @[;msvc-libs])
@@ -496,6 +498,7 @@
               cc/*c++-std* c++-std
               cc/*target-os* target-os
               cc/*visit* cc/visit-add-rule
+              cc/*headers* headers
               *toolchain* toolchain
               cc/*rules* rules})
   (table/setproto benv (curenv)) # configurable?
@@ -875,6 +878,7 @@ int main(int argc, const char **argv) {
                     cc/*cc* (toolchain-to-cc toolchain)
                     cc/*c++* (toolchain-to-c++ toolchain)
                     cc/*target-os* target-os
+                    cc/*headers* headers
                     cc/*visit* cc/visit-execute-if-stale
                     cc/*rules* (get-rules)})
         (table/setproto benv (curenv)) # configurable?
