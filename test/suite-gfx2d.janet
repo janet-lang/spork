@@ -14,7 +14,7 @@
   "Either save image to a directory or compare against the existing image"
   [img file-name]
   (def fullpath (path/join "test" "gold" file-name))
-  (if (os/getenv "GOLD")
+  (if (or (os/getenv "GOLD") (os/getenv (string "GOLD_" (first (string/split "." file-name)))))
     (case (path/ext file-name)
       ".png" (save-png fullpath img)
       ".jpeg" (save-jpg fullpath img 100) # Testing against jpeg is risky - lossy format.
@@ -116,5 +116,13 @@
   (check-image tri "triange2.png"))
 
 (test-triangle2)
+
+(defn test-simple-text
+  []
+  (def canvas (blank 128 16 3))
+  (draw-simple-text canvas 2 2 "Hello, world!" white)
+  (check-image canvas "hello_text.png"))
+
+(test-simple-text)
 
 (end-suite)
