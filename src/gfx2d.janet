@@ -14,18 +14,20 @@
 ### [x] - image cropping
 ### [x] - testing harness
 ### [x] - get/set individual pixels (mostly for testing)
-### [ ] - text w/ simple font
+### [x] - text w/ simple font
 ### [ ] - lines/paths (w/ thickness)
 ### [ ] - blending
-### [ ] - image resizing
+### [x] - image resizing
 ### [ ] - bezier
-### [ ] - flood fill
+### [ ] - fill path (raycast rasterizer)
 ### [ ] - triangle strip/fan/list
 ### [ ] - LUTs (possibly w/ shaders)
 ### [ ] - Gradients (possibly w/ shaders)
 ### [ ] - Better 2D point abstraction
+### [ ] - Affine transforms
 
 ### Stretch TODO
+### [ ] - vector font rendering
 ### [ ] - anti-aliasing w/ MXAA
 ### [ ] - shaders using cjanet-jit
 ### [ ] - sub-images for rendering / alternatives to JanetBuffer for data storage
@@ -433,54 +435,8 @@
       (+= err dx)
       (+= y sy))))
 
-(function triangle-impl
-  [img:JanetTuple x1:int y1:int x2:int y2:int x3:int y3:int color:uint32_t] -> JanetTuple
-  # points 1 2 3 are sorted by non-decreasing y
-  ,;(bind-image-code 'img)
-  # 2. Use modified line algorithm for top half
-  (for [(var y:int y1) (< y y2) (++ y)]
-    (def yt-12:float (unlerp y y1 y2))
-    (def yt-13:float (unlerp y y1 y3))
-    (def x-a:int (cast int (floor (lerp x1 x2 yt-12))))
-    (def x-b:int (cast int (ceil (lerp x1 x3 yt-13))))
-    (sort2 x-a x-b int)
-    (for [(var x:int x-a) (<= x x-b) (++ x)]
-      (set-pixel x y color)))
-  # 3. Use modified line algorithm for bottom half
-  (for [(var y:int y2) (< y y3) (++ y)]
-    (def yt-23:float (unlerp y y2 y3))
-    (def yt-13:float (unlerp y y1 y3))
-    (def x-a:int (cast int (floor (lerp x2 x3 yt-23))))
-    (def x-b:int (cast int (ceil (lerp x1 x3 yt-13))))
-    (sort2 x-a x-b int)
-    (for [(var x:int x-a) (<= x x-b) (++ x)]
-      (set-pixel x y color)))
-  # 4. last row in case y2 == y3
-  (def x-a:int x3)
-  (def x-b:int (? (= y2 y3) x2 x3))
-  (sort2 x-a x-b int)
-  (for [(var x:int x-a) (<= x x-b) (++ x)]
-    (set-pixel x y3 color))
-  (return img))
-
 (cfunction triangle
-    "Fill a triangle"
-    [img:JanetTuple x1:int y1:int x2:int y2:int x3:int y3:int color:uint32] -> JanetTuple
-    # 1. Sort the coordinates by increasing y
-    (if (< y1 y2)
-      (if (< y1 y3)
-        (if (< y2 y3)
-          (return (triangle-impl img x1 y1 x2 y2 x3 y3 color))
-          (return (triangle-impl img x1 y1 x3 y3 x2 y2 color)))
-        (return (triangle-impl img x3 y3 x1 y1 x2 y2 color)))
-      (if (< y2 y3)
-        (if (< y1 y3)
-          (return (triangle-impl img x2 y2 x1 y1 x3 y3 color))
-          (return (triangle-impl img x2 y2 x3 y3 x1 y1 color)))
-        (return (triangle-impl img x3 y3 x2 y2 x1 y1 color)))))
-
-(cfunction triangle2
-   "Fill a triangle 2"
+   "Fill a triangle"
    [img:JanetTuple x1:int y1:int x2:int y2:int x3:int y3:int color:uint32_t] -> JanetTuple
    (def xmin:int (min3z x1 x2 x3))
    (def xmax:int (max3z x1 x2 x3))
@@ -513,14 +469,45 @@
                            layout)
   (return new-img))
 
+###
+### Built-in simple text rendering
+###
+### By default, it is nice to be able to render text without loading any fonts. Very limited, but should work
+### well for simple use cases. The built-in font is an 8x8 monospace bitmap fron that contains all the characters
+### of the 437 code page from IBM compatible computers.
+###
+
 (function utf8-read-codepoint
   [(c (* (const (* uint8_t))))] -> int
-  (when (< ''c 128)
-    (set 'c (++ 'c))
-    (return ''c))
-  # TODO
-  (set 'c (++ 'c))
-  (return 0))
+  (when (< ''c 0x80)
+    (def code:int (aref 'c 0))
+    (++ 'c)
+    (return code))
+  (when (>= ''c 0xF0) # 4 byte
+    (def code:int
+      (+ (<< (band 0x3 (aref 'c 0)) 18)
+         (<< (band 0x3F (aref 'c 1)) 12)
+         (<< (band 0x3F (aref 'c 2)) 6)
+         (<< (band 0x3F (aref 'c 3)) 0)))
+    (set 'c (+ 4 'c))
+    (return code))
+  (when (>= ''c 0xE0) # 3 byte
+    (def code:int
+      (+ (<< (band 0x0F (aref 'c 0)) 12)
+         (<< (band 0x3F (aref 'c 1)) 6)
+         (<< (band 0x3F (aref 'c 2)) 0)))
+    (set 'c (+ 3 'c))
+    (return code))
+  (when (>= ''c 0xC0) # 2 byte
+    (def code:int
+      (+ (<< (band 0x1F (aref 'c 0)) 6)
+         (<< (band 0x3F (aref 'c 1)) 0)))
+    (set 'c (+ 2 'c))
+    (return code))
+  # invalid utf-8, just increment and return 0
+  (def code:int ''c)
+  (++ 'c)
+  (return code))
 
 (function unicode-to-cp437
   "Convert characters from unicode to the old IBM code page used by the default font"
@@ -692,35 +679,39 @@
 
 (cfunction draw-simple-text
   "Draw text with a default, bitmap on an image"
-  [img:JanetTuple x:int y:int text:cstring color:uint32_t] -> JanetTuple
+  [img:JanetTuple x:int y:int xscale:int yscale:int text:cstring color:uint32_t] -> JanetTuple
   ,;(bind-image-code 'img)
+  (if (< xscale 1) (janet-panic "xscale must be at least 1"))
+  (if (< yscale 1) (janet-panic "yscale must be at least 1"))
+  # Hardcoded glyph widths for the built-in font.
   (def gw:int 8)
   (def gh:int 8)
   (def bytes-per-row:int (/ (+ 7 gw) 8))
   (def bytes-per-char:int (* bytes-per-row gh))
-  # TODO - convert UTF8 to cp437
   (var xx:int x)
   (var yy:int y)
-  (for [(var (c (const (* uint8_t))) (cast (const (* uint8_t)) text)) 'c (++ c)]
-    (def codepoint:int 'c)
-    #(utf8-read-codepoint ;c))
-    (if (= codepoint ,(chr "\n")) (do (set yy (+ yy 1 gh)) (set xx x) (continue)))
+  (var (c (const (* uint8_t))) (cast (const (* uint8_t)) text))
+  (while 'c
+    (def codepoint:int (utf8-read-codepoint ;c))
+    (if (= codepoint ,(chr "\n")) (do (set yy (+ yy (* yscale gh))) (set xx x) (continue)))
     (def cp437:int (unicode-to-cp437 codepoint))
-    (for [(var row:int 0) (< row gw) (++ row)]
+    (for [(var row:int 0) (< row gh) (++ row)]
       (def glyph-row:unsigned 0)
       # Collect glyph row into bits, up to 32 bit wide
       (for [(var index:int 0) (< index bytes-per-row) (++ index)]
         (set glyph-row (bor (<< glyph-row 8)
           (cast unsigned (aref cp437-font-data (+ (* bytes-per-char cp437) (* row bytes-per-row) index))))))
       # Rasterize row
-      (for [(var col:int (- gh 1)) (>= col 0) (-- col)]
-        (def xxx:int (+ col xx))
-        (def yyy:int (+ row yy))
-        (if (and (>= xxx 0) (>= yyy 0) (< xxx width) (< yyy height))
-          (if (band 1 glyph-row)
-            (set-pixel xxx yyy color)))
+      (for [(var col:int (- gw 1)) (>= col 0) (-- col)]
+        (if (band 1 glyph-row)
+          (for [(var yoff:int 0) (< yoff yscale) (++ yoff)]
+            (for [(var xoff:int 0) (< xoff xscale) (++ xoff)]
+              (def xxx:int (+ (* xscale col) xx xoff))
+              (def yyy:int (+ (* yscale row) yy yoff))
+              (if (and (>= xxx 0) (>= yyy 0) (< xxx width) (< yyy height))
+                (set-pixel xxx yyy color)))))
         (set glyph-row (>> glyph-row 1))))
-    (set xx (+ xx gw)))
+    (set xx (+ xx (* xscale gw))))
   (return img))
 
 (module-entry "spork_gfx2d")

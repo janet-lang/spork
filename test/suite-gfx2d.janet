@@ -109,18 +109,10 @@
 
 (test-triangle)
 
-(defn test-triangle2
-  []
-  (def tri (blank 128 128 3))
-  (triangle2 tri 64 0 0 127 127 127 red)
-  (check-image tri "triange2.png"))
-
-(test-triangle2)
-
 (defn test-simple-text
   []
   (def canvas (blank 128 16 3))
-  (draw-simple-text canvas 2 2 "Hello, world!" white)
+  (draw-simple-text canvas 2 2 1 1 "Hello, world!" white)
   (check-image canvas "hello_text.png"))
 
 (test-simple-text)
