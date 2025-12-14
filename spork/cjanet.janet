@@ -16,8 +16,8 @@
 
 (def- mangle-peg
   (peg/compile
-    ~{:valid (range "az" "AZ" "__")
-      :one (+ '"->" (/ "-" "_") ':valid '"." '":" (/ '1 ,|(string "_X" ($ 0))))
+    ~{:valid (range "az" "AZ" "__" ".." "::")
+      :one (+ '"->" (/ "-" "_") ':valid (/ '1 ,|(string "_X" ($ 0))))
       :main (% (* (? "@") :one (any (+ ':d :one))))}))
 
 (def- mangle-strict-peg
@@ -233,7 +233,7 @@
 (varfn emit-type
   [definition &opt alias]
   (match definition
-    (d (bytes? d)) (do (prin (mangle d)) (if alias (prin " " (mangle alias))))
+    (d (bytes? d)) (do (prin (mangle-strict d)) (if alias (prin " " (mangle alias))))
     (t (tuple? t))
     (match t
       ['struct & body] (emit-struct-def nil body alias)
@@ -246,7 +246,6 @@
       ['ptr val] (emit-ptr-type val alias)
       ['* val] (emit-ptr-type val alias)
       ['quote val] (emit-ptr-type val alias) # shorthand
-      ['ptrptr val] (emit-ptr-ptr-type val alias)
       ['** val] (emit-ptr-ptr-type (definition 1) alias)
       ['const t] (emit-const-type t alias)
       ['array t] (emit-array-type t (get definition 2) alias)
@@ -657,8 +656,8 @@
    [:struct 'JanetStruct 'janet-wrap-struct 'janet-getstruct 'janet-optstruct]
    [:string 'JanetString 'janet-wrap-string 'janet-getstring nil]
    [:cstring '(const (* char)) 'janet_cstringv 'janet-getcstring 'janet-optcstring]
-   [:symbol 'JanetSymbol 'janet-wrap-symbol 'janet-getsymbol nil]
-   [:keyword 'JanetKeyword 'janet-wrap-keyword 'janet-getkeyword nil]
+   [:symbol 'JanetSymbol 'janet-wrap-symbol 'janet-getsymbol 'janet-optsymbol]
+   [:keyword 'JanetKeyword 'janet-wrap-keyword 'janet-getkeyword 'janet-optkeyword]
    [:buffer '(* JanetBuffer) 'janet-wrap-buffer 'janet-getbuffer 'janet-optbuffer]
    [:cfunction 'JanetCFunction 'janet-wrap-cfunction 'janet-getcfunction 'janet-optcfunction]
    [:function '(* JanetFunction) 'janet-wrap-function 'janet-getfunction nil]

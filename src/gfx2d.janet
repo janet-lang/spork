@@ -52,8 +52,8 @@
 
 (function wrap-image
    "wrap an image"
-   [(buf (* JanetBuffer)) width:int height:int channels:int] -> JanetTuple
-   (def (tup (* Janet)) (janet-tuple-begin 4))
+   [(buf 'JanetBuffer) width:int height:int channels:int] -> JanetTuple
+   (def (tup 'Janet) (janet-tuple-begin 4))
    (set (aref tup 0) (janet-wrap-buffer buf))
    (set (aref tup 1) (janet-wrap-integer width))
    (set (aref tup 2) (janet-wrap-integer height))
@@ -62,7 +62,7 @@
 
 (function unwrap-image
    "unwrap an image"
-   [img:JanetTuple (data (** JanetBuffer)) (width (* int)) (height (* int)) (channels (* int))] -> void
+   [img:JanetTuple (data ''JanetBuffer) (width 'int) (height 'int) (channels 'int)] -> void
    (if (> 4 (janet-tuple-length img)) # allow for extra attributes
      (janet-panicf "expected image (length 4 tuple), got %V" (janet-wrap-tuple img)))
    (set (aref data 0) (janet-getbuffer img 0))
@@ -78,7 +78,7 @@
   (if (> 1 channel) (janet-panic "channel must be between 1 and 4 inclusive"))
   (if (< 4 channel) (janet-panic "channel must be between 1 and 4 inclusive"))
 
-  (def (buf (* JanetBuffer)) (janet-buffer (* width height channel)))
+  (def (buf 'JanetBuffer) (janet-buffer (* width height channel)))
   (set buf->count (* width height channel))
   (memset buf->data 0 (* width height channel))
 
@@ -91,11 +91,11 @@
   (def width:int 0)
   (def height:int 0)
   (def c:int 0)
-  (def (img (* char)) (stbi-load path ;width ;height ;c 0))
+  (def (img 'char) (stbi-load path ;width ;height ;c 0))
   (unless img (janet-panic "failed to load image"))
 
   # Copy into buffer
-  (def (buf (* JanetBuffer)) (janet-buffer (* width height c)))
+  (def (buf 'JanetBuffer) (janet-buffer (* width height c)))
   (memcpy buf->data img (* width height c))
   (set buf->count (* width height c))
   (stbi-image-free img) # TODO - remove this alloc, copy, free?
@@ -121,7 +121,7 @@
      (def width:int 0)
      (def height:int 0)
      (def channels:int 0)
-     (def (buf (* JanetBuffer)) NULL)
+     (def (buf 'JanetBuffer) NULL)
      (unwrap-image img ;buf ;width ;height ;channels)
      (def check:int (,(symbol 'stbi-write- ft) path width height channels buf->data ,;extra-args))
      (if-not check (janet-panic "failed to write image"))
@@ -158,14 +158,14 @@
   ~[(def ,(symbol sym-prefix 'width:int) 0)
     (def ,(symbol sym-prefix 'height:int) 0)
     (def ,(symbol sym-prefix 'channels:int) 0)
-    (def (,(symbol sym-prefix 'buf) (* JanetBuffer)) NULL)
+    (def (,(symbol sym-prefix 'buf) 'JanetBuffer) NULL)
     (unwrap-image
       ,img
       (addr ,(symbol sym-prefix 'buf))
       (addr ,(symbol sym-prefix 'width))
       (addr ,(symbol sym-prefix 'height))
       (addr ,(symbol sym-prefix 'channels)))
-    (def (,(symbol sym-prefix 'data) (* char)) ,(symbol sym-prefix 'buf->data))
+    (def (,(symbol sym-prefix 'data) 'char) ,(symbol sym-prefix 'buf->data))
     (def ,(symbol sym-prefix 'stride:int) (* ,(symbol sym-prefix 'channels) ,(symbol sym-prefix 'width)))])
 
 (defn- get-pixel
@@ -271,7 +271,7 @@
 
 (function barycentric
   "calculate barycentric coordinates in 2d"
-  [px:int py:int x1:int y1:int x2:int y2:int x3:int y3:int (t0 (* float)) (t1 (* float)) (t2 (* float))] -> int
+  [px:int py:int x1:int y1:int x2:int y2:int x3:int y3:int (t0 'float) (t1 'float) (t2 'float)] -> int
   (def v0x:int (- x2 x1))
   (def v0y:int (- y2 y1))
   (def v1x:int (- x3 x1))
@@ -493,7 +493,7 @@
   (struct
     gw int
     gh int
-    data (const (* uint8_t))))
+    data (const 'uint8_t)))
 
 # Defines default font data
 (include "default_font.h")
@@ -502,20 +502,20 @@
 
 (function select-font
   "Select one of the built-in fonts"
-  [(font-name (const (* char)))] -> (const (* BitmapFont))
+  [font-name:JanetKeyword] -> (const 'BitmapFont)
   (return
     (cond-expression
-      (= 0 (strcmp font-name "default"))
+      (= 0 (janet_cstrcmp font-name "default"))
       ;default-font
-      (= 0 (strcmp font-name "tall"))
+      (= 0 (janet_cstrcmp font-name "tall"))
       ;tall-font
-      (= 0 (strcmp font-name "olive"))
+      (= 0 (janet_cstrcmp font-name "olive"))
       ;olive-font
       ;default-font)))
 
 (function utf8-read-codepoint
   "Read a codepoint from a string, and advance the cursor to the next utf8 character"
-  [(c (* (const (* uint8_t))))] -> int
+  [(c '(const 'uint8_t))] -> int
   (when (< ''c 0x80)
     (def code:int (aref 'c 0))
     (++ 'c)
@@ -716,11 +716,11 @@
 
 (cfunction draw-simple-text
   "Draw text with a default, bitmap on an image"
-  [img:JanetTuple x:int y:int xscale:int yscale:int text:cstring color:uint32_t &opt (font-name cstring "default")] -> JanetTuple
+  [img:JanetTuple x:int y:int xscale:int yscale:int text:cstring color:uint32_t &opt (font-name keyword "default")] -> JanetTuple
   ,;(bind-image-code 'img)
   (if (< xscale 1) (janet-panic "xscale must be at least 1"))
   (if (< yscale 1) (janet-panic "yscale must be at least 1"))
-  (def (font (const (* BitmapFont))) (select-font font-name))
+  (def (font (const 'BitmapFont)) (select-font font-name))
   # Hardcoded glyph widths for the built-in font.
   (def gw:int font->gw)
   (def gh:int font->gh)
@@ -728,7 +728,7 @@
   (def bytes-per-char:int (* bytes-per-row gh))
   (var xx:int x)
   (var yy:int y)
-  (var (c (const (* uint8_t))) (cast (const (* uint8_t)) text))
+  (var (c (const 'uint8_t)) (cast (const 'uint8_t) text))
   (while 'c
     (def codepoint:int (utf8-read-codepoint ;c))
     (if (= codepoint ,(chr "\n")) (do (set yy (+ yy (* yscale gh))) (set xx x) (continue)))
