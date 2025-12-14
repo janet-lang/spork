@@ -206,6 +206,18 @@
     case
     ~(? ,case ,value ,(cond-expression ;(drop 2 cases)))))
 
+(defn- polymorph
+  :cjanet-block-macro
+  "Make specializations of a function implementation explicitly to help an optimizing compiler"
+  [sym bindings & body]
+  ~(switch
+     ,sym
+     ,;(array/join
+         @[]
+         ;(seq [b :in bindings]
+           [b ~(do ,;body (break))]))
+     (assert 0)))
+
 ###
 ### Math helpers
 ###
@@ -351,13 +363,14 @@
   (var y2:int cr)
   (clip (- 0 x) (- width x 1) (- 0 y) (- height y 1) ;x1 ;y1)
   (clip (- 0 x) (- width x 1) (- 0 y) (- height y 1) ;x2 ;y2)
-  (for [(def yy:int y1) (<= yy y2) (++ yy)]
-    (for [(def xx:int x1) (<= xx x2) (++ xx)]
-      (when (>= (* r r) (+ (* xx xx) (* yy yy)))
-        (var dest-color:uint32_t 0)
-        (get-pixel dest-color (+ x xx) (+ y yy))
-        (def final-color:uint32_t (blend-default dest-color color))
-        (set-pixel (+ x xx) (+ y yy) final-color))))
+  (polymorph channels [1 2 3 4]
+    (for [(def yy:int y1) (<= yy y2) (++ yy)]
+      (for [(def xx:int x1) (<= xx x2) (++ xx)]
+        (when (>= (* r r) (+ (* xx xx) (* yy yy)))
+          (var dest-color:uint32_t 0)
+          (get-pixel dest-color (+ x xx) (+ y yy))
+          (def final-color:uint32_t (blend-default dest-color color))
+          (set-pixel (+ x xx) (+ y yy) final-color)))))
   (return img))
 
 (cfunction stamp
@@ -373,11 +386,12 @@
   (def yoverflow:int (- (+ dy src-height) dest-height))
   (def xmax:int (? (< xoverflow 0) src-width (- src-width xoverflow)))
   (def ymax:int (? (< yoverflow 0) src-height (- src-height yoverflow)))
-  (for [(var y:int ymin) (< y ymax) (++ y)]
-    (for [(var x:int xmin) (< x xmax) (++ x)]
-      (var color:uint32_t 0)
-      (get-pixel color x y "src-")
-      (set-pixel (+ dx x) (+ dy y) color "dest-")))
+  (polymorph src-channels [1 2 3 4]
+    (for [(var y:int ymin) (< y ymax) (++ y)]
+      (for [(var x:int xmin) (< x xmax) (++ x)]
+        (var color:uint32_t 0)
+        (get-pixel color x y "src-")
+        (set-pixel (+ dx x) (+ dy y) color "dest-"))))
   (return dest))
 
 (cfunction crop
@@ -398,14 +412,15 @@
   (if (or (not= a-height b-height) (not= a-width b-width)) (janet-panic "images must have matching dimensions"))
   (def dest:JanetTuple (blank a-width a-height a-channels))
   ,;(bind-image-code 'dest "dest-")
-  (for [(var y:int 0) (< y a-height) (++ y)]
-    (for [(var x:int 0) (< x a-width) (++ x)]
-      (var acolor:uint32_t 0)
-      (var bcolor:uint32_t 0)
-      (get-pixel acolor x y "a-")
-      (get-pixel bcolor x y "b-")
-      (def color:uint32_t (blend-sub acolor bcolor))
-      (set-pixel x y color "dest-")))
+  (polymorph a-channels [1 2 3 4]
+    (for [(var y:int 0) (< y a-height) (++ y)]
+      (for [(var x:int 0) (< x a-width) (++ x)]
+        (var acolor:uint32_t 0)
+        (var bcolor:uint32_t 0)
+        (get-pixel acolor x y "a-")
+        (get-pixel bcolor x y "b-")
+        (def color:uint32_t (blend-sub acolor bcolor))
+        (set-pixel x y color "dest-"))))
   (return dest))
 
 (cfunction line
