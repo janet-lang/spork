@@ -920,7 +920,7 @@
     (if (= :msvc toolchain)
       (do
         (set so (string name ".dll"))
-        (put env cc/*lflags* @[;(get env cc/*lflags* @[]) "/NOIMPLIB"])
+        (put env cc/*lflags* @[;(get env cc/*lflags* @[]) "/NOIMPLIB" (cc/msvc-janet-import-lib)])
         (cc/msvc-compile-and-link-shared so c-source))
       (do
         (cc/compile-and-link-shared so c-source))))
