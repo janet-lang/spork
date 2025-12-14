@@ -149,19 +149,19 @@
 (defn- emit-struct-union-def
   [which name args defname]
   (when (or (nil? args) (empty? args))
-    (prin which " " (mangle name))
-    (if defname (prin " " (mangle defname)))
+    (prin which " " (mangle-strict name))
+    (if defname (prin " " (mangle-strict defname)))
     (break))
   (assert (even? (length args)) (string/format "expected even number of arguments, got %j" args))
   (prin which " ")
-  (if name (prin (mangle name) " "))
+  (if name (prin (mangle-strict name) " "))
   (emit-block-start)
   (each [field ftype] (partition 2 args)
     (emit-indent)
     (emit-type ftype field)
     (print ";"))
   (emit-block-end)
-  (if defname (prin " " (mangle defname))))
+  (if defname (prin " " (mangle-strict defname))))
 
 (defn- emit-struct-def
   [name args defname]
@@ -174,7 +174,7 @@
 (defn- emit-enum-def
   [name args defname]
   (prin "enum ")
-  (if name (prin (mangle name) " "))
+  (if name (prin (mangle-strict name) " "))
   (emit-block-start)
   (each x args
     (emit-indent)
@@ -185,7 +185,7 @@
         (print ","))
       (print x ",")))
   (emit-block-end)
-  (if defname (prin " " (mangle defname))))
+  (if defname (prin " " (mangle-strict defname))))
 
 (defn- emit-fn-pointer-type
   [ret-type args defname]
@@ -250,8 +250,8 @@
       ['** val] (emit-ptr-ptr-type (definition 1) alias)
       ['const t] (emit-const-type t alias)
       ['array t] (emit-array-type t (get definition 2) alias)
-      (errorf "unexpected type form %v" definition))
-    (errorf "unexpected type form %v" definition)))
+      (errorf "unexpected type form %j" definition))
+    (errorf "unexpected type form %j" definition)))
 
 (defn- emit-typedef-impl
   [alias definition]

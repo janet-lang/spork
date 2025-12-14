@@ -46,9 +46,6 @@
 (include "stb_image_write.h")
 (include "stb_image_resize2.h")
 
-# Defines default font data
-(include "cp437_font.h")
-
 ###
 ### Image creation, basic utilties, saving and loading
 ###
@@ -470,14 +467,39 @@
   (return new-img))
 
 ###
-### Built-in simple text rendering
+### Built-in simple text rendering with CP437 BIOS fonts
 ###
 ### By default, it is nice to be able to render text without loading any fonts. Very limited, but should work
 ### well for simple use cases. The built-in font is an 8x8 monospace bitmap fron that contains all the characters
 ### of the 437 code page from IBM compatible computers.
 ###
 
+(typedef BitmapFont
+  (struct
+    gw int
+    gh int
+    data (const (* uint8_t))))
+
+# Defines default font data
+(include "default_font.h")
+(include "tall_font.h")
+(include "olive_font.h")
+
+(function select-font
+  "Select one of the built-in fonts"
+  [(font-name (const (* char)))] -> (const (* BitmapFont))
+  (return
+    (cond-expression
+      (= 0 (strcmp font-name "default"))
+      ;default-font
+      (= 0 (strcmp font-name "tall"))
+      ;tall-font
+      (= 0 (strcmp font-name "olive"))
+      ;olive-font
+      ;default-font)))
+
 (function utf8-read-codepoint
+  "Read a codepoint from a string, and advance the cursor to the next utf8 character"
   [(c (* (const (* uint8_t))))] -> int
   (when (< ''c 0x80)
     (def code:int (aref 'c 0))
@@ -679,13 +701,14 @@
 
 (cfunction draw-simple-text
   "Draw text with a default, bitmap on an image"
-  [img:JanetTuple x:int y:int xscale:int yscale:int text:cstring color:uint32_t] -> JanetTuple
+  [img:JanetTuple x:int y:int xscale:int yscale:int text:cstring color:uint32_t &opt (font-name cstring "default")] -> JanetTuple
   ,;(bind-image-code 'img)
   (if (< xscale 1) (janet-panic "xscale must be at least 1"))
   (if (< yscale 1) (janet-panic "yscale must be at least 1"))
+  (def (font (const (* BitmapFont))) (select-font font-name))
   # Hardcoded glyph widths for the built-in font.
-  (def gw:int 8)
-  (def gh:int 8)
+  (def gw:int font->gw)
+  (def gh:int font->gh)
   (def bytes-per-row:int (/ (+ 7 gw) 8))
   (def bytes-per-char:int (* bytes-per-row gh))
   (var xx:int x)
@@ -700,7 +723,7 @@
       # Collect glyph row into bits, up to 32 bit wide
       (for [(var index:int 0) (< index bytes-per-row) (++ index)]
         (set glyph-row (bor (<< glyph-row 8)
-          (cast unsigned (aref cp437-font-data (+ (* bytes-per-char cp437) (* row bytes-per-row) index))))))
+          (cast unsigned (aref font->data (+ (* bytes-per-char cp437) (* row bytes-per-row) index))))))
       # Rasterize row
       (for [(var col:int (- gw 1)) (>= col 0) (-- col)]
         (if (band 1 glyph-row)
