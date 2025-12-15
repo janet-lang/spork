@@ -19,7 +19,7 @@
 (defdyn *build-root* "Root build directory that will contain all built artifacts")
 
 (defn- build-root [] (dyn *build-root* "_build"))
-(defn- build-dir [] (path/join (build-root) (dyn cc/*build-type* :release)))
+(defn- build-dir [] (path/join (build-root) (cc/build-type)))
 (defn- get-rules [] (dyn cc/*rules* (curenv)))
 (defn- mkbin [] (def x (path/join (dyn *syspath*) "bin")) (fn :make-bin [] (sh/create-dirs x)))
 (defn- mkman [] (def x (path/join (dyn *syspath*) "man" "man1")) (fn :make-man [] (sh/create-dirs x)))

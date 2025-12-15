@@ -50,7 +50,7 @@
 ### Image creation, basic utilties, saving and loading
 ###
 
-(function wrap-image
+(function wrap-image :static
    "wrap an image"
    [(buf 'JanetBuffer) width:int height:int channels:int] -> JanetTuple
    (def (tup 'Janet) (janet-tuple-begin 4))
@@ -60,7 +60,7 @@
    (set (aref tup 3) (janet-wrap-integer channels))
    (return (janet-tuple-end tup)))
 
-(function unwrap-image
+(function unwrap-image :static
    "unwrap an image"
    [img:JanetTuple (data ''JanetBuffer) (width 'int) (height 'int) (channels 'int)] -> void
    (if (> 4 (janet-tuple-length img)) # allow for extra attributes
@@ -91,7 +91,7 @@
   (def width:int 0)
   (def height:int 0)
   (def c:int 0)
-  (def (img 'char) (stbi-load path ;width ;height ;c 0))
+  (def (img 'uint8_t) (stbi-load path ;width ;height ;c 0))
   (unless img (janet-panic "failed to load image"))
 
   # Copy into buffer
@@ -165,7 +165,7 @@
       (addr ,(symbol sym-prefix 'width))
       (addr ,(symbol sym-prefix 'height))
       (addr ,(symbol sym-prefix 'channels)))
-    (def (,(symbol sym-prefix 'data) 'char) ,(symbol sym-prefix 'buf->data))
+    (def (,(symbol sym-prefix 'data) 'uint8_t) ,(symbol sym-prefix 'buf->data))
     (def ,(symbol sym-prefix 'stride:int) (* ,(symbol sym-prefix 'channels) ,(symbol sym-prefix 'width)))])
 
 (defn- get-pixel
@@ -231,45 +231,45 @@
      (set ,x ,y)
      (set ,y tmp)))
 
-(function lerp [a:float b:float t:float] -> float (return (+ (* (- 1 t) a) (* t b))))
-(function unlerp [x:float x0:float x1:float] -> float (return (/ (- x x0) (- x1 x0)))) # is this useful (divide by zero)?
-(function clamp [x:float min_x:float max_x:float] -> float
+(function lerp :static [a:float b:float t:float] -> float (return (+ (* (- 1 t) a) (* t b))))
+(function unlerp :static [x:float x0:float x1:float] -> float (return (/ (- x x0) (- x1 x0)))) # is this useful (divide by zero)?
+(function clamp :static [x:float min_x:float max_x:float] -> float
           (if (< x min_x) (return min_x))
           (if (> x max_x) (return max_x))
           (return x))
-(function clampz [x:int min_x:int max_x:int] -> int
+(function clampz :static [x:int min_x:int max_x:int] -> int
           (if (< x min_x) (return min_x))
           (if (> x max_x) (return max_x))
           (return x))
 
-(function colorsplit
+(function colorsplit :static
   [color:uint32_t (r 'int) (g 'int) (b 'int) (a 'int)] -> void
   (set 'r (cast int (band color 0xFF)))
   (set 'g (cast int (band (>> color 8) 0xFF)))
   (set 'b (cast int (band (>> color 16) 0xFF)))
   (set 'a (cast int (band (>> color 24) 0xFF))))
 
-(function colorjoin
+(function colorjoin :static
   [r:int g:int b:int a:int] -> uint32_t
   (return (+ r (<< g 8) (<< b 16) (<< a 24))))
 
-(function clip
+(function clip :static
   [xmin:int xmax:int ymin:int ymax:int
    (x 'int) (y 'int)] -> void
   (set 'x (clamp 'x xmin xmax))
   (set 'y (clamp 'y ymin ymax)))
 
-(function max3z [a:int b:int c:int] -> int
+(function max3z :static [a:int b:int c:int] -> int
   (return (? (> a b)
      (? (> a c) a c)
      (? (> b c) b c))))
 
-(function min3z [a:int b:int c:int] -> int
+(function min3z :static [a:int b:int c:int] -> int
   (return (? (< a b)
      (? (< a c) a c)
      (? (< b c) b c))))
 
-(function barycentric
+(function barycentric :static
   "calculate barycentric coordinates in 2d"
   [px:int py:int x1:int y1:int x2:int y2:int x3:int y3:int (t0 'float) (t1 'float) (t2 'float)] -> int
   (def v0x:int (- x2 x1))
@@ -301,7 +301,7 @@
 
 # Blend operators
 (each [name op] [['add '+] ['sub '-] ['mul '*]]
-  (function ,(symbol 'blend- name)
+  (function ,(symbol 'blend- name) :static
       ,(string "Blending function for dest = dest " op " src ")
       [dest:uint32_t src:uint32_t] -> uint32_t
       (var dest-r:int 0)
@@ -346,9 +346,10 @@
   ,;(bind-image-code 'img)
   (clip 0 (- width 1) 0 (- height 1) ;x1 ;y1)
   (clip 0 (- width 1) 0 (- height 1) ;x2 ;y2)
-  (for [(def y:int y1) (<= y y2) (++ y)]
-    (for [(def x:int x1) (<= x x2) (++ x)]
-      (set-pixel x y color)))
+  (polymorph channels [1 2 3 4]
+    (for [(def y:int y1) (<= y y2) (++ y)]
+      (for [(def x:int x1) (<= x x2) (++ x)]
+        (set-pixel x y color))))
   (return img))
 
 (cfunction circle
@@ -500,7 +501,7 @@
 (include "tall_font.h")
 (include "olive_font.h")
 
-(function select-font
+(function select-font :static
   "Select one of the built-in fonts"
   [font-name:JanetKeyword] -> (const 'BitmapFont)
   (return
@@ -513,7 +514,7 @@
       ;olive-font
       ;default-font)))
 
-(function utf8-read-codepoint
+(function utf8-read-codepoint :static
   "Read a codepoint from a string, and advance the cursor to the next utf8 character"
   [(c '(const 'uint8_t))] -> int
   (when (< ''c 0x80)
@@ -546,7 +547,7 @@
   (++ 'c)
   (return code))
 
-(function unicode-to-cp437
+(function unicode-to-cp437 :static
   "Convert characters from unicode to the old IBM code page used by the default font"
   [codepoint:int] -> int
   (if (and (>= codepoint 20) (< codepoint 0x7F)) # ascii
@@ -716,7 +717,7 @@
 
 (cfunction draw-simple-text
   "Draw text with a default, bitmap on an image"
-  [img:JanetTuple x:int y:int xscale:int yscale:int text:cstring color:uint32_t &opt (font-name keyword "default")] -> JanetTuple
+  [img:JanetTuple x:int y:int xscale:int yscale:int text:cstring color:uint32_t &opt (font-name keyword (janet-ckeyword "default"))] -> JanetTuple
   ,;(bind-image-code 'img)
   (if (< xscale 1) (janet-panic "xscale must be at least 1"))
   (if (< yscale 1) (janet-panic "yscale must be at least 1"))
@@ -756,12 +757,12 @@
 ### Raster path tracing
 ###
 
-(function cross2
+(function cross2 :static
   "2d cross product"
   [ax:int ay:int bx:int by:int] -> int
   (return (- (* ax by) (* ay bx))))
 
-(cfunction seg-seg-intersect
+(cfunction seg-seg-intersect :static
   "Check if a line segment intersects another segment"
   [s0x:int s0y:int s1x:int s1y:int r0x:int r0y:int r1x:int r1y:int] -> int
   # One way, check if each segment bisects the other segment - check cross products have different signs
@@ -789,7 +790,8 @@
   # Checks
   (return
     (and
-      (not= (>= 0 a) (>= 0 b))
+      #(not= (>= 0 a) (>= 0 b))
+      (not= (< a 0) (> 0 b))
       (not= (< c 0) (> 0 d)))))
 
 (cfunction fill-path
@@ -821,21 +823,22 @@
   (clip 0 (- width 1) 0 (- height 1) ;xmin ;ymin)
   (clip 0 (- width 1) 0 (- height 1) ;xmax ;ymax)
   # 3. Fill the bounds of the path, running a ray crossing test for each pixel and color when we have an odd number of intersections
-  (for [(var y:int ymin) (<= y ymax) (set y (+ y 1))]
-    (for [(var x:int xmin) (<= x xmax) (set x (+ x 1))]
-      (var intersection-count:int 0)
-      (for [(var i:int 2) (< i plen) (set i (+ i 2))]
-        (def intersect:int
-          (seg-seg-intersect
-            (aref ipoints (+ i 0))
-            (aref ipoints (+ i 1))
-            (aref ipoints (+ i -2))
-            (aref ipoints (+ i -1))
-            x y
-            (- xmin 1) y))
-        (set intersection-count (+ intersection-count intersect)))
-      (when (not= 0 (% intersection-count 2))
-        (set-pixel x y color))))
+  (polymorph channels [1 2 3 4]
+    (for [(var y:int ymin) (<= y ymax) (set y (+ y 1))]
+      (for [(var x:int xmin) (<= x xmax) (set x (+ x 1))]
+        (var intersection-count:int 0)
+        (for [(var i:int 2) (< i plen) (set i (+ i 2))]
+          (def intersect:int
+            (seg-seg-intersect
+              (aref ipoints (+ i 0))
+              (aref ipoints (+ i 1))
+              (aref ipoints (+ i -2))
+              (aref ipoints (+ i -1))
+              x y
+              (- xmin 1) y))
+          (set intersection-count (+ intersection-count intersect)))
+        (when (band 1 intersection-count)
+          (set-pixel x y color)))))
   # 4. Cleanup
   (janet-sfree ipoints)
   (return img))

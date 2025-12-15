@@ -121,10 +121,11 @@
 (defn- default-libs [] (dyn *libs* []))
 (defn- vcvars-cache [] (dyn *vcvars-cache* ".vcvars.jdn"))
 
-(defn- build-type []
+(defn build-type []
+  "Get build type"
   (def bt (dyn *build-type* :develop))
-  (if-not (in {:develop true :debug true :release true} bt)
-    (errorf "invalid build type %v, expected :release, :develop, or :debug" bt))
+  (if-not (in {:develop true :debug true :release true :native true} bt)
+    (errorf "invalid build type %v, expected :release, :develop, :debug, or :native" bt))
   bt)
 
 (defn- lib-path []
@@ -192,6 +193,7 @@
     :debug ["-O0" "-g"]
     :develop ["-O2" "-g"]
     :release ["-O2"]
+    :native ["-O3" "-march=native"]
     []))
 (defn- defines []
   (def res @[])
