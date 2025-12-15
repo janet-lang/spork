@@ -672,7 +672,23 @@
 (def- alias-or-ctype-to-wrap @{})
 (def- alias-or-ctype-to-get @{})
 (def- alias-or-ctype-to-opt @{})
-(each [alias ctype wrapfn getfn optfn] bindgen-table
+
+(defn register-binding-type
+  ```
+  Add a C type that can be used a parameter or return type to CFunctions.
+  `alias` is a short name that can be used as a type alias only in CFunctions, and can be
+  nil if no alias is desired. Any of `wrapfn`, `getfn`, and `optfn` can be nil.
+
+  * `ctype` is a CJanet type expression, such as `(* double)` or `(const MyCustonType)`.
+  * `wrapfn` is a function or C macro name that is used to convert values of `ctype` to a `Janet` value,
+    such as `janet_wrap_pointer` or `wrap_my_custom_type`. This will be used for returning values from functions.
+  * `getfn` is the name of a function of two argumnets to extract this value from a parameter list, such as `janet_getnumber`.
+    This function should have the signature `Janet getfn(const Janet *argv, int32_t n);`
+  * `optfn` is the name of a function similar to `getfn` but will be used in the case where the parameter is optional.
+    This function should have the signature `Janet optfn(const Janet *argv, int32_t argc, int32_t n, <anytype> dflt);`
+    Notably, the "default" value `dflt` does not need to be any particular type.
+  ```
+  [alias ctype &opt wrapfn getfn optfn]
   (def alias (symbol alias))
   (put alias-to-ctype alias ctype)
   (put alias-or-ctype-to-wrap ctype wrapfn)
@@ -681,6 +697,9 @@
   (put alias-or-ctype-to-get alias getfn)
   (put alias-or-ctype-to-opt ctype optfn)
   (put alias-or-ctype-to-opt alias optfn))
+
+(each [alias ctype wrapfn getfn optfn] bindgen-table
+  (register-binding-type alias ctype wrapfn getfn optfn))
 
 (defn- wrap-v
   "Generate code to wrap any Janet (constant) literal"

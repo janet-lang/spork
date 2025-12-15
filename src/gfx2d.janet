@@ -752,4 +752,92 @@
     (set xx (+ xx (* xscale gw))))
   (return img))
 
+###
+### Raster path tracing
+###
+
+(function cross2
+  "2d cross product"
+  [ax:int ay:int bx:int by:int] -> int
+  (return (- (* ax by) (* ay bx))))
+
+(cfunction seg-seg-intersect
+  "Check if a line segment intersects another segment"
+  [s0x:int s0y:int s1x:int s1y:int r0x:int r0y:int r1x:int r1y:int] -> int
+  # One way, check if each segment bisects the other segment - check cross products have different signs
+  #   - S0R0xS0S1 differs in sign from S0R1xS0S1 and
+  #   - R0S0xR0R1 differs in sign from R0S1xR0R1
+  # If ray R intersects with S0, that is an intersection, but an intersection with point S1 is not.
+  # Components
+  (def s0s1x:int (- s1x s0x))
+  (def s0s1y:int (- s1y s0y))
+  (def r0r1x:int (- r1x r0x))
+  (def r0r1y:int (- r1y r0y))
+  (def s0r1x:int (- r1x s0x))
+  (def s0r1y:int (- r1y s0y))
+  (def s0r0x:int (- r0x s0x))
+  (def s0r0y:int (- r0y s0y))
+  (def r0s1x:int (- s1x r0x))
+  (def r0s1y:int (- s1y r0y))
+  (def r0s0x:int (- s0x r0x))
+  (def r0s0y:int (- s0y r0y))
+  # Crosses
+  (def a:int (cross2 s0r1x s0r1y s0s1x s0s1y))
+  (def b:int (cross2 s0r0x s0r0y s0s1x s0s1y))
+  (def c:int (cross2 r0s0x r0s0y r0r1x r0r1y))
+  (def d:int (cross2 r0s1x r0s1y r0r1x r0r1y))
+  # Checks
+  (return
+    (and
+      (not= (>= 0 a) (>= 0 b))
+      (not= (< c 0) (> 0 d)))))
+
+(cfunction fill-path
+  "Fill a path with a solid color"
+  [img:JanetTuple points:indexed color:uint32_t] -> JanetTuple
+  ,;(bind-image-code 'img)
+  # 1. Get bounds of the path and extract coordinates
+  (var xmin:int INT32-MAX)
+  (var ymin:int INT32-MAX)
+  (var xmax:int INT32-MIN)
+  (var ymax:int INT32-MIN)
+  (if (band 1 points.len) (janet-panic "expected an even number of point coordinates"))
+  (if (< points.len 6) (janet-panic "expected at least 3 points"))
+  (def plen:int (+ 2 points.len))
+  (def (ipoints 'int) (janet-smalloc (* (sizeof int) plen)))
+  (for [(var i:int 0) (< i points.len) (set i (+ i 2))]
+    (def x:int (janet-getinteger points.items i))
+    (def y:int (janet-getinteger points.items (+ i 1)))
+    (set (aref ipoints i) x)
+    (set (aref ipoints (+ 1 i)) y)
+    (set xmin (? (> x xmin) xmin x))
+    (set ymin (? (> y ymin) ymin y))
+    (set xmax (? (> x xmax) x xmax))
+    (set ymax (? (> y ymax) y ymax)))
+  # Add first point to end
+  (set (aref ipoints points.len) (aref ipoints 0))
+  (set (aref ipoints (+ 1 points.len)) (aref ipoints 1))
+  # 2. Clipping
+  (clip 0 (- width 1) 0 (- height 1) ;xmin ;ymin)
+  (clip 0 (- width 1) 0 (- height 1) ;xmax ;ymax)
+  # 3. Fill the bounds of the path, running a ray crossing test for each pixel and color when we have an odd number of intersections
+  (for [(var y:int ymin) (<= y ymax) (set y (+ y 1))]
+    (for [(var x:int xmin) (<= x xmax) (set x (+ x 1))]
+      (var intersection-count:int 0)
+      (for [(var i:int 2) (< i plen) (set i (+ i 2))]
+        (def intersect:int
+          (seg-seg-intersect
+            (aref ipoints (+ i 0))
+            (aref ipoints (+ i 1))
+            (aref ipoints (+ i -2))
+            (aref ipoints (+ i -1))
+            x y
+            (- xmin 1) y))
+        (set intersection-count (+ intersection-count intersect)))
+      (when (not= 0 (% intersection-count 2))
+        (set-pixel x y color))))
+  # 4. Cleanup
+  (janet-sfree ipoints)
+  (return img))
+
 (module-entry "spork_gfx2d")
