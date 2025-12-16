@@ -5,6 +5,8 @@
 ### Use to implement a build system.
 ###
 
+(defdyn *implicit-deps* "Dependencies automatically added for all rules")
+
 (defn- cancel-all [fibers reason] (each f fibers (ev/cancel f reason) (put fibers f nil)))
 
 (defn- wait-for-fibers
@@ -157,7 +159,8 @@
       (indexed? target) target
       (errorf "bad target %v" target)))
   (def target (first all-targets))
-  (each d [;deps ;all-targets]
+  (def id (dyn *implicit-deps* []))
+  (each d [;deps ;id ;all-targets]
     (assert (string? d) "inputs and outputs must be strings"))
   (unless (get rules target)
     (def new-rule
@@ -166,6 +169,7 @@
         :recipe @[]})
     (put rules target new-rule))
   (each d deps (target-append rules target :inputs d))
+  (each d id (target-append rules target :inputs d))
   (if phony
     (put (gettarget rules target) :task target)
     (each t all-targets (target-append rules target :outputs t)))

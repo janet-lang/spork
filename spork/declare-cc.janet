@@ -456,10 +456,9 @@
   dynamically by a janet runtime. This also builds a static libary that
   can be used to bundle janet code and native into a single executable."
   [&named name source embedded lflags libs cflags
-   c++flags defines install nostatic static-libs
+   c++flags defines install nostatic static-libs deps
    use-rpath use-rdynamic pkg-config-flags dynamic-libs msvc-libs
    ldflags # alias for libs
-   headers
    pkg-config-libs smart-libs c-std c++-std target-os]
 
   (def rules (get-rules))
@@ -471,7 +470,7 @@
   (default defines @{})
   (default smart-libs false)
   (default msvc-libs @[])
-  (default headers @[])
+  (default deps @[])
   (def toolchain (get-toolchain))
 
   (def msvc-libs @[;msvc-libs])
@@ -498,7 +497,7 @@
               cc/*c++-std* c++-std
               cc/*target-os* target-os
               cc/*visit* cc/visit-add-rule
-              cc/*headers* headers
+              build-rules/*implicit-deps* [;deps ;(dyn build-rules/*implicit-deps* [])]
               *toolchain* toolchain
               cc/*rules* rules})
   (table/setproto benv (curenv)) # configurable?
@@ -737,7 +736,7 @@ int main(int argc, const char **argv) {
   (when install (install-rule dest (path/join "bin" name) nil (mkbin) true))
   (def target (if no-compile cimage-dest dest))
   (rule :build [target])
-  (rule target [entry ;headers ;deps]
+  (rule target [entry ;headers ;deps ;(dyn build-rules/*implicit-deps* @[])]
         (print "generating executable c source " cimage-dest " from " entry "...")
         (sh/create-dirs-to dest)
         (flush)
@@ -878,7 +877,7 @@ int main(int argc, const char **argv) {
                     cc/*cc* (toolchain-to-cc toolchain)
                     cc/*c++* (toolchain-to-c++ toolchain)
                     cc/*target-os* target-os
-                    cc/*headers* headers
+                    build-rules/*implicit-deps* [;deps ;(dyn build-rules/*implicit-deps* []) ;headers]
                     cc/*visit* cc/visit-execute-if-stale
                     cc/*rules* (get-rules)})
         (table/setproto benv (curenv)) # configurable?
@@ -945,6 +944,8 @@ int main(int argc, const char **argv) {
   (merge-module e declare-cc)
   (merge-module e cc)
   (merge-module e path)
+  (when (os/stat "project.janet" :mode)
+    (put e build-rules/*implicit-deps* @["project.janet"]))
   # TODO - fake some other functions a bit better as well
   (put e 'default-cflags @{:value @[]})
   (put e 'default-lflags @{:value @[]})

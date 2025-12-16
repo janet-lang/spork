@@ -55,7 +55,6 @@
 (defdyn *c-std* "C standard to use as a 2 digit number, defaults to 99 on GCC-like compilers, 11 on msvc.")
 (defdyn *c++-std* "C++ standard to use as a 2 digit number, defaults to 11 on GCC-like compilers, 14 on msvc.")
 (defdyn *rules* "Rules to use with visit-add-rule")
-(defdyn *headers* "Implicit inputs to rules when generating rules")
 (defdyn *vcvars-cache* "Where to cache vcvars once we have calculated them")
 (defdyn *janet-prefix* "Path prefix used to detect where to find libjanet, janet.h, etc.")
 
@@ -690,9 +689,8 @@
   "Used in conjuction with spork/build-rules. Adds rules to the (dyn *rules* (curenv))"
   [cmd inputs outputs message]
   (def rules (dyn *rules* (curenv)))
-  (def headers (dyn *headers* []))
   (build-rules/build-rule
-    rules outputs @[;inputs ;headers]
+    rules outputs inputs
     (visit-execute cmd inputs outputs message)))
 
 ###

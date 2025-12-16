@@ -448,8 +448,57 @@
       (+= err dx)
       (+= y sy))))
 
+(function triangle-impl :static :inline
+  [img:JanetTuple x1:int y1:int x2:int y2:int x3:int y3:int color:uint32_t] -> JanetTuple
+  # points 1 2 3 are sorted by non-decreasing y
+  ,;(bind-image-code 'img)
+  # 2. Use modified line algorithm for top half
+  (for [(var y:int y1) (< y y2) (++ y)]
+    (def yt-12:float (unlerp y y1 y2))
+    (def yt-13:float (unlerp y y1 y3))
+    (def x-a:int (cast int (floor (lerp x1 x2 yt-12))))
+    (def x-b:int (cast int (ceil (lerp x1 x3 yt-13))))
+    (sort2 x-a x-b int)
+    (for [(var x:int x-a) (<= x x-b) (++ x)]
+      (if (and (> x 0) (< x width) (> y 0) (< y height))
+        (set-pixel x y color))))
+  # 3. Use modified line algorithm for bottom half
+  (for [(var y:int y2) (< y y3) (++ y)]
+    (def yt-23:float (unlerp y y2 y3))
+    (def yt-13:float (unlerp y y1 y3))
+    (def x-a:int (cast int (floor (lerp x2 x3 yt-23))))
+    (def x-b:int (cast int (ceil (lerp x1 x3 yt-13))))
+    (sort2 x-a x-b int)
+    (for [(var x:int x-a) (<= x x-b) (++ x)]
+      (if (and (> x 0) (< x width) (> y 0) (< y height))
+        (set-pixel x y color))))
+  # 4. last row in case y2 == y3
+  (def x-a:int x3)
+  (def x-b:int (? (= y2 y3) x2 x3))
+  (sort2 x-a x-b int)
+  (for [(var x:int x-a) (<= x x-b) (++ x)]
+    (if (and (> x 0) (< x width) (> y3 0) (< y3 height))
+      (set-pixel x y3 color)))
+  (return img))
+
 (cfunction triangle
-   "Fill a triangle"
+    "Fill a triangle"
+    [img:JanetTuple x1:int y1:int x2:int y2:int x3:int y3:int color:uint32] -> JanetTuple
+    # 1. Sort the coordinates by increasing y
+    (if (< y1 y2)
+      (if (< y1 y3)
+        (if (< y2 y3)
+          (return (triangle-impl img x1 y1 x2 y2 x3 y3 color))
+          (return (triangle-impl img x1 y1 x3 y3 x2 y2 color)))
+        (return (triangle-impl img x3 y3 x1 y1 x2 y2 color)))
+      (if (< y2 y3)
+        (if (< y1 y3)
+          (return (triangle-impl img x2 y2 x1 y1 x3 y3 color))
+          (return (triangle-impl img x2 y2 x3 y3 x1 y1 color)))
+        (return (triangle-impl img x3 y3 x2 y2 x1 y1 color)))))
+
+(cfunction triangle2
+   "Fill a triangle alternate implementation"
    [img:JanetTuple x1:int y1:int x2:int y2:int x3:int y3:int color:uint32_t] -> JanetTuple
    (def xmin:int (min3z x1 x2 x3))
    (def xmax:int (max3z x1 x2 x3))
@@ -461,7 +510,6 @@
    (for [(var y:int ymin) (<= y ymax) (++ y)]
      (for [(var x:int xmin) (<= x xmax) (++ x)]
        (when (barycentric x y x1 y1 x2 y2 x3 y3 nil nil nil)
-         # (def color:uint32_t (? (band 1 (+ (>> x 2) (>> y 2))) color 0))
          (set-pixel x y color))))
    (return img))
 
@@ -754,16 +802,14 @@
   (return img))
 
 ###
-### Raster path tracing
+### Raster path fill
 ###
 
-#(print "__attribute__((always_inline))")
 (function cross2 :static :inline
   "2d cross product"
   [ax:int ay:int bx:int by:int] -> int
   (return (- (* ax by) (* ay bx))))
 
-#(print "__attribute__((always_inline))")
 (cfunction seg-seg-intersect :static :inline
   "Check if a line segment intersects another segment"
   [s0x:int s0y:int s1x:int s1y:int r0x:int r0y:int r1x:int r1y:int] -> int
@@ -792,7 +838,6 @@
   # Checks
   (return
     (and
-      #(not= (>= 0 a) (>= 0 b))
       (not= (< a 0) (> 0 b))
       (not= (< c 0) (> 0 d)))))
 
