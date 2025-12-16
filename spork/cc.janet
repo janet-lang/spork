@@ -193,7 +193,7 @@
     :debug ["-O0" "-g"]
     :develop ["-O2" "-g"]
     :release ["-O2"]
-    :native ["-O3" "-march=native"]
+    :native ["-O3" "-march=native" "-mtune=native"]
     []))
 (defn- defines []
   (def res @[])

@@ -50,7 +50,7 @@
 ### Image creation, basic utilties, saving and loading
 ###
 
-(function wrap-image :static
+(function wrap-image :static :inline
    "wrap an image"
    [(buf 'JanetBuffer) width:int height:int channels:int] -> JanetTuple
    (def (tup 'Janet) (janet-tuple-begin 4))
@@ -60,7 +60,7 @@
    (set (aref tup 3) (janet-wrap-integer channels))
    (return (janet-tuple-end tup)))
 
-(function unwrap-image :static
+(function unwrap-image :static :inline
    "unwrap an image"
    [img:JanetTuple (data ''JanetBuffer) (width 'int) (height 'int) (channels 'int)] -> void
    (if (> 4 (janet-tuple-length img)) # allow for extra attributes
@@ -231,45 +231,45 @@
      (set ,x ,y)
      (set ,y tmp)))
 
-(function lerp :static [a:float b:float t:float] -> float (return (+ (* (- 1 t) a) (* t b))))
-(function unlerp :static [x:float x0:float x1:float] -> float (return (/ (- x x0) (- x1 x0)))) # is this useful (divide by zero)?
-(function clamp :static [x:float min_x:float max_x:float] -> float
+(function lerp :static :inline [a:float b:float t:float] -> float (return (+ (* (- 1 t) a) (* t b))))
+(function unlerp :static :inline [x:float x0:float x1:float] -> float (return (/ (- x x0) (- x1 x0)))) # is this useful (divide by zero)?
+(function clamp :static :inline [x:float min_x:float max_x:float] -> float
           (if (< x min_x) (return min_x))
           (if (> x max_x) (return max_x))
           (return x))
-(function clampz :static [x:int min_x:int max_x:int] -> int
+(function clampz :static :inline [x:int min_x:int max_x:int] -> int
           (if (< x min_x) (return min_x))
           (if (> x max_x) (return max_x))
           (return x))
 
-(function colorsplit :static
+(function colorsplit :static :inline
   [color:uint32_t (r 'int) (g 'int) (b 'int) (a 'int)] -> void
   (set 'r (cast int (band color 0xFF)))
   (set 'g (cast int (band (>> color 8) 0xFF)))
   (set 'b (cast int (band (>> color 16) 0xFF)))
   (set 'a (cast int (band (>> color 24) 0xFF))))
 
-(function colorjoin :static
+(function colorjoin :static :inline
   [r:int g:int b:int a:int] -> uint32_t
   (return (+ r (<< g 8) (<< b 16) (<< a 24))))
 
-(function clip :static
+(function clip :static :inline
   [xmin:int xmax:int ymin:int ymax:int
    (x 'int) (y 'int)] -> void
   (set 'x (clamp 'x xmin xmax))
   (set 'y (clamp 'y ymin ymax)))
 
-(function max3z :static [a:int b:int c:int] -> int
+(function max3z :static :inline [a:int b:int c:int] -> int
   (return (? (> a b)
      (? (> a c) a c)
      (? (> b c) b c))))
 
-(function min3z :static [a:int b:int c:int] -> int
+(function min3z :static :inline [a:int b:int c:int] -> int
   (return (? (< a b)
      (? (< a c) a c)
      (? (< b c) b c))))
 
-(function barycentric :static
+(function barycentric :static :inline
   "calculate barycentric coordinates in 2d"
   [px:int py:int x1:int y1:int x2:int y2:int x3:int y3:int (t0 'float) (t1 'float) (t2 'float)] -> int
   (def v0x:int (- x2 x1))
@@ -301,7 +301,7 @@
 
 # Blend operators
 (each [name op] [['add '+] ['sub '-] ['mul '*]]
-  (function ,(symbol 'blend- name) :static
+  (function ,(symbol 'blend- name) :static :inline
       ,(string "Blending function for dest = dest " op " src ")
       [dest:uint32_t src:uint32_t] -> uint32_t
       (var dest-r:int 0)
@@ -501,7 +501,7 @@
 (include "tall_font.h")
 (include "olive_font.h")
 
-(function select-font :static
+(function select-font :static :inline
   "Select one of the built-in fonts"
   [font-name:JanetKeyword] -> (const 'BitmapFont)
   (return
@@ -514,7 +514,7 @@
       ;olive-font
       ;default-font)))
 
-(function utf8-read-codepoint :static
+(function utf8-read-codepoint :static :inline
   "Read a codepoint from a string, and advance the cursor to the next utf8 character"
   [(c '(const 'uint8_t))] -> int
   (when (< ''c 0x80)
@@ -547,7 +547,7 @@
   (++ 'c)
   (return code))
 
-(function unicode-to-cp437 :static
+(function unicode-to-cp437 :static :inline
   "Convert characters from unicode to the old IBM code page used by the default font"
   [codepoint:int] -> int
   (if (and (>= codepoint 20) (< codepoint 0x7F)) # ascii
@@ -757,12 +757,14 @@
 ### Raster path tracing
 ###
 
-(function cross2 :static
+#(print "__attribute__((always_inline))")
+(function cross2 :static :inline
   "2d cross product"
   [ax:int ay:int bx:int by:int] -> int
   (return (- (* ax by) (* ay bx))))
 
-(cfunction seg-seg-intersect :static
+#(print "__attribute__((always_inline))")
+(cfunction seg-seg-intersect :static :inline
   "Check if a line segment intersects another segment"
   [s0x:int s0y:int s1x:int s1y:int r0x:int r0y:int r1x:int r1y:int] -> int
   # One way, check if each segment bisects the other segment - check cross products have different signs
@@ -820,6 +822,7 @@
   (set (aref ipoints points.len) (aref ipoints 0))
   (set (aref ipoints (+ 1 points.len)) (aref ipoints 1))
   # 2. Clipping
+  (def xmin1:int xmin) # clipping should not change how we trace rays
   (clip 0 (- width 1) 0 (- height 1) ;xmin ;ymin)
   (clip 0 (- width 1) 0 (- height 1) ;xmax ;ymax)
   # 3. Fill the bounds of the path, running a ray crossing test for each pixel and color when we have an odd number of intersections
@@ -835,7 +838,7 @@
               (aref ipoints (+ i -2))
               (aref ipoints (+ i -1))
               x y
-              (- xmin 1) y))
+              (- xmin1 1) y))
           (set intersection-count (+ intersection-count intersect)))
         (when (band 1 intersection-count)
           (set-pixel x y color)))))
