@@ -8,6 +8,7 @@
 # - unit testing?
 
 (import spork/rawterm)
+(import spork/generators)
 
 (def max-history "Maximal amount of items in the history" 500)
 
@@ -80,19 +81,24 @@
   (var ret-value "Value to return to caller, usually the mutated buffer." buf)
   (var more-input "Loop condition variable" true)
   (def input-buf @"")
+  (var pre-input "User provided inputs" @"")
 
   (defn getc
     "Get next character. Caller needs to check input buf after call if utf8 sequence returned (>= c 0x80)"
     []
     (buffer/clear input-buf)
-    (rawterm/getch input-buf)
+    (if-let [i (next pre-input)]
+      (buffer/push-byte input-buf (in pre-input i))
+      (rawterm/getch input-buf))
     (def c (get input-buf 0))
     (when (>= c 0x80)
       (repeat (cond
                 (= (band c 0xF8) 0xF0) 3
                 (= (band c 0xF0) 0xE0) 2
                 1)
-        (rawterm/getch input-buf)))
+        (if-let [i (next pre-input)]
+          (buffer/push-byte input-buf (in pre-input i))
+          (rawterm/getch input-buf))))
     c)
 
   (defn- flushs
@@ -138,7 +144,7 @@
     (buffer/format tmp-buf "\r%s%s%s\e[0K\r" prpt pad view)
     # Different implementations may behave inconsistently regarding to "move 0 column".
     (if (not (= 0 visual-pos))
-      (buffer/format-at tmp-buf -1 "\e[%dC"  visual-pos))
+      (buffer/format-at tmp-buf -1 "\e[%dC" visual-pos))
     (flushs))
 
   (defn- history-move
@@ -291,7 +297,8 @@
     (refresh))
 
   (fn getline-fn
-    [&opt prompt buff _]
+    [&opt prompt buff _parser prefill]
+    (set pre-input (if prefill (generators/from-iterable prefill) @""))
     (set buf (or buff @""))
     (set prpt (string prompt))
     (set prpt-width (rawterm/monowidth prpt))
