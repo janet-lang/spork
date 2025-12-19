@@ -19,7 +19,7 @@
 
 (declare-binscript
   :main "bin/janet-netrepl"
-  :hardcode-syspath true
+  :hardcode-syspath :dynamic
   :is-janet true)
 
 (declare-binscript

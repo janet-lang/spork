@@ -147,6 +147,7 @@
         []
         (def now (os/clock))
         (when (or (next outbuf) (< (+ 2 last-flush) now))
+          # (xprin stderr outbuf)
           (def msg (string "\xFF" outbuf))
           (buffer/clear outbuf)
           (send msg)
@@ -259,6 +260,7 @@
       (protect (join-nursery nurse))
 
       # Clean up
+      (:write stream "")
       (:close stream)
       (put name-set name nil)
       (eprint "closing client " name)

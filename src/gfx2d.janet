@@ -19,7 +19,7 @@
 ### [ ] - blending
 ### [x] - image resizing
 ### [ ] - bezier
-### [ ] - fill path (raycast rasterizer)
+### [x] - fill path (raycast rasterizer)
 ### [ ] - triangle strip/fan/list
 ### [ ] - LUTs (possibly w/ shaders)
 ### [ ] - Gradients (possibly w/ shaders)
@@ -49,6 +49,47 @@
 ###
 ### Image creation, basic utilties, saving and loading
 ###
+
+(defn- cond-expression
+  :cjanet-expression-macro
+  "Cond but as an expression"
+  [& cases]
+  (assert (odd? (length cases)))
+  (def case-value (take 2 cases))
+  (def [case value] case-value)
+  (if (> 2 (length case-value))
+    case
+    ~(? ,case ,value ,(cond-expression ;(drop 2 cases)))))
+
+(defn- polymorph
+  :cjanet-block-macro
+  "Make specializations of a function implementation explicitly to help an optimizing compiler"
+  [sym bindings & body]
+  ~(switch
+     ,sym
+     ,;(array/join
+         @[]
+         ;(seq [b :in bindings]
+           [b ~(do ,;body (break))]))
+     (assert 0)))
+
+(defn- bind-image-code
+  :cjanet-spliced-macro
+  "Generate code to unpack an image."
+  [img &opt sym-prefix]
+  (default sym-prefix "")
+  ~[(def ,(symbol sym-prefix 'width:int) 0)
+    (def ,(symbol sym-prefix 'height:int) 0)
+    (def ,(symbol sym-prefix 'channels:int) 0)
+    (def (,(symbol sym-prefix 'buf) 'JanetBuffer) NULL)
+    (unwrap-image
+      ,img
+      (addr ,(symbol sym-prefix 'buf))
+      (addr ,(symbol sym-prefix 'width))
+      (addr ,(symbol sym-prefix 'height))
+      (addr ,(symbol sym-prefix 'channels)))
+    (def (,(symbol sym-prefix 'data) 'uint8_t) ,(symbol sym-prefix 'buf->data))
+    (def ,(symbol sym-prefix 'stride:int) (* ,(symbol sym-prefix 'channels) ,(symbol sym-prefix 'width)))])
 
 (function wrap-image :static :inline
    "wrap an image"
@@ -127,47 +168,6 @@
      (if-not check (janet-panic "failed to write image"))
      (return img)))
 
-##
-## Color Constants
-##
-
-(def- colors
-  {:red     0xFF0000FF
-   :green   0xFF00FF00
-   :blue    0xFFFF0000
-   :clear   0x00000000
-   :black   0xFF000000
-   :white   0xFFFFFFFF
-   :cyan    0xFFFFFF00
-   :yellow  0xFF00FFFF
-   :magenta 0xFFFF00FF})
-
-(eachp [name value] colors
-  (@ define ,name ,value)
-  (emit-cdef (symbol name) (string "color constant for " name) ~(janet-wrap-number ,value)))
-
-##
-## DRAWING
-##
-
-(defn- bind-image-code
-  :cjanet-spliced-macro
-  "Generate code to unpack an image."
-  [img &opt sym-prefix]
-  (default sym-prefix "")
-  ~[(def ,(symbol sym-prefix 'width:int) 0)
-    (def ,(symbol sym-prefix 'height:int) 0)
-    (def ,(symbol sym-prefix 'channels:int) 0)
-    (def (,(symbol sym-prefix 'buf) 'JanetBuffer) NULL)
-    (unwrap-image
-      ,img
-      (addr ,(symbol sym-prefix 'buf))
-      (addr ,(symbol sym-prefix 'width))
-      (addr ,(symbol sym-prefix 'height))
-      (addr ,(symbol sym-prefix 'channels)))
-    (def (,(symbol sym-prefix 'data) 'uint8_t) ,(symbol sym-prefix 'buf->data))
-    (def ,(symbol sym-prefix 'stride:int) (* ,(symbol sym-prefix 'channels) ,(symbol sym-prefix 'width)))])
-
 (defn- get-pixel
   :cjanet-block-macro
   "extract a pixel"
@@ -195,32 +195,53 @@
      (set (aref ,data (+ c (* ,x ,channels) (* ,y ,stride)))
         (band (>> ,color (* c 8)) 0xFF))))
 
-(defn- cond-expression
-  :cjanet-expression-macro
-  "Cond but as an expression"
-  [& cases]
-  (assert (odd? (length cases)))
-  (def case-value (take 2 cases))
-  (def [case value] case-value)
-  (if (> 2 (length case-value))
-    case
-    ~(? ,case ,value ,(cond-expression ;(drop 2 cases)))))
+(cfunction pixel
+  "Read a pixel. Slow, be careful to use this in a loop."
+  [img:tuple x:int y:int] -> uint32
+  ,;(bind-image-code 'img)
+  (var color:uint32_t 0)
+  (get-pixel color x y)
+  (if (< channels 4) (+= color 0xFF000000))
+  (return color))
 
-(defn- polymorph
-  :cjanet-block-macro
-  "Make specializations of a function implementation explicitly to help an optimizing compiler"
-  [sym bindings & body]
-  ~(switch
-     ,sym
-     ,;(array/join
-         @[]
-         ;(seq [b :in bindings]
-           [b ~(do ,;body (break))]))
-     (assert 0)))
+(cfunction set-pixel
+  "Set a pixel. Slow, be careful to use this in a loop."
+  [img:tuple x:int y:int color:uint32] -> tuple
+  ,;(bind-image-code 'img)
+  (set-pixel x y color)
+  (return img))
+
+##
+## Color Constants
+##
+
+(def- colors
+  {:red     0xFF0000FF
+   :green   0xFF00FF00
+   :blue    0xFFFF0000
+   :clear   0x00000000
+   :black   0xFF000000
+   :white   0xFFFFFFFF
+   :cyan    0xFFFFFF00
+   :yellow  0xFF00FFFF
+   :magenta 0xFFFF00FF})
+
+(eachp [name value] colors
+  (@ define ,name ,value)
+  (emit-cdef (symbol name) (string "color constant for " name) ~(janet-wrap-number ,value)))
 
 ###
 ### Math helpers
 ###
+
+(defn- swap
+  :cjanet-block-macro
+  "Swap two variables"
+  [x y typ]
+  ~(do
+    (def (tmp ,typ) ,x)
+    (set ,x ,y)
+    (set ,y tmp)))
 
 (defn- sort2
   :cjanet-block-macro
@@ -231,16 +252,25 @@
      (set ,x ,y)
      (set ,y tmp)))
 
-(function lerp :static :inline [a:float b:float t:float] -> float (return (+ (* (- 1 t) a) (* t b))))
-(function unlerp :static :inline [x:float x0:float x1:float] -> float (return (/ (- x x0) (- x1 x0)))) # is this useful (divide by zero)?
-(function clamp :static :inline [x:float min_x:float max_x:float] -> float
-          (if (< x min_x) (return min_x))
-          (if (> x max_x) (return max_x))
-          (return x))
-(function clampz :static :inline [x:int min_x:int max_x:int] -> int
-          (if (< x min_x) (return min_x))
-          (if (> x max_x) (return max_x))
-          (return x))
+(function lerp :static :inline
+  [a:float b:float t:float] -> float
+  (return (+ (* (- 1 t) a) (* t b))))
+
+(function unlerp :static :inline
+  [x:float x0:float x1:float] -> float
+  (return (/ (- x x0) (- x1 x0)))) # is this useful (divide by zero)?
+
+(function clamp :static :inline
+  [x:float min_x:float max_x:float] -> float
+  (if (< x min_x) (return min_x))
+  (if (> x max_x) (return max_x))
+  (return x))
+
+(function clampz :static :inline
+  [x:int min_x:int max_x:int] -> int
+  (if (< x min_x) (return min_x))
+  (if (> x max_x) (return max_x))
+  (return x))
 
 (function colorsplit :static :inline
   [color:uint32_t (r 'int) (g 'int) (b 'int) (a 'int)] -> void
@@ -268,6 +298,12 @@
   (return (? (< a b)
      (? (< a c) a c)
      (? (< b c) b c))))
+
+(function max2z :static :inline [a:int b:int] -> int
+  (return (? (< a b) b a)))
+
+(function min2z :static :inline [a:int b:int] -> int
+  (return (? (< a b) a b)))
 
 (function barycentric :static :inline
   "calculate barycentric coordinates in 2d"
@@ -321,58 +357,8 @@
       (return (colorjoin r g b a))))
 
 ###
-### C Functions
+### Basic Drawing
 ###
-
-(cfunction pixel
-  "Read a pixel. Slow, be careful to use this in a loop."
-  [img:tuple x:int y:int] -> uint32
-  ,;(bind-image-code 'img)
-  (var color:uint32_t 0)
-  (get-pixel color x y)
-  (if (< channels 4) (+= color 0xFF000000))
-  (return color))
-
-(cfunction set-pixel
-  "Set a pixel. Slow, be careful to use this in a loop."
-  [img:tuple x:int y:int color:uint32] -> tuple
-  ,;(bind-image-code 'img)
-  (set-pixel x y color)
-  (return img))
-
-(cfunction rect
-  "Draw a rectangle on an image"
-  [img:tuple x1:int y1:int x2:int y2:int color:uint32] -> tuple
-  ,;(bind-image-code 'img)
-  (clip 0 (- width 1) 0 (- height 1) ;x1 ;y1)
-  (clip 0 (- width 1) 0 (- height 1) ;x2 ;y2)
-  (polymorph channels [1 2 3 4]
-    (for [(def y:int y1) (<= y y2) (++ y)]
-      (for [(def x:int x1) (<= x x2) (++ x)]
-        (set-pixel x y color))))
-  (return img))
-
-(cfunction circle
-  "Draw a circle"
-  [img:tuple x:int y:int r:double color:uint32] -> tuple
-  ,;(bind-image-code 'img)
-  (def fr:int (floor (- r)))
-  (def cr:int (ceil r))
-  (var x1:int fr)
-  (var x2:int cr)
-  (var y1:int fr)
-  (var y2:int cr)
-  (clip (- 0 x) (- width x 1) (- 0 y) (- height y 1) ;x1 ;y1)
-  (clip (- 0 x) (- width x 1) (- 0 y) (- height y 1) ;x2 ;y2)
-  (polymorph channels [1 2 3 4]
-    (for [(def yy:int y1) (<= yy y2) (++ yy)]
-      (for [(def xx:int x1) (<= xx x2) (++ xx)]
-        (when (>= (* r r) (+ (* xx xx) (* yy yy)))
-          (var dest-color:uint32_t 0)
-          (get-pixel dest-color (+ x xx) (+ y yy))
-          (def final-color:uint32_t (blend-default dest-color color))
-          (set-pixel (+ x xx) (+ y yy) final-color)))))
-  (return img))
 
 (cfunction stamp
   "Copy one image onto another"
@@ -424,6 +410,69 @@
         (set-pixel x y color "dest-"))))
   (return dest))
 
+(cfunction resize
+  "Resize an image, resampling as needed"
+  [input-img:JanetTuple new-width:int new-height:int] -> JanetTuple
+  ,;(bind-image-code 'input-img 'in-)
+  (def new-img:JanetTuple (blank new-width new-height in-channels))
+  ,;(bind-image-code 'new-img 'out-)
+  (def layout:stbir_pixel_layout
+    (cond-expression
+      (= in-channels 1) STBIR-1CHANNEL
+      (= in-channels 2) STBIR-2CHANNEL
+      (= in-channels 3) STBIR-RGB
+      STBIR-4CHANNEL))
+  (stbir-resize-uint8-srgb in-data in-width in-height in-stride
+                           out-data out-width out-height out-stride
+                           layout)
+  (return new-img))
+
+###
+### Shader!
+###
+
+# TODO - customize
+(function shader :static :inline
+  [x:int y:int color:uint32_t] -> uint32_t
+  (return color))
+
+###
+### Shader Kernels
+###
+
+(cfunction rect
+  "Draw a rectangle on an image"
+  [img:tuple x1:int y1:int x2:int y2:int color:uint32] -> tuple
+  ,;(bind-image-code 'img)
+  (clip 0 (- width 1) 0 (- height 1) ;x1 ;y1)
+  (clip 0 (- width 1) 0 (- height 1) ;x2 ;y2)
+  (polymorph channels [1 2 3 4]
+    (for [(def y:int y1) (<= y y2) (++ y)]
+      (for [(def x:int x1) (<= x x2) (++ x)]
+        (def c1:uint32_t (shader x y color))
+        (set-pixel x y c1))))
+  (return img))
+
+(cfunction circle
+  "Draw a circle"
+  [img:tuple x:int y:int r:double color:uint32] -> tuple
+  ,;(bind-image-code 'img)
+  (def fr:int (floor (- r)))
+  (def cr:int (ceil r))
+  (var x1:int fr)
+  (var x2:int cr)
+  (var y1:int fr)
+  (var y2:int cr)
+  (clip (- 0 x) (- width x 1) (- 0 y) (- height y 1) ;x1 ;y1)
+  (clip (- 0 x) (- width x 1) (- 0 y) (- height y 1) ;x2 ;y2)
+  (polymorph channels [1 2 3 4]
+    (for [(def yy:int y1) (<= yy y2) (++ yy)]
+      (for [(def xx:int x1) (<= xx x2) (++ xx)]
+        (when (>= (* r r) (+ (* xx xx) (* yy yy)))
+          (def c1:uint32_t (shader (+ x xx) (+ y yy) color))
+          (set-pixel (+ x xx) (+ y yy) c1)))))
+  (return img))
+
 (cfunction line
   "Draw a line from x1,y1 to x2,y2"
   [img:tuple x1:int y1:int x2:int y2:int color:uint32] -> tuple
@@ -438,7 +487,8 @@
   (var y:int y1)
   (while 1
     (when (and (>= x 0) (< x img-width) (>= y 0) (< y img-height))
-      (set-pixel x y color "img-"))
+      (def c1:uint32_t (shader x y color))
+      (set-pixel x y c1 "img-"))
     (when (>= (* 2 err) dy)
       (if (== x x2) (return img))
       (+= err dy)
@@ -460,8 +510,9 @@
     (def x-b:int (cast int (ceil (lerp x1 x3 yt-13))))
     (sort2 x-a x-b int)
     (for [(var x:int x-a) (<= x x-b) (++ x)]
-      (if (and (> x 0) (< x width) (> y 0) (< y height))
-        (set-pixel x y color))))
+      (when (and (> x 0) (< x width) (> y 0) (< y height))
+        (def c1:uint32_t (shader x y color))
+        (set-pixel x y c1))))
   # 3. Use modified line algorithm for bottom half
   (for [(var y:int y2) (< y y3) (++ y)]
     (def yt-23:float (unlerp y y2 y3))
@@ -470,15 +521,17 @@
     (def x-b:int (cast int (ceil (lerp x1 x3 yt-13))))
     (sort2 x-a x-b int)
     (for [(var x:int x-a) (<= x x-b) (++ x)]
-      (if (and (> x 0) (< x width) (> y 0) (< y height))
-        (set-pixel x y color))))
+      (when (and (> x 0) (< x width) (> y 0) (< y height))
+        (def c1:uint32_t (shader x y color))
+        (set-pixel x y c1))))
   # 4. last row in case y2 == y3
   (def x-a:int x3)
   (def x-b:int (? (= y2 y3) x2 x3))
   (sort2 x-a x-b int)
   (for [(var x:int x-a) (<= x x-b) (++ x)]
-    (if (and (> x 0) (< x width) (> y3 0) (< y3 height))
-      (set-pixel x y3 color)))
+    (when (and (> x 0) (< x width) (> y3 0) (< y3 height))
+      (def c1:uint32_t (shader x y3 color))
+      (set-pixel x y3 c1)))
   (return img))
 
 (cfunction triangle
@@ -510,25 +563,9 @@
    (for [(var y:int ymin) (<= y ymax) (++ y)]
      (for [(var x:int xmin) (<= x xmax) (++ x)]
        (when (barycentric x y x1 y1 x2 y2 x3 y3 nil nil nil)
-         (set-pixel x y color))))
+         (def c1:uint32_t (shader x y color))
+         (set-pixel x y c1))))
    (return img))
-
-(cfunction resize
-  "Resize an image, resampling as needed"
-  [input-img:JanetTuple new-width:int new-height:int] -> JanetTuple
-  ,;(bind-image-code 'input-img 'in-)
-  (def new-img:JanetTuple (blank new-width new-height in-channels))
-  ,;(bind-image-code 'new-img 'out-)
-  (def layout:stbir_pixel_layout
-    (cond-expression
-      (= in-channels 1) STBIR-1CHANNEL
-      (= in-channels 2) STBIR-2CHANNEL
-      (= in-channels 3) STBIR-RGB
-      STBIR-4CHANNEL))
-  (stbir-resize-uint8-srgb in-data in-width in-height in-stride
-                           out-data out-width out-height out-stride
-                           layout)
-  (return new-img))
 
 ###
 ### Built-in simple text rendering with CP437 BIOS fonts
@@ -795,8 +832,9 @@
             (for [(var xoff:int 0) (< xoff xscale) (++ xoff)]
               (def xxx:int (+ (* xscale col) xx xoff))
               (def yyy:int (+ (* yscale row) yy yoff))
-              (if (and (>= xxx 0) (>= yyy 0) (< xxx width) (< yyy height))
-                (set-pixel xxx yyy color)))))
+              (when (and (>= xxx 0) (>= yyy 0) (< xxx width) (< yyy height))
+                (def c1:uint32_t (shader xxx yyy color))
+                (set-pixel xxx yyy c1)))))
         (set glyph-row (>> glyph-row 1))))
     (set xx (+ xx (* xscale gw))))
   (return img))
@@ -886,7 +924,85 @@
               (- xmin1 1) y))
           (set intersection-count (+ intersection-count intersect)))
         (when (band 1 intersection-count)
-          (set-pixel x y color)))))
+          (def c1:uint32_t (shader x y color))
+          (set-pixel x y c1)))))
+  # 4. Cleanup
+  (janet-sfree ipoints)
+  (return img))
+
+###
+### Better, Faster fill path
+###
+
+(function scanline-test
+  "Check if a line segment intesects a scanline. If so, return the x coord of the intersection as well"
+  [x1:int y1:int x2:int y2:int y-scan:int (xout 'int)] -> int
+  (if (< y2 y1) (return (scanline-test x2 y2 x1 y1 y-scan xout)))
+  (if (< y-scan y1) (return 0))
+  (if (>= y-scan y2) (return 0))
+  (if (= y1 y2) (return 0))
+  (def dy:int (- y2 y1))
+  (assert (> dy 0))
+  (def dx:int (- x2 x1))
+  (def py:int (- y2 y-scan))
+  (def ny:int (- y-scan y1))
+  (def px:int (/ (* py dx) dy))
+  (def nx:int (/ (* ny dx) dy))
+  (set 'xout (/ (+ (- x2 px) (+ x1 nx)) 2))
+  (return 1))
+
+(cfunction fill-path-2
+  "Fill a path with a solid color"
+  [img:JanetTuple points:indexed color:uint32_t] -> JanetTuple
+  ,;(bind-image-code 'img)
+  # 1. Get y bounds of the path and extract coordinates
+  (var ymin:int INT32-MAX)
+  (var ymax:int INT32-MIN)
+  (if (band 1 points.len) (janet-panic "expected an even number of point coordinates"))
+  (if (< points.len 6) (janet-panic "expected at least 3 points"))
+  (def plen:int (+ 2 points.len))
+  (def (ipoints 'int) (janet-smalloc (* (sizeof int) (* 2 plen))))
+  (def (ibuf 'int) (+ ipoints plen)) # Use this buffer for sorting x coordinates for scan lines
+  (for [(var i:int 0) (< i points.len) (set i (+ i 2))]
+    (def x:int (janet-getinteger points.items i))
+    (def y:int (janet-getinteger points.items (+ i 1)))
+    (set (aref ipoints i) x)
+    (set (aref ipoints (+ 1 i)) y)
+    (set ymin (? (> y ymin) ymin y))
+    (set ymax (? (> y ymax) y ymax)))
+  # Add first point to end
+  (set (aref ipoints points.len) (aref ipoints 0))
+  (set (aref ipoints (+ 1 points.len)) (aref ipoints 1))
+  # 2. Y Clipping
+  (set ymin (clampz ymin 0 (- height 1)))
+  (set ymax (clampz ymax 0 (- height 1)))
+  # 3. Iterate over scanlines
+  (polymorph channels [1 2 3 4]
+    (for [(var y:int ymin) (<= y ymax) (set y (+ y 1))]
+      # Collect and sort x intercepts for all segments into ibuf
+      (var intersection-count:int 0)
+      (for [(var i:int 2) (< i plen) (set i (+ i 2))]
+        (var xcoord:int 0)
+        (def intersect:int
+          (scanline-test 
+            (aref ipoints (+ i 0))
+            (aref ipoints (+ i 1))
+            (aref ipoints (+ i -2))
+            (aref ipoints (+ i -1))
+            y ;xcoord))
+        (when intersect
+          (for [(var j:int 0) (< j intersection-count) (++ j)]
+            (if (< xcoord (aref ibuf j))
+              (swap xcoord (aref ibuf j) int)))
+          (set (aref ibuf intersection-count) xcoord)
+          (++ intersection-count)))
+      # Draw scan lines
+      (for [(var i:int 0) (< i intersection-count) (set i (+ i 2))]
+        (def x1:int (clampz (aref ibuf i) 0 (- width 1)))
+        (def x2:int (clampz (aref ibuf (+ i 1)) 0 (- width 1)))
+        (for [(var x:int x1) (<= x x2) (++ x)]
+          (def c1:uint32_t (shader x y color))
+          (set-pixel x y c1)))))
   # 4. Cleanup
   (janet-sfree ipoints)
   (return img))
