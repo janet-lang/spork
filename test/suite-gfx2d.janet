@@ -14,7 +14,9 @@
   "Either save image to a directory or compare against the existing image"
   [img file-name]
   (def fullpath (path/join "test" "gold" file-name))
-  (if (or (os/getenv "GOLD") (os/getenv (string "GOLD_" (first (string/split "." file-name)))))
+  (print (string "GOLD_" (first (string/split "." file-name))))
+  (if (or (os/getenv "GOLD") (os/getenv (string "GOLD_" (first (string/split "." file-name))))
+          (not (os/stat file-name :mode)))
     (case (path/ext file-name)
       ".png" (save-png fullpath img)
       ".jpeg" (save-jpg fullpath img 100) # Testing against jpeg is risky - lossy format.
@@ -23,7 +25,7 @@
       ".tga" (save-tga fullpath img)
       (errorf "unknown image format of %s" file-name))
     (do
-      (def reference (load (path/join "test" "gold" file-name)))
+      (def reference (load fullpath))
       (assert (deep= reference img) (string "reference not identical to test image " file-name)))))
 
 (defn test-image-1
@@ -116,5 +118,34 @@
   (check-image canvas "hello_text.png"))
 
 (test-simple-text)
+
+(defn test-simple-text-2
+  []
+  (def canvas (blank 128 16 3))
+  (draw-simple-text canvas 2 2 1 1 "Hello, world!" white :tall)
+  (check-image canvas "hello_text_tall.png"))
+
+(test-simple-text-2)
+
+(defn test-simple-text-3
+  []
+  (def canvas (blank 128 16 3))
+  (draw-simple-text canvas 2 2 1 1 "Hello, world!" white :olive)
+  (check-image canvas "hello_text_olive.png"))
+
+(test-simple-text-3)
+
+(defn test-path-fill-1
+  []
+  (def canvas (blank 65 65 4))
+  (def points
+    [0 32
+    32 0
+    64 32
+    32 64])
+  (fill-path-2 canvas points cyan)
+  (check-image canvas "path_fill_1.png"))
+
+(test-path-fill-1)
 
 (end-suite)
