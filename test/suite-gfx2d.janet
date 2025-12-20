@@ -14,16 +14,17 @@
   "Either save image to a directory or compare against the existing image"
   [img file-name]
   (def fullpath (path/join "test" "gold" file-name))
-  (print (string "GOLD_" (first (string/split "." file-name))))
   (if (or (os/getenv "GOLD") (os/getenv (string "GOLD_" (first (string/split "." file-name))))
           (not (os/stat file-name :mode)))
-    (case (path/ext file-name)
-      ".png" (save-png fullpath img)
-      ".jpeg" (save-jpg fullpath img 100) # Testing against jpeg is risky - lossy format.
-      ".jpg" (save-jpg fullpath img 100)
-      ".bmp" (save-bmp fullpath img)
-      ".tga" (save-tga fullpath img)
-      (errorf "unknown image format of %s" file-name))
+    (do
+      (print "Saving gold image " fullpath)
+      (case (path/ext file-name)
+        ".png" (save-png fullpath img)
+        ".jpeg" (save-jpg fullpath img 100) # Testing against jpeg is risky - lossy format.
+        ".jpg" (save-jpg fullpath img 100)
+        ".bmp" (save-bmp fullpath img)
+        ".tga" (save-tga fullpath img)
+        (errorf "unknown image format of %s" file-name)))
     (do
       (def reference (load fullpath))
       (assert (deep= reference img) (string "reference not identical to test image " file-name)))))

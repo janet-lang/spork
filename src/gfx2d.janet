@@ -305,9 +305,6 @@
 (function min2z :static :inline [a:int b:int] -> int
   (return (? (< a b) a b)))
 
-(function absz :static :inline [a:int] -> int
-  (return (? (< a 0) (- a) a)))
-
 (function barycentric :static :inline
   "calculate barycentric coordinates in 2d"
   [px:int py:int x1:int y1:int x2:int y2:int x3:int y3:int (t0 'float) (t1 'float) (t2 'float)] -> int
@@ -512,7 +509,7 @@
     (def x-a:int (cast int (floor (lerp x1 x2 yt-12))))
     (def x-b:int (cast int (ceil (lerp x1 x3 yt-13))))
     (sort2 x-a x-b int)
-    (for [(var x:int x-a) (<= x x-b) (++ x)]
+    (for [(var x:int x-a) (< x x-b) (++ x)]
       (when (and (> x 0) (< x width) (> y 0) (< y height))
         (def c1:uint32_t (shader x y color))
         (set-pixel x y c1))))
@@ -523,7 +520,7 @@
     (def x-a:int (cast int (floor (lerp x2 x3 yt-23))))
     (def x-b:int (cast int (ceil (lerp x1 x3 yt-13))))
     (sort2 x-a x-b int)
-    (for [(var x:int x-a) (<= x x-b) (++ x)]
+    (for [(var x:int x-a) (< x x-b) (++ x)]
       (when (and (> x 0) (< x width) (> y 0) (< y height))
         (def c1:uint32_t (shader x y color))
         (set-pixel x y c1))))
@@ -531,7 +528,7 @@
   (def x-a:int x3)
   (def x-b:int (? (= y2 y3) x2 x3))
   (sort2 x-a x-b int)
-  (for [(var x:int x-a) (<= x x-b) (++ x)]
+  (for [(var x:int x-a) (< x x-b) (++ x)]
     (when (and (> x 0) (< x width) (> y3 0) (< y3 height))
       (def c1:uint32_t (shader x y3 color))
       (set-pixel x y3 c1)))
@@ -937,9 +934,14 @@
 ### Better, Faster fill path
 ###
 
-(function scanline-test
+(function absz-oc
+  "Absolute value of an int but interpret -X as -X + 1. E.g, we can respresent -0 as a C literal -1."
+  [x:int] -> int
+  (return (? (>= x 0) x (- -1 x))))
+
+(function scanline-test :static :inline
   "Check if a line segment intesects a scanline. If so, return the x coord of the intersection as well.
-  Will return a negative X coordinatea if y-scan intersects at y2"
+  Will return (-X - 1) coordinate in xout if y-scan intersects at y2."
   [x1:int y1:int x2:int y2:int y-scan:int (xout 'int)] -> int
   (when (> y1 y2)
     (swap x1 x2 int)
@@ -953,8 +955,10 @@
   (def ny:int (- y-scan y1))
   (def px:int (/ (* py dx) dy))
   (def nx:int (/ (* ny dx) dy))
-  (def denom:int (? (= y-scan y2) -2 2))
-  (set 'xout (/ (+ (- x2 px) (+ x1 nx)) denom))
+  (def out:int (/ (+ (- x2 px) (+ x1 nx)) 2))
+  (if (= y-scan y2)
+    (set 'xout (- -1 out)) # this gives us a sort of "negative 0" - otherwise we lose information when out = 0
+    (set 'xout out)) 
   (return 1))
 
 (cfunction fill-path-2
@@ -998,7 +1002,7 @@
             y ;xcoord))
         (when intersect
           (for [(var j:int 0) (< j intersection-count) (++ j)]
-            (if (< (absz xcoord) (absz (aref ibuf j)))
+            (if (< (absz-oc xcoord) (absz-oc (aref ibuf j)))
               (swap xcoord (aref ibuf j) int)))
           (set (aref ibuf intersection-count) xcoord)
           (++ intersection-count)))
@@ -1032,7 +1036,7 @@
       (var last-absx:int -1)
       (for [(var i:int 0) (< i intersection-count) (++ i)]
         (def x:int (aref ibuf i))
-        (def absx:int (absz x))
+        (def absx:int (absz-oc x))
         (if (= last-absx absx) # segment intersect
           (if (= last-x x) # point or elbow
             (do
