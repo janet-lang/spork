@@ -34,11 +34,7 @@
   :cflags ["-Werror" "-march=native" "-O3"]
   :lflags ["-lpng" "-lz"]
   :cache true
-  #:smart-libs false
-  #:cc "tcc" - doesn't quite work on linux due to executable stack issue
-  #:verbose true
-  #:quiet true
-  :build-type :release)
+  :build-type :native)
 
 (include <stdio.h>)
 (include <stdlib.h>)

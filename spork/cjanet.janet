@@ -889,6 +889,7 @@
      :build-dir "_cjanet"
      :opts options
      :old-out prevout
+     :build-type (get options :build-type :native)
      :module-name (get options :module-name (string "cjanet_" (os/getpid)))})
   (setdyn *jit-context* cont)
   (os/mkdir "_cjanet")
