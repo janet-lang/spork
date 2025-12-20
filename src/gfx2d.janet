@@ -305,6 +305,9 @@
 (function min2z :static :inline [a:int b:int] -> int
   (return (? (< a b) a b)))
 
+(function absz :static :inline [a:int] -> int
+  (return (? (< a 0) (- a) a)))
+
 (function barycentric :static :inline
   "calculate barycentric coordinates in 2d"
   [px:int py:int x1:int y1:int x2:int y2:int x3:int y3:int (t0 'float) (t1 'float) (t2 'float)] -> int
@@ -840,7 +843,7 @@
   (return img))
 
 ###
-### Raster path fill
+### Raster path fill reference version
 ###
 
 (function cross2 :static :inline
@@ -935,20 +938,23 @@
 ###
 
 (function scanline-test
-  "Check if a line segment intesects a scanline. If so, return the x coord of the intersection as well"
+  "Check if a line segment intesects a scanline. If so, return the x coord of the intersection as well.
+  Will return a negative X coordinatea if y-scan intersects at y2"
   [x1:int y1:int x2:int y2:int y-scan:int (xout 'int)] -> int
-  (if (< y2 y1) (return (scanline-test x2 y2 x1 y1 y-scan xout)))
+  (when (> y1 y2)
+    (swap x1 x2 int)
+    (swap y1 y2 int))
   (if (< y-scan y1) (return 0))
-  (if (>= y-scan y2) (return 0))
+  (if (> y-scan y2) (return 0))
   (if (= y1 y2) (return 0))
   (def dy:int (- y2 y1))
-  (assert (> dy 0))
   (def dx:int (- x2 x1))
   (def py:int (- y2 y-scan))
   (def ny:int (- y-scan y1))
   (def px:int (/ (* py dx) dy))
   (def nx:int (/ (* ny dx) dy))
-  (set 'xout (/ (+ (- x2 px) (+ x1 nx)) 2))
+  (def denom:int (? (= y-scan y2) -2 2))
+  (set 'xout (/ (+ (- x2 px) (+ x1 nx)) denom))
   (return 1))
 
 (cfunction fill-path-2
@@ -961,9 +967,9 @@
   (if (band 1 points.len) (janet-panic "expected an even number of point coordinates"))
   (if (< points.len 6) (janet-panic "expected at least 3 points"))
   (def plen:int (+ 2 points.len))
-  (def (ipoints 'int) (janet-smalloc (* (sizeof int) (* 2 plen))))
+  (def (ipoints 'int) (janet-smalloc (* (sizeof int) (* 4 plen))))
   (def (ibuf 'int) (+ ipoints plen)) # Use this buffer for sorting x coordinates for scan lines
-  (for [(var i:int 0) (< i points.len) (set i (+ i 2))]
+  (for [(var i:int 0) (< i points.len) (+= i 2)]
     (def x:int (janet-getinteger points.items i))
     (def y:int (janet-getinteger points.items (+ i 1)))
     (set (aref ipoints i) x)
@@ -978,13 +984,13 @@
   (set ymax (clampz ymax 0 (- height 1)))
   # 3. Iterate over scanlines
   (polymorph channels [1 2 3 4]
-    (for [(var y:int ymin) (<= y ymax) (set y (+ y 1))]
+    (for [(var y:int ymin) (<= y ymax) (++ y)]
       # Collect and sort x intercepts for all segments into ibuf
       (var intersection-count:int 0)
-      (for [(var i:int 2) (< i plen) (set i (+ i 2))]
+      (for [(var i:int 2) (< i plen) (+= i 2)]
         (var xcoord:int 0)
         (def intersect:int
-          (scanline-test 
+          (scanline-test
             (aref ipoints (+ i 0))
             (aref ipoints (+ i 1))
             (aref ipoints (+ i -2))
@@ -992,17 +998,62 @@
             y ;xcoord))
         (when intersect
           (for [(var j:int 0) (< j intersection-count) (++ j)]
-            (if (< xcoord (aref ibuf j))
+            (if (< (absz xcoord) (absz (aref ibuf j)))
               (swap xcoord (aref ibuf j) int)))
           (set (aref ibuf intersection-count) xcoord)
           (++ intersection-count)))
+
+      # Handle negative xcoords (intersections of segments at YMAX)
+      # 2 top intersections can be either an exterior point, like the tip of a star, or
+      # a interior angle, like an elbow
+      #
+      # \XXXXX/
+      #  \XXX/      Tip - scanline of width 1, keep both intersections
+      #   \X/
+      #----X----
+      #
+      #
+      #X\     /X
+      #XX\   /XX    Elbow - Continue current scan line, keep (or eliminate) both intersections
+      #XXX\ /XXX
+      #----X----
+      #XXXXXXXXX
+      #
+      #X\
+      #XX\
+      #XXX\
+      #----X----   Crossing - Eliminate 1 of 2
+      #XXX/
+      #XX/
+      #X/
+
+      (var cursor:int 0)
+      (var last-x:int -1)
+      (var last-absx:int -1)
+      (for [(var i:int 0) (< i intersection-count) (++ i)]
+        (def x:int (aref ibuf i))
+        (def absx:int (absz x))
+        (if (= last-absx absx) # segment intersect
+          (if (= last-x x) # point or elbow
+            (do
+              (set (aref ibuf cursor) absx)
+              (++ cursor))
+            (do)) # crossing, drop current
+          (do # normal
+            (set (aref ibuf cursor) absx)
+            (++ cursor)
+            (set last-x x)
+            (set last-absx absx))))
+      (set intersection-count cursor)
+
       # Draw scan lines
-      (for [(var i:int 0) (< i intersection-count) (set i (+ i 2))]
+      (for [(var i:int 0) (< i intersection-count) (+= i 2)]
         (def x1:int (clampz (aref ibuf i) 0 (- width 1)))
         (def x2:int (clampz (aref ibuf (+ i 1)) 0 (- width 1)))
         (for [(var x:int x1) (<= x x2) (++ x)]
           (def c1:uint32_t (shader x y color))
           (set-pixel x y c1)))))
+
   # 4. Cleanup
   (janet-sfree ipoints)
   (return img))
