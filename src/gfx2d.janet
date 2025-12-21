@@ -864,7 +864,7 @@
 ### Better, Faster fill path
 ###
 
-(function absz-oc
+(function absz-oc :static :inline
   "Absolute value of an int but interpret -X as -X + 1. E.g, we can respresent -0 as a C literal -1."
   [x:int] -> int
   (return (? (>= x 0) x (- -1 x))))
