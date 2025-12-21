@@ -104,14 +104,6 @@
 
 (test-lines)
 
-(defn test-triangle
-  []
-  (def tri (blank 128 128 3))
-  (triangle tri 64 0 0 127 127 127 red)
-  (check-image tri "triange.png"))
-
-(test-triangle)
-
 (defn test-simple-text
   []
   (def canvas (blank 128 16 3))

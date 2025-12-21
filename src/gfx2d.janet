@@ -20,7 +20,6 @@
 ### [x] - image resizing
 ### [ ] - bezier
 ### [x] - fill path (raycast rasterizer)
-### [ ] - triangle strip/fan/list
 ### [ ] - LUTs (possibly w/ shaders)
 ### [ ] - Gradients (possibly w/ shaders)
 ### [ ] - Better 2D point abstraction
@@ -29,7 +28,7 @@
 ### Stretch TODO
 ### [ ] - vector font rendering
 ### [ ] - anti-aliasing w/ MXAA
-### [ ] - shaders using cjanet-jit
+### [ ] - shaders using cjanet-jit - "fill" and "stroke" shaders
 ### [ ] - sub-images for rendering / alternatives to JanetBuffer for data storage
 ### [ ] - multithreading
 
@@ -497,75 +496,6 @@
       (if (== y y2) (return img))
       (+= err dx)
       (+= y sy))))
-
-(function triangle-impl :static :inline
-  [img:JanetTuple x1:int y1:int x2:int y2:int x3:int y3:int color:uint32_t] -> JanetTuple
-  # points 1 2 3 are sorted by non-decreasing y
-  ,;(bind-image-code 'img)
-  # 2. Use modified line algorithm for top half
-  (for [(var y:int y1) (< y y2) (++ y)]
-    (def yt-12:float (unlerp y y1 y2))
-    (def yt-13:float (unlerp y y1 y3))
-    (def x-a:int (cast int (floor (lerp x1 x2 yt-12))))
-    (def x-b:int (cast int (ceil (lerp x1 x3 yt-13))))
-    (sort2 x-a x-b int)
-    (for [(var x:int x-a) (< x x-b) (++ x)]
-      (when (and (> x 0) (< x width) (> y 0) (< y height))
-        (def c1:uint32_t (shader x y color))
-        (set-pixel x y c1))))
-  # 3. Use modified line algorithm for bottom half
-  (for [(var y:int y2) (< y y3) (++ y)]
-    (def yt-23:float (unlerp y y2 y3))
-    (def yt-13:float (unlerp y y1 y3))
-    (def x-a:int (cast int (floor (lerp x2 x3 yt-23))))
-    (def x-b:int (cast int (ceil (lerp x1 x3 yt-13))))
-    (sort2 x-a x-b int)
-    (for [(var x:int x-a) (< x x-b) (++ x)]
-      (when (and (> x 0) (< x width) (> y 0) (< y height))
-        (def c1:uint32_t (shader x y color))
-        (set-pixel x y c1))))
-  # 4. last row in case y2 == y3
-  (def x-a:int x3)
-  (def x-b:int (? (= y2 y3) x2 x3))
-  (sort2 x-a x-b int)
-  (for [(var x:int x-a) (< x x-b) (++ x)]
-    (when (and (> x 0) (< x width) (> y3 0) (< y3 height))
-      (def c1:uint32_t (shader x y3 color))
-      (set-pixel x y3 c1)))
-  (return img))
-
-(cfunction triangle
-    "Fill a triangle"
-    [img:JanetTuple x1:int y1:int x2:int y2:int x3:int y3:int color:uint32] -> JanetTuple
-    # 1. Sort the coordinates by increasing y
-    (if (< y1 y2)
-      (if (< y1 y3)
-        (if (< y2 y3)
-          (return (triangle-impl img x1 y1 x2 y2 x3 y3 color))
-          (return (triangle-impl img x1 y1 x3 y3 x2 y2 color)))
-        (return (triangle-impl img x3 y3 x1 y1 x2 y2 color)))
-      (if (< y2 y3)
-        (if (< y1 y3)
-          (return (triangle-impl img x2 y2 x1 y1 x3 y3 color))
-          (return (triangle-impl img x2 y2 x3 y3 x1 y1 color)))
-        (return (triangle-impl img x3 y3 x2 y2 x1 y1 color)))))
-
-(cfunction triangle2
-   "Fill a triangle alternate implementation"
-   [img:JanetTuple x1:int y1:int x2:int y2:int x3:int y3:int color:uint32_t] -> JanetTuple
-   (def xmin:int (min3z x1 x2 x3))
-   (def xmax:int (max3z x1 x2 x3))
-   (def ymin:int (min3z y1 y2 y3))
-   (def ymax:int (max3z y1 y2 y3))
-   ,;(bind-image-code 'img)
-   (clip 0 (- width 1) 0 (- height 1) ;xmin ;ymin)
-   (clip 0 (- width 1) 0 (- height 1) ;xmax ;ymax)
-   (for [(var y:int ymin) (<= y ymax) (++ y)]
-     (for [(var x:int xmin) (<= x xmax) (++ x)]
-       (when (barycentric x y x1 y1 x2 y2 x3 y3 nil nil nil)
-         (def c1:uint32_t (shader x y color))
-         (set-pixel x y c1))))
-   (return img))
 
 ###
 ### Built-in simple text rendering with CP437 BIOS fonts
