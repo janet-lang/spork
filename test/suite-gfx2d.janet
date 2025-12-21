@@ -136,9 +136,29 @@
     32 0
     64 32
     32 64])
-  (fill-path-2 canvas points cyan)
+  (fill-path canvas points cyan)
   (check-image canvas "path_fill_1.png"))
 
 (test-path-fill-1)
+
+(defn test-star
+  []
+  (def width 1024)
+  (def height 1024)
+  (def img (blank width height 4))
+  (def num-points 50)
+  (each [r color] [[400 yellow] [300 green] [200 blue]]
+    (def points @[])
+    (for i 0 (* 2 num-points)
+      (def theta (/ (* i math/pi) num-points))
+      (def radius (if (odd? i) r (/ (* r 153) 400)))
+      (def x (+ (/ width 2) (* radius (math/cos theta))))
+      (def y (+ (/ height 2) (* radius (math/sin theta))))
+      (array/concat points [(math/round x) (math/round y)]))
+    (fill-path img points color))
+  (def smaller (resize img 128 128))
+  (check-image smaller "star.png"))
+
+(test-star)
 
 (end-suite)

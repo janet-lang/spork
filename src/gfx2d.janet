@@ -809,8 +809,8 @@
       (not= (< a 0) (> 0 b))
       (not= (< c 0) (> 0 d)))))
 
-(cfunction fill-path
-  "Fill a path with a solid color"
+(cfunction fill-path-prototype
+  "Fill a path with a solid color - very slow but straightforward implementation."
   [img:JanetTuple points:indexed color:uint32_t] -> JanetTuple
   ,;(bind-image-code 'img)
   # 1. Get bounds of the path and extract coordinates
@@ -891,7 +891,7 @@
     (set 'xout out)) 
   (return 1))
 
-(cfunction fill-path-2
+(cfunction fill-path
   "Fill a path with a solid color"
   [img:JanetTuple points:indexed color:uint32_t] -> JanetTuple
   ,;(bind-image-code 'img)
