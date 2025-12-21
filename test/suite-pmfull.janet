@@ -15,7 +15,7 @@
 (defn randdir
   "Get a random directory name"
   []
-  (string "/tmp/tmp_dir_" (slice (string (math/random) ".tmp") 2)))
+  (string "/tmp/pm/tmp_dir_" (slice (string (math/random) ".tmp") 2)))
 
 (unless enabled (print "set SPORK_TEST_ALL_PACKAGES=1 to run full pm testing."))
 (when enabled
@@ -25,6 +25,7 @@
   (def syspath (randdir))
   (sh/rm syspath)
   (os/mkdir "tmp")
+  (os/mkdir "tmp/pm")
   (assert (os/mkdir syspath))
   (pm-config/read-env-variables root-env)
   (put root-env *syspath* (bundle-rpath syspath))

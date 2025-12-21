@@ -15,15 +15,17 @@
 ### [x] - testing harness
 ### [x] - get/set individual pixels (mostly for testing)
 ### [x] - text w/ simple font
-### [ ] - lines/paths (w/ thickness)
+### [ ] - stroke paths (w/ thickness)
 ### [ ] - blending
 ### [x] - image resizing
-### [ ] - bezier
+### [x] - bezier
 ### [x] - fill path (raycast rasterizer)
 ### [ ] - LUTs (possibly w/ shaders)
 ### [ ] - Gradients (possibly w/ shaders)
 ### [ ] - Better 2D point abstraction
 ### [ ] - Affine transforms
+### [x] - integer coordinate primitives (paths, rect, line, etc)
+### [ ] - float coordinate primitives (paths, rect, line, etc)
 
 ### Stretch TODO
 ### [ ] - vector font rendering
@@ -72,8 +74,8 @@
            [b ~(do ,;body (break))]))
      (assert 0)))
 
+# TODO - refactor this
 (defn- bind-image-code
-  :cjanet-spliced-macro
   "Generate code to unpack an image."
   [img &opt sym-prefix]
   (default sym-prefix "")
@@ -252,12 +254,8 @@
      (set ,y tmp)))
 
 (function lerp :static :inline
-  [a:float b:float t:float] -> float
+  [a:double b:double t:double] -> double
   (return (+ (* (- 1 t) a) (* t b))))
-
-(function unlerp :static :inline
-  [x:float x0:float x1:float] -> float
-  (return (/ (- x x0) (- x1 x0)))) # is this useful (divide by zero)?
 
 (function clamp :static :inline
   [x:float min_x:float max_x:float] -> float
@@ -864,18 +862,38 @@
 ### Better, Faster fill path
 ###
 
-(function absz-oc :static :inline
-  "Absolute value of an int but interpret -X as -X + 1. E.g, we can respresent -0 as a C literal -1."
-  [x:int] -> int
-  (return (? (>= x 0) x (- -1 x))))
+(function encode-intersect :static :inline
+  "Encode postive/negative intersections along with x coordinate, direction, and whether or not we are an endpoint into an integer"
+  [x:int sign:int endpoint:int] -> int
+  (def signbit:int (? (> sign 0) 2 0))
+  (def endbit:int (? endpoint 1 0))
+  (return (bor (<< x 2) signbit endbit)))
+
+(function intersect-xcoord :static :inline
+  "Get x coordinate of intersection"
+  [intersect:int] -> int
+  (return (>> intersect 2)))
+
+(function intersect-sign :static :inline
+  "Get x coordinate of intersection"
+  [intersect:int] -> int
+  (return (? (band intersect 0x2) 1 -1)))
+
+(function intersect-endpoint :static :inline
+  "Check if an intersect was an endpoint intersection"
+  [intersect:int] -> int
+  (return (band intersect 0x1)))
 
 (function scanline-test :static :inline
-  "Check if a line segment intesects a scanline. If so, return the x coord of the intersection as well.
-  Will return (-X - 1) coordinate in xout if y-scan intersects at y2."
+  "Check if a line segment intersects a scanline. If so, return the x coordinate of the intersection as well.
+  Will return 1 or -1 if there is an intersction, depending on if the segment has positive or negative dy
+  (Zero dy is defined to never intersect the scanline)."
   [x1:int y1:int x2:int y2:int y-scan:int (xout 'int)] -> int
+  (def sign:int 1)
   (when (> y1 y2)
     (swap x1 x2 int)
-    (swap y1 y2 int))
+    (swap y1 y2 int)
+    (set sign -1))
   (if (< y-scan y1) (return 0))
   (if (> y-scan y2) (return 0))
   (if (= y1 y2) (return 0))
@@ -885,12 +903,12 @@
   (def ny:int (- y-scan y1))
   (def px:int (/ (* py dx) dy))
   (def nx:int (/ (* ny dx) dy))
-  (def out:int (/ (+ (- x2 px) (+ x1 nx)) 2))
-  (if (= y-scan y2)
-    (set 'xout (- -1 out)) # this gives us a sort of "negative 0" - otherwise we lose information when out = 0
-    (set 'xout out)) 
+  (def xcoord:int (/ (+ (- x2 px) (+ x1 nx)) 2))
+  (def endpoint:int (or (= y1 y-scan) (= y2 y-scan)))
+  (set 'xout (encode-intersect xcoord sign endpoint))
   (return 1))
 
+# TODO - better handle degenerate segments (where dx = 0, dy = 0, or dx = dy = 0)
 (cfunction fill-path
   "Fill a path with a solid color"
   [img:JanetTuple points:indexed color:uint32_t] -> JanetTuple
@@ -901,11 +919,11 @@
   (if (band 1 points.len) (janet-panic "expected an even number of point coordinates"))
   (if (< points.len 6) (janet-panic "expected at least 3 points"))
   (def plen:int (+ 2 points.len))
-  (def (ipoints 'int) (janet-smalloc (* (sizeof int) (* 4 plen))))
+  (def (ipoints 'int) (janet-smalloc (* (sizeof int) (* 2 plen))))
   (def (ibuf 'int) (+ ipoints plen)) # Use this buffer for sorting x coordinates for scan lines
   (for [(var i:int 0) (< i points.len) (+= i 2)]
-    (def x:int (janet-getinteger points.items i))
-    (def y:int (janet-getinteger points.items (+ i 1)))
+    (def x:int (round (janet-getnumber points.items i)))
+    (def y:int (round (janet-getnumber points.items (+ i 1))))
     (set (aref ipoints i) x)
     (set (aref ipoints (+ 1 i)) y)
     (set ymin (? (> y ymin) ymin y))
@@ -922,19 +940,19 @@
       # Collect and sort x intercepts for all segments into ibuf
       (var intersection-count:int 0)
       (for [(var i:int 2) (< i plen) (+= i 2)]
-        (var xcoord:int 0)
-        (def intersect:int
+        (var intersect:int 0)
+        (def did-intersect:int
           (scanline-test
             (aref ipoints (+ i 0))
             (aref ipoints (+ i 1))
             (aref ipoints (+ i -2))
             (aref ipoints (+ i -1))
-            y ;xcoord))
-        (when intersect
+            y ;intersect))
+        (when did-intersect
           (for [(var j:int 0) (< j intersection-count) (++ j)]
-            (if (< (absz-oc xcoord) (absz-oc (aref ibuf j)))
-              (swap xcoord (aref ibuf j) int)))
-          (set (aref ibuf intersection-count) xcoord)
+            (when (< (intersect-xcoord intersect) (intersect-xcoord (aref ibuf j)))
+              (swap intersect (aref ibuf j) int)))
+          (set (aref ibuf intersection-count) intersect)
           (++ intersection-count)))
 
       # Handle negative xcoords (intersections of segments at YMAX)
@@ -961,23 +979,31 @@
       #XX/
       #X/
 
-      (var cursor:int 0)
-      (var last-x:int -1)
-      (var last-absx:int -1)
-      (for [(var i:int 0) (< i intersection-count) (++ i)]
-        (def x:int (aref ibuf i))
-        (def absx:int (absz-oc x))
-        (if (= last-absx absx) # segment intersect
-          (if (= last-x x) # point or elbow
-            (do
-              (set (aref ibuf cursor) absx)
-              (++ cursor))
-            (do)) # crossing, drop current
-          (do # normal
-            (set (aref ibuf cursor) absx)
-            (++ cursor)
-            (set last-x x)
-            (set last-absx absx))))
+      # Another variant of a crossing, but with a horizontal in between the two ends
+      #
+      #\XXXXXXXXXXXXXXX
+      # \XXXXXXXXXXXXXX
+      #  \XXXXXXXXXXXXX
+      #   \XXXXXXXXXXXX
+      #----X------X----
+      #            \XXX
+      #             \XX
+      #              \X
+
+      (var last:int (aref ibuf 0))
+      (set (aref ibuf 0) (intersect-xcoord last))
+      (var cursor:int 1)
+      (for [(var i:int 1) (< i intersection-count) (++ i)]
+        (def inter:int (aref ibuf i))
+        (var keep:int 1)
+        # Discard
+        (when (and (intersect-endpoint inter) (intersect-endpoint last))
+          (if (= (intersect-sign inter) (intersect-sign last))
+            (set keep 0)))
+        (when keep
+          (set (aref ibuf cursor) (intersect-xcoord inter))
+          (++ cursor)
+          (set last inter)))
       (set intersection-count cursor)
 
       # Draw scan lines
@@ -990,6 +1016,59 @@
 
   # 4. Cleanup
   (janet-sfree ipoints)
+  (return img))
+
+# TODO - instead of `step`, have a `flatness` parameter.
+(cfunction bezier-path
+  "Generate piece-wise, linear path from bezier control points"
+  [points:indexed &opt step:double=0.005] -> 'JanetArray
+  (if (band 1 points.len) (janet-panic "expected an even number of point coordinates"))
+  (if (< points.len 6) (janet-panic "expected at least 3 points"))
+  (def plen:int points.len)
+  (def (dpoints 'double) (janet-smalloc (* (sizeof double) (* 2 plen))))
+  (def (bpoints 'double) (+ dpoints plen)) # working buffer for calculating parametric points
+  (for [(var i:int 0) (< i points.len) (+= i 2)]
+    (def x:double (janet-getinteger points.items i))
+    (def y:double (janet-getinteger points.items (+ i 1)))
+    (set (aref dpoints i) x)
+    (set (aref dpoints (+ 1 i)) y))
+
+  # Use De Casteljau's algorithm
+  # TODO - join nearly collinear segments based on a concept of "flatness" to avoid explosion in number of segments.
+  (def (arr 'JanetArray) (janet-array 10))
+  (for [(var t:double 0) (<= t (+ 1.0 (* step 0.5))) (+= t step)]
+    (if (>= t (- 1 (/ step 2))) (set t 1))
+    (memcpy bpoints dpoints (* (sizeof double) plen))
+    (for [(var i:int 2) (< i plen) (+= i 2)]
+      (for [(var j:int 0) (< j (- plen i)) (+= j 2)]
+        (set (aref bpoints (+ j 0)) (lerp (aref bpoints (+ j 0)) (aref bpoints (+ 2 j)) t))
+        (set (aref bpoints (+ j 1)) (lerp (aref bpoints (+ j 1)) (aref bpoints (+ 3 j)) t))))
+    (def x:double (aref bpoints 0))
+    (def y:double (aref bpoints 1))
+    (janet-array-push arr (janet-wrap-number x))
+    (janet-array-push arr (janet-wrap-number y)))
+
+  (janet-sfree dpoints)
+  (return arr))
+
+# TODO - make much better, inline `line` call, allow for thickness, etc.
+(cfunction stroke-path
+  "Stroke a line along a path"
+  [img:JanetTuple points:indexed color:uint32_t &opt join-end:bool=0] -> JanetTuple
+  (if (band 1 points.len) (janet-panic "expected an even number of point coordinates"))
+  (if (< points.len 4) (janet-panic "expected at least 2 points"))
+  (def firstx:int (round (janet-getnumber points.items 0)))
+  (def firsty:int (round (janet-getnumber points.items 1)))
+  (var lastx:int firstx)
+  (var lasty:int firsty)
+  (for [(var i:int 2) (< i points.len) (+= i 2)]
+    (def x:int (round (janet-getnumber points.items (+ i 0))))
+    (def y:int (round (janet-getnumber points.items (+ i 1))))
+    (line img lastx lasty x y color)
+    (set lastx x)
+    (set lasty y))
+  (when join-end
+    (line img lastx lasty firstx firsty color))
   (return img))
 
 (module-entry "spork_gfx2d")

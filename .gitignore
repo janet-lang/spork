@@ -17,6 +17,7 @@ temp.mdz
 *.obj
 /_build
 /_cjanet
+/venv
 jpm_tree
 .vcvars.jdn
 lockfile.jdn

@@ -692,6 +692,9 @@
     Notably, the "default" value `dflt` does not need to be any particular type.
   ```
   [alias ctype &opt wrapfn getfn optfn]
+  # We should probably normalize all ctype shorthands coming in first in some way
+  (if (and (tuple? ctype) (= (first ctype) '*)) # Allow for 'Type shorthand more easily.
+    (register-binding-type alias ['quote (get ctype 1)] wrapfn getfn optfn))
   (def alias (symbol alias))
   (put alias-to-ctype alias ctype)
   (put alias-or-ctype-to-wrap ctype wrapfn)

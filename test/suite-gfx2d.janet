@@ -6,25 +6,33 @@
 
 (assert true)
 
+## 
+## Please keep gold images small on disk to avoid large repository sizes (no larger than 256x256).
+## Make liberal use of `resize` to shrink images before calling `check-image` on them.
 ##
-## Please keep gold images small on disk to avoid large repository sizes
-##
+
+(defn- save
+  "Save image to disk"
+  [img name]
+  (print "Saving image " name)
+  (case (path/ext name)
+    ".png" (save-png name img)
+    ".jpeg" (save-jpg name img 100) # Testing against jpeg is risky - lossy format.
+    ".jpg" (save-jpg name img 100)
+    ".bmp" (save-bmp name img)
+    ".tga" (save-tga name img)
+    (errorf "unknown image format of %s" name)))
 
 (defn check-image
   "Either save image to a directory or compare against the existing image"
   [img file-name]
   (def fullpath (path/join "test" "gold" file-name))
+  (def tmppath (path/join "tmp" file-name))
+  (os/mkdir "tmp")
+  (save img tmppath)
   (if (or (os/getenv "GOLD") (os/getenv (string "GOLD_" (first (string/split "." file-name))))
-          (not (os/stat file-name :mode)))
-    (do
-      (print "Saving gold image " fullpath)
-      (case (path/ext file-name)
-        ".png" (save-png fullpath img)
-        ".jpeg" (save-jpg fullpath img 100) # Testing against jpeg is risky - lossy format.
-        ".jpg" (save-jpg fullpath img 100)
-        ".bmp" (save-bmp fullpath img)
-        ".tga" (save-tga fullpath img)
-        (errorf "unknown image format of %s" file-name)))
+          (not (os/stat fullpath :mode)))
+    (save img fullpath)
     (do
       (def reference (load fullpath))
       (assert (deep= reference img) (string "reference not identical to test image " file-name)))))
@@ -160,5 +168,68 @@
   (check-image smaller "star.png"))
 
 (test-star)
+
+(defn test-concave-fill-1
+  []
+  (def canvas (blank 65 65 4))
+  (def points
+    [0 32
+    32 0
+    64 32
+    50 64
+    # concave part
+    40 63
+    20 63
+    #
+    14 64])
+  (fill-path canvas points cyan)
+  (check-image canvas "concave_fill_1.png"))
+
+(test-concave-fill-1)
+
+(defn test-stroke-bezier
+  []
+  (def width 256)
+  (def height 256)
+  (def canvas (blank width height 3))
+  (def control-points [10 10
+                       10 (- height 10)
+                       (- width 10) (- height 10)
+                       (- width 10) 10])
+  (def points (bezier-path control-points))
+  (stroke-path canvas points green false)
+  (check-image canvas "bezier1.png"))
+
+(test-stroke-bezier)
+
+(defn test-fill-bezier
+  []
+  (def width 256)
+  (def height 256)
+  (def canvas (blank width height 3))
+  (def control-points [10 10 10 (- height 10) (- width 10) (- height 10) (- width 10) 10])
+  (def points (map math/round (bezier-path control-points 0.01)))
+  (fill-path canvas points yellow)
+  (check-image canvas "bezier2.png"))
+
+(test-fill-bezier)
+
+(defn test-fill-bezier-3
+  "Test self intersecting path"
+  []
+  (def width 256)
+  (def height 256)
+  (def canvas (blank width height 3))
+  (def control-points [10 10
+                       (+ width 110) 10
+                       -90 (- height 10)
+                       (- width 10) (- height 10)
+                       ])
+  (def points (map math/round (bezier-path control-points 0.001)))
+  (fill-path canvas points yellow)
+  (stroke-path canvas points green)
+  (check-image canvas "bezier3.png"))
+
+(test-fill-bezier-3)
 
 (end-suite)

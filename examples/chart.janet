@@ -45,5 +45,5 @@
 # Save it
 (os/mkdir "tmp")
 (save-png "tmp/chart.png" img)
-(os/execute ["imv" "-u" "nearest_neighbour" "tmp/chart.png"] :px)
-
+# (os/execute ["imv" "-u" "nearest_neighbour" "tmp/chart.png"] :px)
+# Use feh, explorer.exe, whatever to view images
