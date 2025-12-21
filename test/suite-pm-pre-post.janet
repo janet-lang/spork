@@ -16,7 +16,7 @@
 (defn randdir
   "Get a random directory name"
   []
-  (string (os/cwd) "/tmp/tmp_dir_" (slice (string (math/random) ".tmp") 2)))
+  (string (os/cwd) "/tmp/pm/tmp_dir_" (slice (string (math/random) ".tmp") 2)))
 
 (defn count-match
   "Count number of occurrence of pat in str"
@@ -59,10 +59,11 @@
 (def syspath (randdir))
 (sh/rm syspath)
 (os/mkdir "tmp")
+(os/mkdir "tmp/pm")
 (assert (os/mkdir syspath))
 (pm-config/read-env-variables root-env)
 (put root-env :build-dir nil) # jpm test sets this and it messes things up
-(defer (sh/rm "tmp")
+(defer (sh/rm "tmp/pm")
        (put root-env *syspath* (bundle-rpath syspath))
        (put root-env :binpath (string syspath "/bin"))
        (put root-env :manpath (string syspath "/man"))

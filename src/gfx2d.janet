@@ -19,6 +19,9 @@
 ### [ ] - blending
 ### [x] - image resizing
 ### [x] - bezier
+### [ ] - splines
+###       - b-spline
+###       - catmull-rom (useful for charts)
 ### [x] - fill path (raycast rasterizer)
 ### [ ] - LUTs (possibly w/ shaders)
 ### [ ] - Gradients (possibly w/ shaders)
@@ -768,6 +771,49 @@
   (return img))
 
 ###
+### Path operations
+###
+
+# TODO - instead of `step`, have a `flatness` parameter.
+(cfunction bezier-path
+  "Generate piece-wise, linear path from bezier control points"
+  [points:indexed &opt step:double=0.005] -> 'JanetArray
+  (if (band 1 points.len) (janet-panic "expected an even number of point coordinates"))
+  (if (< points.len 6) (janet-panic "expected at least 3 points"))
+  (def plen:int points.len)
+  (def (dpoints 'double) (janet-smalloc (* (sizeof double) (* 2 plen))))
+  (def (bpoints 'double) (+ dpoints plen)) # working buffer for calculating parametric points
+  (for [(var i:int 0) (< i points.len) (+= i 2)]
+    (def x:double (janet-getinteger points.items i))
+    (def y:double (janet-getinteger points.items (+ i 1)))
+    (set (aref dpoints i) x)
+    (set (aref dpoints (+ 1 i)) y))
+
+  # Use De Casteljau's algorithm
+  # TODO - join nearly collinear segments based on a concept of "flatness" to avoid explosion in number of segments.
+  (def (arr 'JanetArray) (janet-array 10))
+  (for [(var t:double 0) (<= t (+ 1.0 (* step 0.5))) (+= t step)]
+    (if (>= t (- 1 (/ step 2))) (set t 1))
+    (memcpy bpoints dpoints (* (sizeof double) plen))
+    (for [(var i:int 2) (< i plen) (+= i 2)]
+      (for [(var j:int 0) (< j (- plen i)) (+= j 2)]
+        (set (aref bpoints (+ j 0)) (lerp (aref bpoints (+ j 0)) (aref bpoints (+ 2 j)) t))
+        (set (aref bpoints (+ j 1)) (lerp (aref bpoints (+ j 1)) (aref bpoints (+ 3 j)) t))))
+    (def x:double (aref bpoints 0))
+    (def y:double (aref bpoints 1))
+    (janet-array-push arr (janet-wrap-number x))
+    (janet-array-push arr (janet-wrap-number y)))
+
+  (janet-sfree dpoints)
+  (return arr))
+
+(cfunction outline-path
+  "Generate a path that loops around another path, forming an outline"
+  [points:indexed thickness:double &opt join-end:bool=0] -> 'JanetArray
+  (def (arr 'JanetArray) (janet-array 10))
+  (return arr))
+
+###
 ### Raster path fill reference version
 ###
 
@@ -821,8 +867,8 @@
   (def plen:int (+ 2 points.len))
   (def (ipoints 'int) (janet-smalloc (* (sizeof int) plen)))
   (for [(var i:int 0) (< i points.len) (set i (+ i 2))]
-    (def x:int (janet-getinteger points.items i))
-    (def y:int (janet-getinteger points.items (+ i 1)))
+    (def x:int (round (janet-getnumber points.items i)))
+    (def y:int (round (janet-getnumber points.items (+ i 1))))
     (set (aref ipoints i) x)
     (set (aref ipoints (+ 1 i)) y)
     (set xmin (? (> x xmin) xmin x))
@@ -908,7 +954,7 @@
   (set 'xout (encode-intersect xcoord sign endpoint))
   (return 1))
 
-# TODO - better handle degenerate segments (where dx = 0, dy = 0, or dx = dy = 0)
+# TODO - floating point coordinates
 (cfunction fill-path
   "Fill a path with a solid color"
   [img:JanetTuple points:indexed color:uint32_t] -> JanetTuple
@@ -950,7 +996,7 @@
             y ;intersect))
         (when did-intersect
           (for [(var j:int 0) (< j intersection-count) (++ j)]
-            (when (< (intersect-xcoord intersect) (intersect-xcoord (aref ibuf j)))
+            (when (< intersect (aref ibuf j)) # is this the best sorting? - sort by endpoint and sign as well, not just xcoord
               (swap intersect (aref ibuf j) int)))
           (set (aref ibuf intersection-count) intersect)
           (++ intersection-count)))
@@ -1017,39 +1063,6 @@
   # 4. Cleanup
   (janet-sfree ipoints)
   (return img))
-
-# TODO - instead of `step`, have a `flatness` parameter.
-(cfunction bezier-path
-  "Generate piece-wise, linear path from bezier control points"
-  [points:indexed &opt step:double=0.005] -> 'JanetArray
-  (if (band 1 points.len) (janet-panic "expected an even number of point coordinates"))
-  (if (< points.len 6) (janet-panic "expected at least 3 points"))
-  (def plen:int points.len)
-  (def (dpoints 'double) (janet-smalloc (* (sizeof double) (* 2 plen))))
-  (def (bpoints 'double) (+ dpoints plen)) # working buffer for calculating parametric points
-  (for [(var i:int 0) (< i points.len) (+= i 2)]
-    (def x:double (janet-getinteger points.items i))
-    (def y:double (janet-getinteger points.items (+ i 1)))
-    (set (aref dpoints i) x)
-    (set (aref dpoints (+ 1 i)) y))
-
-  # Use De Casteljau's algorithm
-  # TODO - join nearly collinear segments based on a concept of "flatness" to avoid explosion in number of segments.
-  (def (arr 'JanetArray) (janet-array 10))
-  (for [(var t:double 0) (<= t (+ 1.0 (* step 0.5))) (+= t step)]
-    (if (>= t (- 1 (/ step 2))) (set t 1))
-    (memcpy bpoints dpoints (* (sizeof double) plen))
-    (for [(var i:int 2) (< i plen) (+= i 2)]
-      (for [(var j:int 0) (< j (- plen i)) (+= j 2)]
-        (set (aref bpoints (+ j 0)) (lerp (aref bpoints (+ j 0)) (aref bpoints (+ 2 j)) t))
-        (set (aref bpoints (+ j 1)) (lerp (aref bpoints (+ j 1)) (aref bpoints (+ 3 j)) t))))
-    (def x:double (aref bpoints 0))
-    (def y:double (aref bpoints 1))
-    (janet-array-push arr (janet-wrap-number x))
-    (janet-array-push arr (janet-wrap-number y)))
-
-  (janet-sfree dpoints)
-  (return arr))
 
 # TODO - make much better, inline `line` call, allow for thickness, etc.
 (cfunction stroke-path

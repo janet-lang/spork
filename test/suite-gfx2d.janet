@@ -30,7 +30,8 @@
   (def tmppath (path/join "tmp" file-name))
   (os/mkdir "tmp")
   (save img tmppath)
-  (if (or (os/getenv "GOLD") (os/getenv (string "GOLD_" (first (string/split "." file-name))))
+  (if (or (os/getenv "GOLD")
+          (os/getenv (string "GOLD_" (first (string/split "." file-name))))
           (not (os/stat fullpath :mode)))
     (save img fullpath)
     (do
@@ -231,5 +232,24 @@
   (check-image canvas "bezier3.png"))
 
 (test-fill-bezier-3)
+
+(defn test-fill-donut
+  "Test a donut path"
+  []
+  (def width 256)
+  (def height 256)
+  (def canvas (blank width height 3))
+  (def num-points 50)
+  (def points @[])
+  (each [radius switch] [[50 1] [60 -1]]
+    (for i 0 (* 2 (+ num-points 0.5))
+      (def theta (/ (* i math/pi) num-points))
+      (def x (+ (/ width 2) (* radius (math/cos theta))))
+      (def y (+ (/ height 2) (* radius (math/sin (* switch theta)))))
+      (array/concat points [x y])))
+  (fill-path canvas points blue)
+  (check-image canvas "donut.png"))
+
+(test-fill-donut)
 
 (end-suite)
