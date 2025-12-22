@@ -330,14 +330,19 @@
   (emit-expression expr))
 
 (defn- emit-struct-ctor
-  [args]
+  [struct-type args]
   (assert (even? (length args)) "expected an even number of arguments for a struct literal")
+  (when struct-type
+    (prin "(struct ")
+    (emit-type struct-type)
+    (prin ") "))
   (emit-block-start)
   (each [k v] (partition 2 args)
-    (emit-indent)
-    (prin "." k " = ")
-    (emit-expression v true)
-    (print ","))
+    (unless (= k 'type)
+      (emit-indent)
+      (prin "." (mangle-strict k) " = ")
+      (emit-expression v true)
+      (print ",")))
   (emit-block-end))
 
 (defn- emit-array-ctor
@@ -368,7 +373,7 @@
     (d (dictionary? d))
     (do
       (unless noparen (prin "("))
-      (emit-struct-ctor (mapcat identity (sort (pairs d))))
+      (emit-struct-ctor nil (mapcat identity (sort (pairs d))))
       (unless noparen (print ")")))
     (t (tuple? t))
     (do
@@ -387,7 +392,8 @@
         ['splice v] (emit-address v) # hack
         ['quote q] (emit-deref q) # quote looks a bit like "*"
         ['cast t v] (emit-cast t v)
-        ['struct & vals] (emit-struct-ctor vals)
+        ['struct & vals] (emit-struct-ctor nil vals)
+        ['named-struct n & vals] (emit-struct-ctor n vals)
         ['array & vals] (emit-array-ctor vals)
         ['-> v f] (emit-indexer "->" v f)
         ['? c t f] (emit-ternary c t f)

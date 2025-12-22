@@ -678,6 +678,7 @@
       export JANET_PATH;
       export PATH;
       export PS1;
+      hash -r 2> /dev/null;
       deactivate() {
         PATH="$$_OLD_PATH";
         if [ -n "$$_OLD_JANET_PATH_SET" ]; then
@@ -699,7 +700,7 @@
         export _OLD_PS1;
         hash -r 2> /dev/null;
       }
-    fi
+    fi;
     hash -r 2> /dev/null;
     ````)
 

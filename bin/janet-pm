@@ -95,6 +95,9 @@
         Remove any generated files or artifacts. Calls the `(clean)`
         hook.
 
+    clean-build
+        Clean, then build
+
     test
         Run tests. Tests should be .janet files in the test/ directory
         relative to project.janet. Will patch the module paths to load
@@ -189,6 +192,11 @@
 (defn clean
   []
   (pm/local-hook "clean" @{}))
+
+(defn clean-build
+  []
+  (clean)
+  (build))
 
 (defn clean-all
   []
@@ -302,6 +310,7 @@
   {"build" build
    "clean" clean
    "clean-all" clean-all
+   "clean-build" clean-build
    "help" help
    "install" install
    "test" test

@@ -676,6 +676,18 @@
 ### Path operations
 ###
 
+(typedef V2 (named-struct V2 x double y double))
+(each op ['+ '- '* '/]
+  (function ,(symbol "v" op)
+    ,(string "Vectorized " op)
+    [a:V2 b:V2] -> V2
+    (return (named-struct V2
+             x (,op a.x b.x)
+             y (,op a.y b.y)))))
+
+# TODO - disambiguate open vs. closed paths. Currently, we are auto-closing paths when needed, but if we want
+# to make a more general path abstraction, we should probably encode that in the path abstraction itself.
+
 # TODO - instead of `step`, have a `flatness` parameter.
 (cfunction bezier-path
   "Generate piece-wise, linear path from bezier control points"
@@ -707,6 +719,38 @@
     (janet-array-push arr (janet-wrap-number y)))
 
   (janet-sfree dpoints)
+  (return arr))
+
+(cfunction outline-path
+  "Create a path that loops around another path"
+  [points:indexed &opt thickness:double=1] -> 'JanetArray
+  (if (band 1 points.len) (janet-panic "expected an even number of point coordinates"))
+  (if (< points.len 4) (janet-panic "expected at least 2 points"))
+  (def (arr 'JanetArray) (janet-array (* 2 points.len)))
+  # (fori 0 points.len ...)
+  # (fori-step 0 points.len 2 ...)
+  # (each-partition [x y] points ...)
+  # (for-linspace t 0 1.0 step ...)
+  (var prevx (janet-getnumber points.items 0))
+  (var prevy (janet-getnumber points.items 1))
+  (var x (janet-getnumber points.items 2))
+  (var y (janet-getnumber points.items 3))
+  (for [(var i:int 4) (< i points.len) (+= i 2)]
+    (def nextx (janet-getnumber points.items (+ i 0)))
+    (def nexty (janet-getnumber points.items (+ i 1)))
+    (def xspan (- nextx prevx))
+    (def yspan (- nexty prevy))
+    (def scale (/ thickness (sqrt (+ (* xspan xspan) (* yspan yspan)))))
+    (def side-point-x (+ x (* yspan scale)))
+    (def side-point-y (- y (* xspan scale)))
+    # Check interior vs. exterior angle. If exterior, add more points to form nice cap. Interior can be sharp elbow.
+    (janet-array-push arr (janet-wrap-number side-point-x))
+    (janet-array-push arr (janet-wrap-number side-point-y))
+    (set prevx x)
+    (set prevy y)
+    (set x nextx)
+    (set y nexty))
+
   (return arr))
 
 ###
@@ -841,11 +885,9 @@
   (if (= y1 y2) (return 0))
   (def dy:int (- y2 y1))
   (def dx:int (- x2 x1))
-  (def py:int (- y2 y-scan))
   (def ny:int (- y-scan y1))
-  (def px:int (/ (* py dx) dy))
-  (def nx:int (/ (* ny dx) dy))
-  (def xcoord:int (/ (+ (- x2 px) (+ x1 nx)) 2))
+  (def nx:int (* ny dx))
+  (def xcoord:int (/ (+ (/ dy 2) (* x1 dy) nx) dy))
   (def endpoint:int (or (= y1 y-scan) (= y2 y-scan)))
   (set 'xout (encode-intersect xcoord sign endpoint))
   (return 1))
