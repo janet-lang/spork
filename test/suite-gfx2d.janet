@@ -6,7 +6,7 @@
 
 (assert true)
 
-## 
+##
 ## Please keep gold images small on disk to avoid large repository sizes (no larger than 256x256).
 ## Make liberal use of `resize` to shrink images before calling `check-image` on them.
 ##
@@ -137,6 +137,15 @@
 
 (test-simple-text-3)
 
+(defn test-simple-text-4
+  []
+  (def [w h] (measure-simple-text "Hello, world!" :olive))
+  (def canvas (blank w h 3))
+  (draw-simple-text canvas 0 0 1 1 "Hello, world!" white :olive)
+  (check-image canvas "hello_text_center.png"))
+
+(test-simple-text-4)
+
 (defn test-path-fill-1
   []
   (def canvas (blank 65 65 4))
@@ -251,5 +260,21 @@
   (check-image canvas "donut.png"))
 
 (test-fill-donut)
+
+(defn test-bumpy-chart
+  "Test bumpy chart for fill path"
+  []
+  (def img (blank 1024 1024 4))
+  (rect img 0 0 10000 10000 black)
+  (math/seedrandom 0)
+  (def xs (range 1000))
+  (def ys (seq [x :in xs] (* 100 (+ (math/log (inc x)) (math/random)))))
+  (def xformed-xs (map (partial + 12) xs))
+  (def xformed-ys (map (partial - 1012) ys))
+  (def path (map math/round (mapcat tuple xformed-xs xformed-ys)))
+  (fill-path img [;path 1012 1000 12 1000] blue)
+  (check-image (resize img 256 256) "bumpy-chart.png"))
+
+(test-bumpy-chart)
 
 (end-suite)
