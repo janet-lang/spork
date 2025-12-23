@@ -51,8 +51,79 @@
 (include "stb_image_resize2.h")
 
 ###
-### Image creation, basic utilties, saving and loading
+### 2D floating point vector abstraction
 ###
+
+(typedef V2 (named-struct V2 x double y double))
+
+(each op ['+ '- '* '/]
+  (function ,(symbol "v/" op) :static :inline
+    ,(string "Vectorized " op)
+    [a:V2 b:V2] -> V2
+    (return (named-struct V2
+             x (,op a.x b.x)
+             y (,op a.y b.y))))
+  (function ,(symbol "v/s" op) :static :inline
+    ,(string "Element-wise vectorized " op)
+    [scalar:double a:V2] -> V2
+    (return (named-struct V2
+             x (,op a.x scalar)
+             y (,op a.y scalar)))))
+
+(function v/make :static :inline
+  [x:double y:double] -> V2
+  (return (named-struct V2 x x y y)))
+
+(function v/dot :static :inline
+  [a:V2 b:V2] -> double
+  (return (+ (* a.x b.x) (* a.y b.y))))
+
+(function v/cross :static :inline
+  [a:V2 b:V2] -> double
+  (return (- (* a.x b.y) (* a.y b.x))))
+
+(function v/len :static :inline
+  [a:V2] -> double
+  (return (sqrt (v/dot a a))))
+
+(function v/norm :static :inline
+  [a:V2] -> V2
+  (return (v/s* (v/len a) a)))
+
+(function v/lerp :static :inline
+  [a:V2 b:V2 t:double] -> V2
+  (return (v/+ (v/s* t a) (v/s* (- 1 t) b))))
+
+(function v/rotate-cw-90
+  [a:V2] -> V2
+  (return (v/make (- a.y) a.x)))
+
+(function v/rotate-ccw-90
+  [a:V2] -> V2
+  (return (v/make a.y (- a.x))))
+
+(function indexed-to-vs
+  "Get vectors from an indexed collection. Must be freed with janet_sfree."
+  [coords:JanetView (n 'int)] -> 'V2
+  (if (band 1 coords.len) (janet-panic "expected an even number of point coordinates"))
+  (def (ret 'V2) (janet-smalloc (* (sizeof V2) coords.len)))
+  (for [(var i:int 0) (< i coords.len) (+= i 2)]
+    (def x:double (janet-getnumber coords.items (+ i 0)))
+    (def y:double (janet-getnumber coords.items (+ i 1)))
+    (set (aref ret i) (v/make x y)))
+  (set 'n (/ coords.len 2))
+  (return ret))
+
+###
+### Macros
+###
+
+(defn- fori
+  :cjanet-block-macro
+  "For loop shortand for `(for [(var i:int start) (< i end) (++ i)] ...)`"
+  [start end & body]
+  ~(for [(var i:int ,start) (< i ,end) (++ i)]
+     ,;body))
 
 (defn- cond-expression
   :cjanet-expression-macro
@@ -76,6 +147,10 @@
          ;(seq [b :in bindings]
            [b ~(do ,;body (break))]))
      (assert 0)))
+
+###
+### Image creation, basic utilties, saving and loading
+###
 
 # TODO - refactor this
 (defn- bind-image-code
@@ -676,15 +751,6 @@
 ### Path operations
 ###
 
-(typedef V2 (named-struct V2 x double y double))
-(each op ['+ '- '* '/]
-  (function ,(symbol "v" op)
-    ,(string "Vectorized " op)
-    [a:V2 b:V2] -> V2
-    (return (named-struct V2
-             x (,op a.x b.x)
-             y (,op a.y b.y)))))
-
 # TODO - disambiguate open vs. closed paths. Currently, we are auto-closing paths when needed, but if we want
 # to make a more general path abstraction, we should probably encode that in the path abstraction itself.
 
@@ -723,34 +789,19 @@
 
 (cfunction outline-path
   "Create a path that loops around another path"
-  [points:indexed &opt thickness:double=1] -> 'JanetArray
-  (if (band 1 points.len) (janet-panic "expected an even number of point coordinates"))
-  (if (< points.len 4) (janet-panic "expected at least 2 points"))
-  (def (arr 'JanetArray) (janet-array (* 2 points.len)))
-  # (fori 0 points.len ...)
-  # (fori-step 0 points.len 2 ...)
-  # (each-partition [x y] points ...)
-  # (for-linspace t 0 1.0 step ...)
-  (var prevx (janet-getnumber points.items 0))
-  (var prevy (janet-getnumber points.items 1))
-  (var x (janet-getnumber points.items 2))
-  (var y (janet-getnumber points.items 3))
-  (for [(var i:int 4) (< i points.len) (+= i 2)]
-    (def nextx (janet-getnumber points.items (+ i 0)))
-    (def nexty (janet-getnumber points.items (+ i 1)))
-    (def xspan (- nextx prevx))
-    (def yspan (- nexty prevy))
-    (def scale (/ thickness (sqrt (+ (* xspan xspan) (* yspan yspan)))))
-    (def side-point-x (+ x (* yspan scale)))
-    (def side-point-y (- y (* xspan scale)))
-    # Check interior vs. exterior angle. If exterior, add more points to form nice cap. Interior can be sharp elbow.
-    (janet-array-push arr (janet-wrap-number side-point-x))
-    (janet-array-push arr (janet-wrap-number side-point-y))
-    (set prevx x)
-    (set prevy y)
-    (set x nextx)
-    (set y nexty))
-
+  [coordinates:indexed &opt thickness:double=1] -> 'JanetArray
+  (def npoints:int 0)
+  (def points (indexed-to-vs coordinates ;npoints))
+  (if (< npoints 4) (janet-panic "expected at least 2 points"))
+  (fori 1 (- npoints 1)
+    (def a (aref points (+ i -1)))
+    (def b (aref points (+ i 0)))
+    (def c (aref points (+ i 1)))
+    (def ab (v/- b a))
+    (def bc (v/- c b))
+    (def interior-norm (v/norm (- (v/norm bc) (v/norm ab)))))
+  (def (arr 'JanetArray) (janet-array (* 2 npoints)))
+  (janet-sfree points)
   (return arr))
 
 ###
