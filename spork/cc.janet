@@ -730,10 +730,18 @@
   [& cmd]
   (def pkg-config-path (or (lib-path) (dyn *syspath* ".")))
   # Janet may be installed in a non-standard location, so we need to tell pkg-config where to look
-  (def wp (string "--with-path=" pkg-config-path))
-  (def pkp (string "--with-path=" (path/join pkg-config-path "pkgconfig")))
+  # by appending PKG_CONFIG_PATH environment variable.
+  (def pkp (path/join pkg-config-path "pkgconfig"))
+  (def s (if (= (target-os) :windows) ";" ":"))
+  (def pcp (string (if-let [exist (os/getenv "PKG_CONFIG_PATH")] (string exist s) "") pkg-config-path s pkp))
   (def extra (dyn *pkg-config-flags* []))
-  (def output (sh/exec-slurp "pkg-config" wp pkp ;extra ;cmd))
+  (def output
+    (with [proc (os/spawn ["pkg-config" ;extra ;cmd] :xpe {:out :pipe "PKG_CONFIG_PATH" pcp})]
+      (let [[out] (ev/gather
+                    (ev/read (proc :out) :all)
+                    (os/proc-wait proc))]
+        (if out (string/trimr out) ""))))
+
   (filter next (string/split " " (string/trim output))))
 
 (defn pkg-config
