@@ -18,7 +18,7 @@
   (peg/compile
     ~{:valid (range "az" "AZ" "__" ".." "::")
       :one (+ '"->" (/ "-" "_") ':valid (/ '1 ,|(string "_X" ($ 0))))
-      :main (% (* (? "@") :one (any (+ ':d :one))))}))
+      :main (% (* (? "@") '(any (set "*&")) :one (any (+ ':d :one))))}))
 
 (def- mangle-strict-peg
   (peg/compile
@@ -35,6 +35,8 @@
    'blshift "<<" 'brshift ">>"})
 
 (def- uops {'bnot "~" 'not "!" 'neg "-" '- "-" '! "!" '++ "++" '-- "--"})
+
+(defdyn *default-ctype* "The default type used when declaring variables")
 
 (defn mangle
   ``
@@ -57,14 +59,16 @@
 (defn type-split
   "Extract name and type from a variable. Allow typing variables as both
   (name type) or name:type as a shorthand. If no type is found, default to dflt-type. dflt-type
-  itself defaults to '__auto_type"
+  itself defaults to 'CJANET_DEFAULT_TYPE'"
   [x &opt dflt-type]
-  (default dflt-type '__auto_type)
+  (default dflt-type (dyn *default-ctype* "CJANET_DEFAULT_TYPE"))
   # This needs to be defined based on c compiler - "auto" for msvc and c23+, and __auto_type for clang and GCC on older standards
+  # Perhaps we should error if unset?
   (case (type x)
     :tuple x
     :symbol
     (let [[v t] (assert (peg/match type-split-peg x))]
+      (unless t (assert dflt-type (string/format "no type found for %j, either add a type or set a default type" x)))
       [(symbol v) (symbol (or t dflt-type))])
     (errorf "expected symbol or (symbol type) pair, got %j" x)))
 
@@ -389,7 +393,7 @@
         ['deref v] (emit-deref v)
         ['addr v] (emit-address v)
         ['& v] (emit-address v)
-        ['splice v] (emit-address v) # hack
+        # ['splice v] (emit-address v) # hack
         ['quote q] (emit-deref q) # quote looks a bit like "*"
         ['cast t v] (emit-cast t v)
         ['struct & vals] (emit-struct-ctor nil vals)

@@ -51,6 +51,54 @@
 (include "stb_image_resize2.h")
 
 ###
+### Macros
+###
+
+(defn- each-i
+  :cjanet-block-macro
+  "For loop shortand for `(for [(var i:int start) (< i end) (++ i)] ...)`"
+  [start end & body]
+  ~(for [(var i:int ,start) (< i ,end) (++ i)]
+     ,;body))
+
+(defn- each-y
+  :cjanet-block-macro
+  "For loop shortand for `(for [(var i:int start) (< i end) (++ i)] ...)`"
+  [start end & body]
+  ~(for [(var y:int ,start) (< y ,end) (++ y)]
+     ,;body))
+
+(defn- each-x
+  :cjanet-block-macro
+  "For loop shortand for `(for [(var i:int start) (< i end) (++ i)] ...)`"
+  [start end & body]
+  ~(for [(var x:int ,start) (< x ,end) (++ x)]
+     ,;body))
+
+(defn- cond-expression
+  :cjanet-expression-macro
+  "Cond but as an expression"
+  [& cases]
+  (assert (odd? (length cases)))
+  (def case-value (take 2 cases))
+  (def [case value] case-value)
+  (if (> 2 (length case-value))
+    case
+    ~(? ,case ,value ,(cond-expression ;(drop 2 cases)))))
+
+(defn- polymorph
+  :cjanet-block-macro
+  "Make specializations of a function implementation explicitly to help an optimizing compiler"
+  [sym bindings & body]
+  ~(switch
+     ,sym
+     ,;(array/join
+         @[]
+         ;(seq [b :in bindings]
+           [b ~(do ,;body (break))]))
+     (assert 0)))
+
+###
 ### 2D floating point vector abstraction
 ###
 
@@ -88,7 +136,7 @@
 
 (function v/norm :static :inline
   [a:V2] -> V2
-  (return (v/s* (v/len a) a)))
+  (return (v/s* (/ 1 (v/len a)) a)))
 
 (function v/lerp :static :inline
   [a:V2 b:V2 t:double] -> V2
@@ -106,51 +154,57 @@
   "Get vectors from an indexed collection. Must be freed with janet_sfree."
   [coords:JanetView (n 'int)] -> 'V2
   (if (band 1 coords.len) (janet-panic "expected an even number of point coordinates"))
-  (def (ret 'V2) (janet-smalloc (* (sizeof V2) coords.len)))
+  (def (ret 'V2) (janet-smalloc (* (sizeof V2) (/ coords.len 2))))
   (for [(var i:int 0) (< i coords.len) (+= i 2)]
     (def x:double (janet-getnumber coords.items (+ i 0)))
     (def y:double (janet-getnumber coords.items (+ i 1)))
-    (set (aref ret i) (v/make x y)))
+    (set (aref ret (/ i 2)) (v/make x y)))
   (set 'n (/ coords.len 2))
   (return ret))
 
-###
-### Macros
-###
-
-(defn- fori
-  :cjanet-block-macro
-  "For loop shortand for `(for [(var i:int start) (< i end) (++ i)] ...)`"
-  [start end & body]
-  ~(for [(var i:int ,start) (< i ,end) (++ i)]
-     ,;body))
-
-(defn- cond-expression
-  :cjanet-expression-macro
-  "Cond but as an expression"
-  [& cases]
-  (assert (odd? (length cases)))
-  (def case-value (take 2 cases))
-  (def [case value] case-value)
-  (if (> 2 (length case-value))
-    case
-    ~(? ,case ,value ,(cond-expression ;(drop 2 cases)))))
-
-(defn- polymorph
-  :cjanet-block-macro
-  "Make specializations of a function implementation explicitly to help an optimizing compiler"
-  [sym bindings & body]
-  ~(switch
-     ,sym
-     ,;(array/join
-         @[]
-         ;(seq [b :in bindings]
-           [b ~(do ,;body (break))]))
-     (assert 0)))
+(function indexed-to-vs-join-end
+  "Get vectors from an indexed collection. Must be freed with janet_sfree."
+  [coords:JanetView (n 'int)] -> 'V2
+  (if (band 1 coords.len) (janet-panic "expected an even number of point coordinates"))
+  (def (ret 'V2) (janet-smalloc (* (sizeof V2) (+ 1 (/ coords.len 2)))))
+  (for [(var i:int 0) (< i coords.len) (+= i 2)]
+    (def x:double (janet-getnumber coords.items (+ i 0)))
+    (def y:double (janet-getnumber coords.items (+ i 1)))
+    (set (aref ret (/ i 2)) (v/make x y)))
+  # Re-add first point
+  (def x:double (janet-getnumber coords.items 0))
+  (def y:double (janet-getnumber coords.items 1))
+  (set (aref ret (/ coords.len 2)) (v/make x y))
+  # Set N to coords/2 + 1
+  (set 'n (+ 1 (/ coords.len 2)))
+  (return ret))
 
 ###
 ### Image creation, basic utilties, saving and loading
 ###
+
+(typedef Image
+         (named-struct Image
+                       width int
+                       height int
+                       channels int
+                       data 'JanetBuffer
+                       stride int))
+
+(function tuple-to-image
+  "Get an image from an input tuple"
+  [img:JanetTuple] -> Image
+  (if (> 4 (janet-tuple-length img)) # allow for extra attributes
+    (janet-panicf "expected image (length 4 tuple), got %V" (janet-wrap-tuple img)))
+  (def im:Image)
+  (set im.data (janet-getbuffer img 0))
+  (set im.width (janet-getnat img 1))
+  (set im.height (janet-getnat img 2))
+  (set im.channels (janet-getnat img 3))
+  (if (or (< im.channels 1) (> im.channels 4))
+    (janet-panic "expected between 1 and 4 channels"))
+  (set im.stride (* im.channels im.width))
+  (return im))
 
 # TODO - refactor this
 (defn- bind-image-code
@@ -211,7 +265,7 @@
   (def width:int 0)
   (def height:int 0)
   (def c:int 0)
-  (def (img 'uint8_t) (stbi-load path ;width ;height ;c 0))
+  (def (img 'uint8_t) (stbi-load path &width &height &c 0))
   (unless img (janet-panic "failed to load image"))
 
   # Copy into buffer
@@ -242,7 +296,7 @@
      (def height:int 0)
      (def channels:int 0)
      (def (buf 'JanetBuffer) NULL)
-     (unwrap-image img ;buf ;width ;height ;channels)
+     (unwrap-image img &buf &width &height &channels)
      (def check:int (,(symbol 'stbi-write- ft) path width height channels buf->data ,;extra-args))
      (if-not check (janet-panic "failed to write image"))
      (return img)))
@@ -423,8 +477,8 @@
       (var src-g:int 0)
       (var src-b:int 0)
       (var src-a:int 0)
-      (colorsplit dest ;dest-r ;dest-g ;dest-b ;dest-a)
-      (colorsplit src ;src-r ;src-g ;src-b ;src-a)
+      (colorsplit dest &dest-r &dest-g &dest-b &dest-a)
+      (colorsplit src &src-r &src-g &src-b &src-a)
       (def r:int (clampz (,op dest-r src-r) 0 0xFF))
       (def g:int (clampz (,op dest-g src-g) 0 0xFF))
       (def b:int (clampz (,op dest-b src-b) 0 0xFF))
@@ -512,15 +566,15 @@
   (return color))
 
 ###
-### Shader Kernels
+### Simple drawing primitives
 ###
 
 (cfunction rect
   "Draw a rectangle on an image"
   [img:tuple x1:int y1:int x2:int y2:int color:uint32] -> tuple
   ,;(bind-image-code 'img)
-  (clip 0 (- width 1) 0 (- height 1) ;x1 ;y1)
-  (clip 0 (- width 1) 0 (- height 1) ;x2 ;y2)
+  (clip 0 (- width 1) 0 (- height 1) &x1 &y1)
+  (clip 0 (- width 1) 0 (- height 1) &x2 &y2)
   (polymorph channels [1 2 3 4]
     (for [(def y:int y1) (<= y y2) (++ y)]
       (for [(def x:int x1) (<= x x2) (++ x)]
@@ -530,22 +584,22 @@
 
 (cfunction circle
   "Draw a circle"
-  [img:tuple x:int y:int r:double color:uint32] -> tuple
+  [img:tuple x:double y:double r:double color:uint32] -> tuple
   ,;(bind-image-code 'img)
-  (def fr:int (floor (- r)))
-  (def cr:int (ceil r))
-  (var x1:int fr)
-  (var x2:int cr)
-  (var y1:int fr)
-  (var y2:int cr)
-  (clip (- 0 x) (- width x 1) (- 0 y) (- height y 1) ;x1 ;y1)
-  (clip (- 0 x) (- width x 1) (- 0 y) (- height y 1) ;x2 ;y2)
+  (var x1:int (floor (- x r)))
+  (var x2:int (ceil (+ x r)))
+  (var y1:int (floor (- y r)))
+  (var y2:int (ceil (+ y r)))
+  (clip 0 (- width 1) 0 (- height 1) &x1 &y1)
+  (clip 0 (- width 1) 0 (- height 1) &x2 &y2)
   (polymorph channels [1 2 3 4]
     (for [(def yy:int y1) (<= yy y2) (++ yy)]
       (for [(def xx:int x1) (<= xx x2) (++ xx)]
-        (when (>= (* r r) (+ (* xx xx) (* yy yy)))
-          (def c1:uint32_t (shader (+ x xx) (+ y yy) color))
-          (set-pixel (+ x xx) (+ y yy) c1)))))
+        (def dx:double (- xx x))
+        (def dy:double (- yy y))
+        (when (>= (* r r) (+ (* dx dx) (* dy dy)))
+          (def c1:uint32_t (shader xx yy color))
+          (set-pixel xx yy c1)))))
   (return img))
 
 (cfunction line
@@ -598,12 +652,12 @@
   (return
     (cond-expression
       (= 0 (janet_cstrcmp font-name "default"))
-      ;default-font
+      &default-font
       (= 0 (janet_cstrcmp font-name "tall"))
-      ;tall-font
+      &tall-font
       (= 0 (janet_cstrcmp font-name "olive"))
-      ;olive-font
-      ;default-font)))
+      &olive-font
+      &default-font)))
 
 (function utf8-read-codepoint :static :inline
   "Read a codepoint from a string, and advance the cursor to the next utf8 character"
@@ -702,7 +756,7 @@
   (var yy:int y)
   (var (c (const 'uint8_t)) (cast (const 'uint8_t) text))
   (while 'c
-    (def codepoint:int (utf8-read-codepoint ;c))
+    (def codepoint:int (utf8-read-codepoint &c))
     (if (= codepoint ,(chr "\n")) (do (set yy (+ yy (* yscale gh))) (set xx x) (continue)))
     (def cp437:int (unicode-to-cp437 codepoint))
     (for [(var row:int 0) (< row gh) (++ row)]
@@ -734,7 +788,7 @@
   (var h:int font->gh)
   (var (c (const 'uint8_t)) (cast (const 'uint8_t) text))
   (while 'c
-    (def codepoint:int (utf8-read-codepoint ;c))
+    (def codepoint:int (utf8-read-codepoint &c))
     (if (= codepoint ,(chr "\n"))
       (do
         (set w (max2z xcursor w))
@@ -742,7 +796,7 @@
         (+= h font->gh))
       (+= xcursor font->gw)))
   (set w (max2z xcursor w))
-  (def ret (janet-tuple-begin 2))
+  (def (ret 'Janet) (janet-tuple-begin 2))
   (set (aref ret 0) (janet-wrap-integer w))
   (set (aref ret 1) (janet-wrap-integer h))
   (return (janet-tuple-end ret)))
@@ -785,23 +839,6 @@
     (janet-array-push arr (janet-wrap-number y)))
 
   (janet-sfree dpoints)
-  (return arr))
-
-(cfunction outline-path
-  "Create a path that loops around another path"
-  [coordinates:indexed &opt thickness:double=1] -> 'JanetArray
-  (def npoints:int 0)
-  (def points (indexed-to-vs coordinates ;npoints))
-  (if (< npoints 4) (janet-panic "expected at least 2 points"))
-  (fori 1 (- npoints 1)
-    (def a (aref points (+ i -1)))
-    (def b (aref points (+ i 0)))
-    (def c (aref points (+ i 1)))
-    (def ab (v/- b a))
-    (def bc (v/- c b))
-    (def interior-norm (v/norm (- (v/norm bc) (v/norm ab)))))
-  (def (arr 'JanetArray) (janet-array (* 2 npoints)))
-  (janet-sfree points)
   (return arr))
 
 ###
@@ -871,8 +908,8 @@
   (set (aref ipoints (+ 1 points.len)) (aref ipoints 1))
   # 2. Clipping
   (def xmin1:int xmin) # clipping should not change how we trace rays
-  (clip 0 (- width 1) 0 (- height 1) ;xmin ;ymin)
-  (clip 0 (- width 1) 0 (- height 1) ;xmax ;ymax)
+  (clip 0 (- width 1) 0 (- height 1) &xmin &ymin)
+  (clip 0 (- width 1) 0 (- height 1) &xmax &ymax)
   # 3. Fill the bounds of the path, running a ray crossing test for each pixel and color when we have an odd number of intersections
   (polymorph channels [1 2 3 4]
     (for [(var y:int ymin) (<= y ymax) (set y (+ y 1))]
@@ -943,53 +980,40 @@
   (set 'xout (encode-intersect xcoord sign endpoint))
   (return 1))
 
-# TODO - floating point coordinates
-(cfunction fill-path
-  "Fill a path with a solid color"
-  [img:JanetTuple points:indexed color:uint32_t] -> JanetTuple
+(function fill-path-impl
+  [img:JanetTuple (points 'V2) npoints:int color:uint32_t] -> void
   ,;(bind-image-code 'img)
   # 1. Get y bounds of the path and extract coordinates
   (var ymin:int INT32-MAX)
   (var ymax:int INT32-MIN)
-  (if (band 1 points.len) (janet-panic "expected an even number of point coordinates"))
-  (if (< points.len 6) (janet-panic "expected at least 3 points"))
-  (def plen:int (+ 2 points.len))
-  (def (ipoints 'int) (janet-smalloc (* (sizeof int) (* 2 plen))))
-  (def (ibuf 'int) (+ ipoints plen)) # Use this buffer for sorting x coordinates for scan lines
-  (for [(var i:int 0) (< i points.len) (+= i 2)]
-    (def x:int (round (janet-getnumber points.items i)))
-    (def y:int (round (janet-getnumber points.items (+ i 1))))
-    (set (aref ipoints i) x)
-    (set (aref ipoints (+ 1 i)) y)
-    (set ymin (? (> y ymin) ymin y))
-    (set ymax (? (> y ymax) y ymax)))
-  # Add first point to end
-  (set (aref ipoints points.len) (aref ipoints 0))
-  (set (aref ipoints (+ 1 points.len)) (aref ipoints 1))
-  # 2. Y Clipping
+  (def (ibuf 'int) (janet-smalloc (* (sizeof int) (* 3 npoints)))) # scratch buffer
+  (each-i 0 npoints
+    (set ymin (min2z ymin (round (. (aref points i) y))))
+    (set ymax (max2z ymax (round (. (aref points i) y)))))
+  # Clip
   (set ymin (clampz ymin 0 (- height 1)))
   (set ymax (clampz ymax 0 (- height 1)))
-  # 3. Iterate over scanlines
   (polymorph channels [1 2 3 4]
     (for [(var y:int ymin) (<= y ymax) (++ y)]
-      # Collect and sort x intercepts for all segments into ibuf
+      # Collect intersections
       (var intersection-count:int 0)
-      (for [(var i:int 2) (< i plen) (+= i 2)]
+      (each-i 0 (- npoints 1)
+        (def pa:V2 (aref points (+ i 0)))
+        (def pb:V2 (aref points (+ i 1)))
         (var intersect:int 0)
         (def did-intersect:int
           (scanline-test
-            (aref ipoints (+ i 0))
-            (aref ipoints (+ i 1))
-            (aref ipoints (+ i -2))
-            (aref ipoints (+ i -1))
-            y ;intersect))
+            (cast int (round pb.x))
+            (cast int (round pb.y))
+            (cast int (round pa.x))
+            (cast int (round pa.y))
+            y &intersect))
         (when did-intersect
           (for [(var j:int 0) (< j intersection-count) (++ j)]
             (when (< intersect (aref ibuf j)) # is this the best sorting? - sort by endpoint and sign as well, not just xcoord
               (swap intersect (aref ibuf j) int)))
           (set (aref ibuf intersection-count) intersect)
           (++ intersection-count)))
-
       # Handle negative xcoords (intersections of segments at YMAX)
       # 2 top intersections can be either an exterior point, like the tip of a star, or
       # a interior angle, like an elbow
@@ -1024,12 +1048,11 @@
       #            \XXX
       #             \XX
       #              \X
-
       (var last:int (aref ibuf 0))
       (set (aref ibuf 0) (intersect-xcoord last))
       (var cursor:int 1)
       (var nodrop:int 0)
-      (for [(var i:int 1) (< i intersection-count) (++ i)]
+      (each-i 1 intersection-count
         (def inter:int (aref ibuf i))
         (var keep:int 1)
         # Discard
@@ -1045,35 +1068,49 @@
       (set intersection-count cursor)
 
       # Draw scan lines
-      (for [(var i:int 0) (< i intersection-count) (+= i 2)]
+      (for [(var i:int 0) (< i (- intersection-count 1)) (+= i 2)]
         (def x1:int (clampz (aref ibuf i) 0 (- width 1)))
-        (def x2:int (clampz (aref ibuf (+ i 1)) 0 (- width 1)))
-        (for [(var x:int x1) (<= x x2) (++ x)]
+        (def x2:int (clampz (+ 1 (aref ibuf (+ i 1))) 0 width))
+        (for [(var x:int x1) (< x x2) (++ x)]
           (def c1:uint32_t (shader x y color))
           (set-pixel x y c1)))))
 
-  # 4. Cleanup
-  (janet-sfree ipoints)
+  (janet-sfree ibuf))
+
+(cfunction fill-path
+  "Fill a path with a solid color"
+  [img:JanetTuple points:indexed color:uint32_t] -> JanetTuple
+  (var npoints:int 0)
+  (def (vs 'V2) (indexed-to-vs-join-end points &npoints))
+  (fill-path-impl img vs npoints color)
+  (janet-sfree vs)
   (return img))
 
 # TODO - make much better, inline `line` call, allow for thickness, etc.
 (cfunction stroke-path
   "Stroke a line along a path"
-  [img:JanetTuple points:indexed color:uint32_t &opt join-end:bool=0] -> JanetTuple
-  (if (band 1 points.len) (janet-panic "expected an even number of point coordinates"))
-  (if (< points.len 4) (janet-panic "expected at least 2 points"))
-  (def firstx:int (round (janet-getnumber points.items 0)))
-  (def firsty:int (round (janet-getnumber points.items 1)))
-  (var lastx:int firstx)
-  (var lasty:int firsty)
-  (for [(var i:int 2) (< i points.len) (+= i 2)]
-    (def x:int (round (janet-getnumber points.items (+ i 0))))
-    (def y:int (round (janet-getnumber points.items (+ i 1))))
-    (line img lastx lasty x y color)
-    (set lastx x)
-    (set lasty y))
-  (when join-end
-    (line img lastx lasty firstx firsty color))
+  [img:JanetTuple points:indexed color:uint32_t &opt thickness:double=1 join-end:bool=0] -> JanetTuple
+  ,;(bind-image-code 'img)
+  (var npoints:int 0)
+  (var (vs 'V2))
+  (if join-end
+    (set vs (indexed-to-vs-join-end points &npoints))
+    (set vs (indexed-to-vs points &npoints)))
+  (each-i 1 npoints
+    (def A:V2 (aref vs (- i 1)))
+    (def B:V2 (aref vs i))
+    (def AB:V2 (v/- B A))
+    (def leg:V2 (v/s* thickness (v/rotate-cw-90 (v/norm AB))))
+    (def p1:V2 (v/+ A leg))
+    (def p2:V2 (v/- A leg))
+    (def p3:V2 (v/- B leg))
+    (def p4:V2 (v/+ B leg))
+    (def (ps (array V2)) @[p1 p2 p3 p4 p1])
+    (fill-path-impl img ps 5 color))
+  (each-i 0 npoints
+    (def P:V2 (aref vs i))
+    (circle img P.x P.y thickness color))
+  (janet-sfree vs)
   (return img))
 
 (module-entry "spork_gfx2d")

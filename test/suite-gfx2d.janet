@@ -207,7 +207,7 @@
                        (- width 10) (- height 10)
                        (- width 10) 10])
   (def points (bezier-path control-points))
-  (stroke-path canvas points green false)
+  (stroke-path canvas points green 4)
   (check-image canvas "bezier1.png"))
 
 (test-stroke-bezier)
@@ -237,7 +237,7 @@
                        ])
   (def points (map math/round (bezier-path control-points 0.001)))
   (fill-path canvas points yellow)
-  (stroke-path canvas points green)
+  (stroke-path canvas points green 4.5 true)
   (check-image canvas "bezier3.png"))
 
 (test-fill-bezier-3)
@@ -257,6 +257,7 @@
       (def y (+ (/ height 2) (* radius (math/sin (* switch theta)))))
       (array/concat points [x y])))
   (fill-path canvas points blue)
+  #(stroke-path canvas points magenta 4)
   (check-image canvas "donut.png"))
 
 (test-fill-donut)
