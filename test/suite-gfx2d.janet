@@ -174,6 +174,7 @@
       (def y (+ (/ height 2) (* radius (math/sin theta))))
       (array/concat points [(math/round x) (math/round y)]))
     (fill-path img points color))
+  # (check-image img "bigstar.png")
   (def smaller (resize img 128 128))
   (check-image smaller "star.png"))
 
@@ -273,8 +274,14 @@
   (def xformed-xs (map (partial + 12) xs))
   (def xformed-ys (map (partial - 1012) ys))
   (def path (map math/round (mapcat tuple xformed-xs xformed-ys)))
-  (fill-path img [;path 1012 1000 12 1000] blue)
-  (check-image (resize img 256 256) "bumpy-chart.png"))
+  (def path2 [;path 1012 1000 12 1000])
+  (fill-path img path2 blue)
+  #(check-image img "big-bumpy-chart.png")
+  (check-image (resize img 256 256) "bumpy-chart.png")
+  (rect img 0 0 10000 10000 black)
+  (def path2 (mapcat identity (reverse (partition 2 path2))))
+  (fill-path img path2 green)
+  (check-image (resize img 256 256) "bumpy-chart-2.png"))
 
 (test-bumpy-chart)
 

@@ -936,38 +936,45 @@
 ### Better, Faster fill path
 ###
 
-(function encode-intersect :static :inline
-  "Encode postive/negative intersections along with x coordinate, direction, and whether or not we are an endpoint into an integer"
-  [x:int sign:int endpoint:int] -> int
-  (def signbit:int (? (> sign 0) 1 0))
-  (def endbit:int (? endpoint 2 0))
-  (return (bor (<< x 2) signbit endbit)))
+# Allow for sorting intersesctions
+(typedef Intersection
+         (named-struct Intersection
+                       xcoord int
+                       sign int
+                       tail int
+                       endpoint int))
 
-(function intersect-xcoord :static :inline
-  "Get x coordinate of intersection"
-  [intersect:int] -> int
-  (return (>> intersect 2)))
+(function intersection-compare
+  "Compare two intersections"
+  [a:Intersection b:Intersection] -> int
+  (if (not= a.xcoord b.xcoord) (return (- b.xcoord a.xcoord)))
+  (if (not= a.endpoint b.endpoint) (return (? a.endpoint 1 -1)))
+  (if (not= a.sign b.sign) (return (? (> a.sign b.sign) 1 -1)))
+  (if (not= a.tail b.tail) (return (? (> a.tail b.tail) 1 -1)))
+  # Other fields unused
+  (return 0))
 
-(function intersect-sign :static :inline
-  "Get x coordinate of intersection"
-  [intersect:int] -> int
-  (return (? (band intersect 0x1) 1 -1)))
-
-(function intersect-endpoint :static :inline
-  "Check if an intersect was an endpoint intersection"
-  [intersect:int] -> int
-  (return (band intersect 0x2)))
+(function is-ccw :static :inline
+  "Check if a list of points defines a CW or CCW polygon"
+  [(points 'V2) npoints:int] -> int
+  (var sum:double 0)
+  (each-i 0 (- npoints 1)
+    (def j:int (% (+ i 1) npoints))
+    (def A:V2 (aref points i))
+    (def B:V2 (aref points j))
+    (+= sum (- (* A.x B.y) (* A.y B.x))))
+  (return (? (> sum 0.0) 1 -1)))
 
 (function scanline-test :static :inline
   "Check if a line segment intersects a scanline. If so, return the x coordinate of the intersection as well.
   Will return 1 or -1 if there is an intersction, depending on if the segment has positive or negative dy
   (Zero dy is defined to never intersect the scanline)."
-  [x1:int y1:int x2:int y2:int y-scan:int (xout 'int)] -> int
+  [x1:int y1:int x2:int y2:int y-scan:int (out 'Intersection)] -> int
   (def sign:int 1)
   (when (> y1 y2)
     (swap x1 x2 int)
     (swap y1 y2 int)
-    (set sign -1))
+    (set sign (- sign)))
   (if (< y-scan y1) (return 0))
   (if (> y-scan y2) (return 0))
   (if (= y1 y2) (return 0))
@@ -977,7 +984,10 @@
   (def nx:int (* ny dx))
   (def xcoord:int (/ (+ (/ dy 2) (* x1 dy) nx) dy))
   (def endpoint:int (or (= y1 y-scan) (= y2 y-scan)))
-  (set 'xout (encode-intersect xcoord sign endpoint))
+  (set out->xcoord xcoord)
+  (set out->sign sign)
+  (set out->endpoint endpoint)
+  (set out->tail (? endpoint (* sign (? (= y1 y-scan) 1 -1)) 0))
   (return 1))
 
 (function fill-path-impl
@@ -986,7 +996,7 @@
   # 1. Get y bounds of the path and extract coordinates
   (var ymin:int INT32-MAX)
   (var ymax:int INT32-MIN)
-  (def (ibuf 'int) (janet-smalloc (* (sizeof int) (* 3 npoints)))) # scratch buffer
+  (def (ibuf 'Intersection) (janet-smalloc (* (sizeof Intersection) (* 2 npoints))))
   (each-i 0 npoints
     (set ymin (min2z ymin (round (. (aref points i) y))))
     (set ymax (max2z ymax (round (. (aref points i) y)))))
@@ -1000,7 +1010,7 @@
       (each-i 0 (- npoints 1)
         (def pa:V2 (aref points (+ i 0)))
         (def pb:V2 (aref points (+ i 1)))
-        (var intersect:int 0)
+        (var intersect:Intersection)
         (def did-intersect:int
           (scanline-test
             (cast int (round pb.x))
@@ -1010,67 +1020,41 @@
             y &intersect))
         (when did-intersect
           (for [(var j:int 0) (< j intersection-count) (++ j)]
-            (when (< intersect (aref ibuf j)) # is this the best sorting? - sort by endpoint and sign as well, not just xcoord
-              (swap intersect (aref ibuf j) int)))
+            (when (> (intersection-compare intersect (aref ibuf j)) 0)
+              (swap intersect (aref ibuf j) Intersection)))
           (set (aref ibuf intersection-count) intersect)
           (++ intersection-count)))
-      # Handle negative xcoords (intersections of segments at YMAX)
-      # 2 top intersections can be either an exterior point, like the tip of a star, or
-      # a interior angle, like an elbow
-      #
-      # \XXXXX/
-      #  \XXX/      Tip - scanline of width 1, keep both intersections
-      #   \X/
-      #----X----
-      #
-      #
-      #X\     /X
-      #XX\   /XX    Elbow - Continue current scan line, keep (or eliminate) both intersections
-      #XXX\ /XXX
-      #----X----
-      #XXXXXXXXX
-      #
-      #X\
-      #XX\
-      #XXX\
-      #----X----   Crossing - Eliminate 1 of 2
-      #XXX/
-      #XX/
-      #X/
 
-      # Another variant of a crossing, but with a horizontal in between the two ends
-      #
-      #\XXXXXXXXXXXXXXX
-      # \XXXXXXXXXXXXXX
-      #  \XXXXXXXXXXXXX
-      #   \XXXXXXXXXXXX
-      #----X------X----
-      #            \XXX
-      #             \XX
-      #              \X
-      (var last:int (aref ibuf 0))
-      (set (aref ibuf 0) (intersect-xcoord last))
+      # Discard some intersections
+      (var last:Intersection (aref ibuf 0))
       (var cursor:int 1)
       (var nodrop:int 0)
       (each-i 1 intersection-count
-        (def inter:int (aref ibuf i))
+        (def inter:Intersection (aref ibuf i))
         (var keep:int 1)
         # Discard
-        (when (and (not nodrop) (intersect-endpoint inter) (intersect-endpoint last))
-          (when (= (intersect-sign inter) (intersect-sign last))
+        (when (and (not nodrop) inter.endpoint last.endpoint)
+          (when (and (not= inter.tail last.tail) (= inter.sign last.sign))
             (set keep 0)
             (set nodrop 1)))
         (when keep
-          (set (aref ibuf cursor) (intersect-xcoord inter))
+          (set (aref ibuf cursor) inter)
           (++ cursor)
           (set nodrop 0)
-          (set last inter)))
+          # Deal with certain order problems
+          (set inter.xcoord (max2z inter.xcoord last.xcoord))
+          (if (> 0 (intersection-compare inter last))
+            (set last inter))))
       (set intersection-count cursor)
 
       # Draw scan lines
       (for [(var i:int 0) (< i (- intersection-count 1)) (+= i 2)]
-        (def x1:int (clampz (aref ibuf i) 0 (- width 1)))
-        (def x2:int (clampz (+ 1 (aref ibuf (+ i 1))) 0 width))
+        (def i1:Intersection (aref ibuf (+ i 0)))
+        (def i2:Intersection (aref ibuf (+ i 1)))
+        (def ix1:int i1.xcoord)
+        (def ix2:int i2.xcoord)
+        (def x1:int (clampz ix1 0 (- width 1)))
+        (def x2:int (clampz (+ 1 ix2) 0 width))
         (for [(var x:int x1) (< x x2) (++ x)]
           (def c1:uint32_t (shader x y color))
           (set-pixel x y c1)))))
