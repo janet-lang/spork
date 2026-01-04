@@ -40,7 +40,11 @@
 
 (defn rrect
   [img x1 y1 x2 y2 color]
-  (fill-path img [x1 y1 x1 y2 x2 y2 x2 y1] color))
+  (def xa (min x1 x2))
+  (def xb (max x1 x2))
+  (def ya (min y1 y2))
+  (def yb (max y1 y2))
+  (fill-path img [xa ya xa yb xb yb xb ya] color))
 
 (defn test-image-1
   []
@@ -57,8 +61,8 @@
 (defn test-stamp
   []
   (def img (blank 128 128 3))
-  (rect img 16 16 112 112 red)
-  (rect img 32 32 96 96 blue)
+  (rrect img 16 16 112 112 red)
+  (rrect img 32 32 96 96 blue)
   (circle img 64 64 30.5 yellow)
   (def dest (blank 1024 1024 3))
   # Don't crash for oob
@@ -90,9 +94,9 @@
     (def [buf w h c] img)
     [(buffer/slice buf) w h c])
   (def img (blank 154 113 3))
-  (rect img 16 16 112 112 red)
+  (rrect img 16 16 112 112 red)
   (circle img 16 16 1000 cyan) # oob circle
-  (rect img 32 32 96 96 blue)
+  (rrect img 32 32 96 96 blue)
   (def cop (copy img))
   (assert (deep= cop img))
   (def empty1 (diff cop img))
@@ -101,21 +105,6 @@
   (check-image empty2 "empty2.tga"))
 
 (test-copy)
-
-(defn test-lines
-  []
-  (def dest (blank 1024 1024 3))
-  (rect dest 0 0 1024 1024 blue)
-  (loop [theta :range [0 (* 2 math/pi) (/ math/pi 24)]]
-    (def sin (math/sin theta))
-    (def cos (math/cos theta))
-    (line dest
-          (math/round (+ 512 (* cos 10))) (math/round (+ 512 (* sin 10)))
-          (math/round (+ 512 (* cos 500))) (math/round (+ 512 (* sin 500)))
-          magenta))
-  (check-image dest "line_circle.png"))
-
-(test-lines)
 
 (defn test-simple-text
   []
@@ -271,7 +260,7 @@
   "Test bumpy chart for fill path"
   []
   (def img (blank 1024 1024 4))
-  (rect img 0 0 10000 10000 black)
+  (rrect img 0 0 10000 10000 black)
   (math/seedrandom 0)
   (def xs (range 1000))
   (def ys (seq [x :in xs] (* 100 (+ (math/log (inc x)) (math/random)))))
@@ -282,7 +271,7 @@
   (fill-path img path2 blue)
   #(check-image img "big-bumpy-chart.png")
   (check-image (resize img 256 256) "bumpy-chart.png")
-  (rect img 0 0 10000 10000 black)
+  (rrect img 0 0 10000 10000 black)
   (def path2 (mapcat identity (reverse (partition 2 path2))))
   (fill-path img path2 green)
   (check-image (resize img 256 256) "bumpy-chart-2.png"))

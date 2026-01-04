@@ -566,21 +566,8 @@
   (return color))
 
 ###
-### Simple drawing primitives
+### Draw a circle
 ###
-
-(cfunction rect
-  "Draw a rectangle on an image"
-  [img:tuple x1:int y1:int x2:int y2:int color:uint32] -> tuple
-  ,;(bind-image-code 'img)
-  (clip 0 (- width 1) 0 (- height 1) &x1 &y1)
-  (clip 0 (- width 1) 0 (- height 1) &x2 &y2)
-  (polymorph channels [1 2 3 4]
-    (for [(def y:int y1) (<= y y2) (++ y)]
-      (for [(def x:int x1) (<= x x2) (++ x)]
-        (def c1:uint32_t (shader x y color))
-        (set-pixel x y c1))))
-  (return img))
 
 (cfunction circle
   "Draw a circle"
@@ -601,31 +588,6 @@
           (def c1:uint32_t (shader xx yy color))
           (set-pixel xx yy c1)))))
   (return img))
-
-(cfunction line
-  "Draw a line from x1,y1 to x2,y2"
-  [img:tuple x1:int y1:int x2:int y2:int color:uint32] -> tuple
-  ,;(bind-image-code 'img "img-")
-  # Use Bresenham's algorithm to draw the line
-  (def dx:int (cast int (abs (- x2 x1))))
-  (def dy:int (- (cast int (abs (- y2 y1)))))
-  (def sx:int (? (< x1 x2) 1 -1))
-  (def sy:int (? (< y1 y2) 1 -1))
-  (def err:int (+ dx dy))
-  (var x:int x1)
-  (var y:int y1)
-  (while 1
-    (when (and (>= x 0) (< x img-width) (>= y 0) (< y img-height))
-      (def c1:uint32_t (shader x y color))
-      (set-pixel x y c1 "img-"))
-    (when (>= (* 2 err) dy)
-      (if (== x x2) (return img))
-      (+= err dy)
-      (+= x sx))
-    (when (<= (* 2 err) dx)
-      (if (== y y2) (return img))
-      (+= err dx)
-      (+= y sy))))
 
 ###
 ### Built-in simple text rendering with CP437 BIOS fonts
