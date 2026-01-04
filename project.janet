@@ -73,7 +73,7 @@
 
 (declare-native
   :name "spork/gfx2d"
-  :source @["src/gfx2d.janet" "src/stb.janet"]
+  :source @["spork/gfx2d-codegen.janet" "src/stb.janet"]
   :deps @["deps/default_font.h" "deps/tall_font.h" "deps/olive_font.h"]
   :ldflags @[;default-ldflags "-lm"]
   :cflags @[;default-cflags "-Ideps/stb" "-Ideps" "-Wall"])

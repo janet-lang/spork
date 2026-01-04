@@ -1,5 +1,24 @@
 (use spork/gfx2d)
 
+(import spork/gfx2d-shader :as shader)
+
+# Create checkerboard shader
+(shader/shader-jit
+  :prefix "checker/"
+  :pixel-shader '(return (? (= 7 (band 15 (bxor x y))) color cyan)))
+
+(defn rect
+  [img x1 y1 x2 y2 color]
+  (def xa (min x1 x2))
+  (def xb (max x1 x2))
+  (def ya (min y1 y2))
+  (def yb (max y1 y2))
+  (fill-path img [xa ya xa yb xb yb xb ya] color))
+
+(defn line
+  [img x1 y1 x2 y2 color]
+  (stroke-path img [x1 y1 x2 y2] color 0.55))
+
 # Blank canvas
 (def img (blank 1024 1024 4))
 (rect img 0 0 10000 10000 black)
@@ -14,7 +33,7 @@
 (def xformed-ys (map (partial - 1012) ys))
 (def path (map math/round (mapcat tuple xformed-xs xformed-ys)))
 #(printf "%.99M" (partition 8 path))
-(fill-path img [;path 1012 1000 12 1000] blue)
+(checker/fill-path img [;path 1012 1000 12 1000] blue)
 
 # Draw axes
 (line img 12 12 12 1012 white)
