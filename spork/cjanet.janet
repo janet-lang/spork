@@ -17,7 +17,7 @@
 (def- mangle-peg
   (peg/compile
     ~{:valid (range "az" "AZ" "__" ".." "::")
-      :one (+ '"->" (/ "-" "_") ':valid (/ '1 ,|(string "_X" ($ 0))))
+      :one (+ '"->" (/ "-" "_") '" " ':valid (/ '1 ,|(string "_X" ($ 0))))
       :main (% (* (? "@") '(any (set "*&")) :one (any (+ ':d :one))))}))
 
 (def- mangle-strict-peg
@@ -240,6 +240,7 @@
 (varfn emit-type
   [definition &opt alias]
   (match definition
+    (d (string? d)) (do (prin d) (if alias (prin " " (mangle alias))))
     (d (bytes? d)) (do (prin (mangle-strict d)) (if alias (prin " " (mangle alias))))
     (t (tuple? t))
     (match t

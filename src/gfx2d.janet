@@ -15,7 +15,7 @@
 ### [x] - testing harness
 ### [x] - get/set individual pixels (mostly for testing)
 ### [x] - text w/ simple font
-### [ ] - stroke paths (w/ thickness)
+### [x] - stroke paths (w/ thickness)
 ### [ ] - blending
 ### [x] - image resizing
 ### [x] - bezier

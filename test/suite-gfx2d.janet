@@ -38,11 +38,15 @@
       (def reference (load fullpath))
       (assert (deep= reference img) (string "reference not identical to test image " file-name)))))
 
+(defn rrect
+  [img x1 y1 x2 y2 color]
+  (fill-path img [x1 y1 x1 y2 x2 y2 x2 y1] color))
+
 (defn test-image-1
   []
   (def img (blank 128 128 3))
-  (rect img 16 16 112 112 red)
-  (rect img 32 32 96 96 blue)
+  (rrect img 16 16 112 112 red)
+  (rrect img 32 32 96 96 blue)
   (circle img 64 64 30.5 yellow)
   (check-image img "target1.png")
   (check-image img "target1.bmp")
