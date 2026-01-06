@@ -2,6 +2,9 @@
 ### gfx2d-codegen.janet
 ###
 ### Various simple CPU-based 2d graphics tools suitable for demos, visulizations, and charting.
+### The module generates C code which then is further compiled. It can also be used to generate "shaders"
+### by evaluating this file with `(dyn :shader-compile)` set, which disables a number of functions and allows
+### passing in a pixel shader stub.
 ###
 ### Includes:
 ### * Wrappers around stb_image for loading, saving, and modifying images.
@@ -548,10 +551,18 @@
 ### Evaluate file with `(dyn :pixel-shader)` set to use a different pixel shader.
 ###
 
+(def shader-args (dyn :shader-args '[color:uint32_t]))
+(def shader-params (map first (map type-split shader-args)))
 (def default-shader '(return color))
-(function shader :static :inline
-  [x:int y:int color:uint32_t] -> uint32_t
-  ,(dyn :pixel-shader default-shader))
+
+# When compiling shaders, just declare the shader so we can define it later
+(compwhen (dyn :shader-compile)
+  (function shader :static :inline [x:int y:int ,;shader-args] -> uint32_t))
+
+(comp-unless (dyn :shader-compile)
+  (function shader :static :inline
+    [x:int y:int ,;shader-args] -> uint32_t
+    (return color)))
 
 ###
 ### Draw a circle
@@ -559,7 +570,7 @@
 
 (cfunction circle
   "Draw a circle"
-  [img:tuple x:double y:double r:double color:uint32] -> tuple
+  [img:tuple x:double y:double r:double ,;shader-args] -> tuple
   ,;(bind-image-code 'img)
   (var x1:int (floor (- x r)))
   (var x2:int (ceil (+ x r)))
@@ -573,7 +584,7 @@
         (def dx:double (- xx x))
         (def dy:double (- yy y))
         (when (>= (* r r) (+ (* dx dx) (* dy dy)))
-          (def c1:uint32_t (shader xx yy color))
+          (def c1:uint32_t (shader xx yy ,;shader-params))
           (set-pixel xx yy c1)))))
   (return img))
 
@@ -728,8 +739,7 @@
                 (def xxx:int (+ (* xscale col) xx xoff))
                 (def yyy:int (+ (* yscale row) yy yoff))
                 (when (and (>= xxx 0) (>= yyy 0) (< xxx width) (< yyy height))
-                  (def c1:uint32_t (shader xxx yyy color))
-                  (set-pixel xxx yyy c1)))))
+                  (set-pixel xxx yyy color)))))
           (set glyph-row (>> glyph-row 1))))
       (set xx (+ xx (* xscale gw))))
     (return img)))
@@ -840,7 +850,7 @@
 
 (cfunction fill-path-prototype
   "Fill a path with a solid color - very slow but straightforward implementation."
-  [img:JanetTuple points:indexed color:uint32_t] -> JanetTuple
+  [img:JanetTuple points:indexed ,;shader-args] -> JanetTuple
   ,;(bind-image-code 'img)
   # 1. Get bounds of the path and extract coordinates
   (var xmin:int INT32-MAX)
@@ -883,7 +893,7 @@
               (- xmin1 1) y))
           (set intersection-count (+ intersection-count intersect)))
         (when (band 1 intersection-count)
-          (def c1:uint32_t (shader x y color))
+          (def c1:uint32_t (shader x y ,;shader-params))
           (set-pixel x y c1)))))
   # 4. Cleanup
   (janet-sfree ipoints)
@@ -937,7 +947,7 @@
   (return 1))
 
 (function fill-path-impl
-  [img:JanetTuple (points 'V2) npoints:int color:uint32_t] -> void
+  [img:JanetTuple (points 'V2) npoints:int ,;shader-args] -> void
   ,;(bind-image-code 'img)
   # 1. Get y bounds of the path and extract coordinates
   (var ymin:int INT32-MAX)
@@ -1002,24 +1012,24 @@
         (def x1:int (clampz ix1 0 (- width 1)))
         (def x2:int (clampz (+ 1 ix2) 0 width))
         (for [(var x:int x1) (< x x2) (++ x)]
-          (def c1:uint32_t (shader x y color))
+          (def c1:uint32_t (shader x y ,;shader-params))
           (set-pixel x y c1)))))
 
   (janet-sfree ibuf))
 
 (cfunction fill-path
-  "Fill a path with a solid color"
-  [img:JanetTuple points:indexed color:uint32_t] -> JanetTuple
+  "Fill a path"
+  [img:JanetTuple points:indexed ,;shader-args] -> JanetTuple
   (var npoints:int 0)
   (def (vs 'V2) (indexed-to-vs-join-end points &npoints))
-  (fill-path-impl img vs npoints color)
+  (fill-path-impl img vs npoints ,;shader-params)
   (janet-sfree vs)
   (return img))
 
 # TODO - allow for dotted or other complex strokes.
 (cfunction stroke-path
   "Stroke a line along a path"
-  [img:JanetTuple points:indexed color:uint32_t &opt thickness:double=1 join-end:bool=0] -> JanetTuple
+  [img:JanetTuple points:indexed ,;shader-args &opt thickness:double=1 join-end:bool=0] -> JanetTuple
   ,;(bind-image-code 'img)
   (var npoints:int 0)
   (var (vs 'V2))
@@ -1036,10 +1046,10 @@
     (def p3:V2 (v/- B leg))
     (def p4:V2 (v/+ B leg))
     (def (ps (array V2)) @[p1 p2 p3 p4 p1])
-    (fill-path-impl img ps 5 color))
+    (fill-path-impl img ps 5 ,;shader-params))
   (each-i 0 npoints
     (def P:V2 (aref vs i))
-    (circle img P.x P.y thickness color))
+    (circle img P.x P.y thickness ,;shader-params))
   (janet-sfree vs)
   (return img))
 

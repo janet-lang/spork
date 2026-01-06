@@ -1,11 +1,18 @@
 (use spork/gfx2d)
+(use spork/cjanet)
 
-(import spork/gfx2d-shader :as shader)
+(import spork/gfx2d-shader :as s)
 
 # Create checkerboard shader
-(shader/shader-jit
+(s/shader-begin
   :prefix "checker/"
-  :pixel-shader '(return (? (= 7 (band 15 (bxor x y))) color cyan)))
+  :shader-args '[color1:uint32_t color2:uint32_t])
+
+(function shader
+  [x:int y:int color1:uint32_t color2:uint32_t] -> uint32_t
+  (return (? (band 1 (>> (bxor x y) 4)) color1 color2)))
+
+(s/shader-end)
 
 (defn rect
   [img x1 y1 x2 y2 color]
@@ -33,7 +40,7 @@
 (def xformed-ys (map (partial - 1012) ys))
 (def path (map math/round (mapcat tuple xformed-xs xformed-ys)))
 #(printf "%.99M" (partition 8 path))
-(checker/fill-path img [;path 1012 1000 12 1000] blue)
+(checker/fill-path img [;path 1012 1000 12 1000] blue black)
 
 # Draw axes
 (line img 12 12 12 1012 white)
@@ -67,6 +74,7 @@
 
 # Save it
 (os/mkdir "tmp")
+(print "writing tmp/chart.png")
 (save-png "tmp/chart.png" img)
 # (os/execute ["imv" "-u" "nearest_neighbour" "tmp/chart.png"] :px)
 # Use feh, explorer.exe, whatever to view images

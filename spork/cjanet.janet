@@ -14,6 +14,12 @@
 (import ./cc)
 (import ./pm-config)
 
+(defdyn *default-ctype* "The default type used when declaring variables")
+(defdyn *indent* "current indent buffer")
+(defdyn *cfun-list* "Array of C Functions defined in the current scope")
+(defdyn *cdef-list* "Array of C Constants defined in the current scope")
+(defdyn *jit-context* "A context value for storing the current state of compilation, including buffers, flags, and tool paths.")
+
 (def- mangle-peg
   (peg/compile
     ~{:valid (range "az" "AZ" "__" ".." "::")
@@ -35,8 +41,6 @@
    'blshift "<<" 'brshift ">>"})
 
 (def- uops {'bnot "~" 'not "!" 'neg "-" '- "-" '! "!" '++ "++" '-- "--"})
-
-(defdyn *default-ctype* "The default type used when declaring variables")
 
 (defn mangle
   ``
@@ -140,7 +144,6 @@
   (def processed-msg (first (peg/match comment-patch-peg msg)))
   (print "/* " processed-msg " */"))
 
-(defdyn *indent* "current indent buffer")
 (defn- indent [] (or (dyn *indent*) (setdyn *indent* @"")))
 
 # Expose indent helpers
@@ -640,9 +643,6 @@
 ### Janet <-> C glue utilities
 ###
 
-(defdyn *cfun-list* "Array of C Functions defined in the current scope")
-(defdyn *cdef-list* "Array of C Constants defined in the current scope")
-
 (def- bindgen-table
   ```
   Store symbols needed to extract or return types for cfunctions.
@@ -887,8 +887,6 @@
 ### "JIT" functionality for use in repl and to reduce boilerplate
 ###
 
-(defdyn *jit-context* "A context value for storing the current state of compilation, including buffers, flags, and tool paths.")
-
 (defn begin-jit
   ```
   Begin C Janet JIT context. Optionally pass in options to configure compilation. The `options` argument
@@ -903,11 +901,16 @@
      :build-dir "_cjanet"
      :opts options
      :old-out prevout
+     :prefix (get options :prefix)
      :build-type (get options :build-type :native)
-     :module-name (get options :module-name (string "cjanet_" (os/getpid)))})
+     *cdef-list* @[]
+     *cfun-list* @[]
+     :module-name (get options :module-name (string "cjanet" (gensym) "_" (os/getpid)))})
   (setdyn *jit-context* cont)
   (os/mkdir "_cjanet")
   (setdyn *out* compilation-unit)
+  (setdyn *cdef-list* (get cont *cdef-list*))
+  (setdyn *cfun-list* (get cont *cfun-list*))
   cont)
 
 (defn end-jit
@@ -926,10 +929,14 @@
   (def opts (get ccontext :opts {}))
   (def buf (assert (get ccontext :buffer)))
   (def prevout (get ccontext :old-out))
+  (def prefix (get ccontext :prefix))
   (def toolchain (pm-config/detect-toolchain (curenv)))
 
-  # 1. Create module entry
-  (emit-module-entry module-name)
+  # 1. Create module entry, make sure to use the correct cfuns and cdefs.
+  (with-dyns [*cfun-list* (get ccontext *cfun-list*)
+              *cdef-list* (get ccontext *cdef-list*)
+              *out* (get ccontext :buffer)]
+    (emit-module-entry module-name))
 
   # 2. Reset old context
   (setdyn *jit-context* nil)
@@ -970,4 +977,8 @@
   # 5. Import shared object
   (if no-load
     so
-    (native so (curenv))))
+    (if prefix
+      (let [e @{}]
+        (native so e)
+        (merge-module (curenv) e prefix))
+      (native so (curenv)))))

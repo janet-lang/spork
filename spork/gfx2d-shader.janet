@@ -10,28 +10,22 @@
 (def- kernel-env (curenv))
 (def- cf (dyn :current-file))
 
-(defn shader-compile
+(defn shader-begin
   "Generate but do not load a custom shader module. Returns the path to the generated DLL/shared object."
-  [&named module-name pixel-shader]
-  (assert module-name)
-  (assert pixel-shader)
+  [&named module-name shader-args prefix]
+  (begin-jit :module-name module-name :prefix prefix)
   (def env (make-env kernel-env))
-  (put env :pixel-shader pixel-shader)
   (put env :shader-compile true)
-  (var s nil)
-  (with-env env
-    (begin-jit :module-name module-name)
-    (dofile (path/join cf "../gfx2d-codegen.janet") :env env)
-    (set s (end-jit :no-load true :cache false)))
-  s)
+  (put env :shader-args shader-args)
+  (put env *jit-context* (dyn *jit-context*))
+  (put env *cfun-list* (dyn *cfun-list*))
+  (put env *cdef-list* (dyn *cdef-list*))
+  (put env *out* (dyn *out*))
+  # Add gfx2d-codegen as prelude to our JIT context
+  (dofile (path/join cf "../gfx2d-codegen.janet") :env env)
+  nil)
 
-(defn shader-jit
-  "Compile and load a shader module."
-  [&named prefix pixel-shader]
-  (assert prefix)
-  (def module-name (string "shader" (gensym) "_" (os/getpid)))
-  (def outer-env (curenv))
-  (def native-path (shader-compile :pixel-shader pixel-shader :module-name module-name))
-  (def e (native native-path))
-  (merge-module outer-env e prefix)
-  outer-env)
+(defn shader-end
+  "Finish generating shader"
+  [&named cache no-load]
+  (end-jit :cache cache :no-load no-load))
