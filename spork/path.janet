@@ -213,7 +213,7 @@
 # if there is a prefix (drive letter or unc location),
 # add it to output then split the rest else just split the whole thing
 (defmacro- decl-win32-parts
-  [pre sep]
+  [pre]
   ~(defn ,(symbol pre "/parts")
      "Split a path into its parts."
      [path]
@@ -282,7 +282,7 @@
 (decl-win32-dirname "win32")
 (decl-win32-parent "win32")
 (decl-normalize "win32" `\` (set `\/`) (+ (* `\\` (some (if-not `\` 1)) `\`) (* (? (* (range "AZ" "az") `:`)) `\`)))
-(decl-win32-parts "win32" "\\")
+(decl-win32-parts "win32")
 (decl-join "win32" "\\")
 (decl-abspath "win32")
 (decl-relpath "win32")

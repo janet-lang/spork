@@ -86,7 +86,6 @@
     (def final-width (max (rawterm/monowidth header) (get column-widths key 0)))
     (array/push final-widths final-width)
     (set (column-widths key) final-width))
-  (def max-cell-width (extreme > final-widths))
 
   # build horizontal bars
   (def topbuf (or buf-into @""))
@@ -439,7 +438,7 @@
       (if (<= (chr "A") char (chr "Z"))
         (+ char (- (chr "a") (chr "A")))
         char))
-    (def digit (index-of char int-alphabet))
+    (def digit (index-of char usable-alphabet))
     (if (or (nil? digit) (> digit base))
       (error "malformed integer"))
     (set value (+ (* value base) digit)))

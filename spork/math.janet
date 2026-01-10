@@ -133,7 +133,7 @@
     (var hi (length xs))
     (while (< lo hi)
       (set mid (brushift (+ lo hi) 1))
-      (if (<= v (xs mid))
+      (if (<= val (xs mid))
         (set hi mid)
         (set lo (- (bnot mid)))))
     lo)
@@ -143,7 +143,7 @@
     (var hi (length xs))
     (while (< lo hi)
       (set mid (brushift (+ lo hi) 1))
-      (if (>= v (xs mid))
+      (if (>= val (xs mid))
         (set lo (- (bnot mid)))
         (set hi mid)))
     lo)
@@ -262,7 +262,6 @@
   [xs n]
   (def m (mean xs))
   (var s 0)
-  (var tmp nil)
   (each x xs
     (+= s (math/pow (- x m) n)))
   s)
@@ -1242,7 +1241,7 @@
     (each p ps
       (var x (powmod p d n))
       (when (< one x (- n 1))
-        (for r 1 s
+        (for _r 1 s
           (set x (mulmod x x n))
           (if-not (< one x (- n 1)) (break)))
         (if (not= x (- n 1))
@@ -1318,7 +1317,7 @@
     (set y x)
     (repeat r
       (set x (+ (mulmod x x n) c)))
-    (loop [k :range [0 r m]
+    (loop [_k :range [0 r m]
            :while (not= 0 (jacobi q n))
            :before (set xs x)
            :repeat m]
@@ -1391,7 +1390,7 @@
   "Unit vector of `n` dimensions along dimension `k`."
   [n k]
   (update-in
-    (zero n) [k] (fn [x] 1)))
+    (zero n) [k] (fn [_] 1)))
 
 (defn normalize-v
   "Returns normalized vector of `xs` by Euclidian (L2) norm."
@@ -1481,15 +1480,14 @@
   Simple Singular-Value-Decomposition based on repeated QR decomposition. The algorithm converges at O(n^3).
   ```
   [m &opt n-iter]
-  (def n-iter 100)
+  (default n-iter 100)
   (var U (ident (rows m)))
   (var V U)
-  (var Q1 U)
   (var Q2 U)
   (var R1 m)
   (var R2 U)
   (var Q1 U)
-  (loop [i :range [0 n-iter]]
+  (loop [_ :range [0 n-iter]]
     (var res (qr R1))
     (set Q1 (res :Q))
     (set R1 (res :R))
@@ -1508,6 +1506,6 @@
   [m1 m2 &opt tolerance]
   (let [v1 (squeeze m1)
         v2 (squeeze m2)
-        b (map approx-eq v1 v2)]
+        b (map |(approx-eq $0 $1 tolerance) v1 v2)]
     (and (= (length v1) (length v2))
          (every? b))))

@@ -40,7 +40,6 @@
     (fn on-connection
       [stream]
       (var name "<unknown>")
-      (def marshbuf @"")
       (defer (:close stream)
         (def recv (make-recv stream unmarshal))
         (def send (make-send stream marshal))

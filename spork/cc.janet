@@ -71,7 +71,7 @@
               (os/getenv "PREFIX")
               (path/join (dyn *syspath*) ".." "..")
               (path/join (dyn *syspath*) "..")
-              (try (path/join (sh/self-exe) ".." "..") ([e] nil))
+              (try (path/join (sh/self-exe) ".." "..") ([_e] nil))
               (dyn *syspath*)
               "/usr/"
               "/usr/local"
@@ -94,7 +94,7 @@
               (os/getenv "PREFIX")
               (path/join (dyn *syspath*) ".." "..")
               (path/join (dyn *syspath*) "..")
-              (try (path/join (sh/self-exe) ".." "..") ([e] nil))
+              (try (path/join (sh/self-exe) ".." "..") ([_e] nil))
               (dyn *syspath*)]
     (when test
       (def headercheck (path/join test "C" "janet.h"))
@@ -509,7 +509,7 @@
 
 (defn msvc-link-executable
   "Link a C/C++ program with MSVC to make an executable. Return the command arguments."
-  [objects to &opt make-static]
+  [objects to &opt _make-static]
   (exec [(link.exe) "/nologo" (string "/OUT:" to) ;objects ;(msvc-link-paths) ;(msvc-libs) ;(lflags)]
         objects [to] (string "linking " to "...")))
 
@@ -580,7 +580,7 @@
 
 (defn visit-clean
   "A visiting function that will remove all outputs."
-  [cmd inputs outputs message]
+  [_cmd _inputs outputs _message]
   (print "cleaing " (string/join outputs " ") "...")
   (each output outputs
     (sh/rm output)))
@@ -616,7 +616,7 @@
 
 (defn visit-execute
   "A function that can be provided as `(dyn *visit*)` that will execute commands."
-  [cmd inputs outputs message]
+  [cmd _inputs _outputs message]
   (if (dyn :verbose)
     (do
       (eprint (string/join cmd " "))
@@ -648,7 +648,7 @@
 
 (defn visit-execute-quiet
   "A function that can be provided as `(dyn *visit*)` that will execute commands quietly."
-  [cmd inputs outputs message]
+  [cmd _inputs _outputs _message]
   (with [devnull (sh/devnull)]
     (os/execute cmd :px {:out devnull :err devnull})))
 
@@ -676,20 +676,19 @@
   (defer (sh/rm temp)
     (os/mkdir temp)
     (spit src test-source-code)
-    (def result
-      (try
-        (with-dyns [*visit* visit-execute-quiet
-                    *build-dir* temp
-                    *static-libs* []
-                    *dynamic-libs* []
-                    *libs* []]
-          (setdyn binding [libname])
-          (compile-and-link-executable executable src)
-          (with [devnull (sh/devnull)]
-            (os/execute [executable] :x {:out devnull :err devnull}))
-          true)
-        ([e]
-          false)))))
+    (try
+      (with-dyns [*visit* visit-execute-quiet
+                  *build-dir* temp
+                  *static-libs* []
+                  *dynamic-libs* []
+                  *libs* []]
+        (setdyn binding [libname])
+        (compile-and-link-executable executable src)
+        (with [devnull (sh/devnull)]
+          (os/execute [executable] :x {:out devnull :err devnull}))
+        true)
+      ([_e]
+       false))))
 
 (defn- search-libs-impl
   [dynb libs]

@@ -181,7 +181,7 @@
         :month M
         :month-day Md
         :week-day wd
-        :year-day d
+        # :year-day d
         :seconds s}
     (os/date time local))
   (def [_ minutes hours day-of-month month day-of-week seconds dow-or-dom] cron)
@@ -210,8 +210,8 @@
         :month M
         :month-day Md
         :week-day wd
-        :year y
-        :year-day d}
+        # :year-day d
+        :year y}
     (os/date time local))
 
   # Ensure correct month

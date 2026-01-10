@@ -189,7 +189,7 @@
       ['ptr val] (emit-ptr-type val alias)
       ['* val] (emit-ptr-type val alias)
       ['ptrptr val] (emit-ptr-ptr-type val alias)
-      ['** val] (emit-ptr-ptr-type (definition 1) alias)
+      ['** val] (emit-ptr-ptr-type val alias)
       ['const t] (emit-const-type t alias)
       ['array t] (emit-array-type t (get definition 2) alias)
       (errorf "unexpected type form %v" definition))
@@ -449,7 +449,7 @@
     ['break] (do (emit-indent) (print "break;"))
     ['continue] (do (emit-indent) (print "continue;"))
     ['label lab] (print "label " lab ":")
-    ['goto lab] (do (emit-indent) (print "goto " (form 1)))
+    ['goto lab] (do (emit-indent) (print "goto " lab))
     stm (do (emit-indent) (emit-statement stm) (print ";")))
   (unless nobracket (emit-block-end)))
 
@@ -729,7 +729,7 @@
   (var pcount 0)
   (def argument-parsing @[])
   (var found-optional false)
-  (eachp [i p] params
+  (each p params
     (if (in '{& true &opt true &named true &keys true} p)
       (set found-optional true)
       (do
