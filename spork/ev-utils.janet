@@ -52,7 +52,6 @@
 (defn- join
   "Special case of supervise for implementing some parallel functions."
   [supervisor fibers]
-  (var err-fiber nil)
   (defer (drain-fibers supervisor fibers "parent canceled")
     (while (next fibers)
       (def [sig fiber] (ev/take supervisor))

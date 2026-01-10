@@ -537,8 +537,7 @@
 
 (defn msvc-link-executable
   "Link a C/C++ program with MSVC to make an executable. Return the command arguments."
-  [objects to &opt make-static]
-  make-static # unused
+  [objects to &opt _make-static]
   (exec [(link.exe) "/nologo" (string "/OUT:" to) ;objects ;(msvc-link-paths) ;(msvc-libs) ;(lflags)]
         objects [to] (string "linking " to "...")))
 
@@ -614,9 +613,8 @@
 
 (defn visit-clean
   "A visiting function that will remove all outputs."
-  [cmd inputs outputs message]
-  cmd inputs # unused
-  (print message " - cleaing " (string/join outputs " ") "...")
+  [_cmd _inputs outputs _message]
+  (print "cleaing " (string/join outputs " ") "...")
   (each output outputs
     (sh/rm output)))
 
@@ -651,8 +649,7 @@
 
 (defn visit-execute
   "A function that can be provided as `(dyn *visit*)` that will execute commands."
-  [cmd inputs outputs message]
-  inputs outputs # unused
+  [cmd _inputs _outputs message]
   (if (dyn :verbose)
     (do
       (eprint (string/join cmd " "))
@@ -684,8 +681,7 @@
 
 (defn visit-execute-quiet
   "A function that can be provided as `(dyn *visit*)` that will execute commands quietly."
-  [cmd inputs outputs message]
-  inputs outputs message # unused
+  [cmd _inputs _outputs _message]
   (with [devnull (sh/devnull)]
     (os/execute cmd :px {:out devnull :err devnull})))
 

@@ -257,7 +257,7 @@
       ['ptr val] (emit-ptr-type val alias)
       ['* val] (emit-ptr-type val alias)
       ['quote val] (emit-ptr-type val alias) # shorthand
-      ['** _val] (emit-ptr-ptr-type (definition 1) alias)
+      ['** val] (emit-ptr-ptr-type val alias)
       ['const t] (emit-const-type t alias)
       ['array t] (emit-array-type t (get definition 2) alias)
       (errorf "unexpected type form %j" definition))

@@ -365,7 +365,7 @@
               (let [c3 (getc)]
                 (cond
                   (and (>= c3 (chr "0")) (<= c3 (chr "9")))
-                  (case (def c4 (getc))
+                  (case (getc)
                     (chr "1") (khome)
                     (chr "3") (kdelete)
                     (chr "4") (kend)

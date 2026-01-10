@@ -263,9 +263,8 @@
   ```
   [&named name description url version repo tag dependencies]
   (assert name)
-  repo version description url tag # unused
   (default dependencies @[])
-  dependencies # unused
+  repo version description url tag dependencies # unused
   (def br (build-root))
   (def bd (build-dir))
   (def rules (get-rules))
@@ -311,8 +310,7 @@
   (defn- postclean
     []
     (build-rules/build-run e "post-clean" (dyn :workers)))
-  (defn build [&opt man target]
-    man # unused
+  (defn build [&opt _man target]
     (prebuild)
     (default target "build")
     (build-rules/build-run e target (dyn :workers))
@@ -767,7 +765,6 @@ int main(int argc, const char **argv) {
 
         # Load all native modules
         (def prefixes @{})
-        (def static-libs @[;static-libs])
         (loop [[name m] :pairs module-cache
                :let [n (m :native)]
                :when n
