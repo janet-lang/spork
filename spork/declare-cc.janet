@@ -180,7 +180,6 @@
   ``Inline raw byte file as a c file. The header file will contain two exported symbols, `(string name "_emded")`, a
     pointer of an array of unsigned char, and `(string name "_embed_size")`, a size_t of the number bytes.``
   [bytes dest name]
-  (def chunks (seq [b :in bytes] (string b)))
   (def lasti (- (length bytes) 1))
   (with [out (file/open dest :wn)]
     (file/write out "#include <stddef.h>\n\nstatic const unsigned char bytes[] = {")
@@ -264,7 +263,9 @@
   ```
   [&named name description url version repo tag dependencies]
   (assert name)
+  repo version description url tag # unused
   (default dependencies @[])
+  dependencies # unused
   (def br (build-root))
   (def bd (build-dir))
   (def rules (get-rules))
@@ -311,6 +312,7 @@
     []
     (build-rules/build-run e "post-clean" (dyn :workers)))
   (defn build [&opt man target]
+    man # unused
     (prebuild)
     (default target "build")
     (build-rules/build-run e target (dyn :workers))
@@ -365,7 +367,7 @@
     (rule :pre-install []
           (def manifest (assert (dyn *install-manifest*)))
           (bundle/add-directory manifest prefix)))
-  (each s source
+  (each s sources
     (install-rule s (dest s))))
 
 (defn declare-headers
@@ -416,7 +418,6 @@
   (when (is-win-or-mingw)
     (def absdest (path/join (dyn *syspath*) dest))
     (def bat (string "@echo off\r\ngoto #_undefined_# 2>NUL || title %COMSPEC% & janet \"" absdest "\" %*"))
-    (def newname (string main ".bat"))
     (install-buffer bat (string dest ".bat") nil (mkbin)))
   dest)
 
@@ -456,7 +457,7 @@
   dynamically by a janet runtime. This also builds a static libary that
   can be used to bundle janet code and native into a single executable."
   [&named name source embedded lflags libs cflags
-   c++flags defines install nostatic static-libs deps
+   c++flags defines nostatic static-libs deps
    use-rpath use-rdynamic pkg-config-flags dynamic-libs msvc-libs
    ldflags # alias for libs
    pkg-config-libs smart-libs c-std c++-std target-os]
@@ -766,12 +767,12 @@ int main(int argc, const char **argv) {
 
         # Load all native modules
         (def prefixes @{})
-        (def static-libs @[])
+        (def static-libs @[;static-libs])
         (loop [[name m] :pairs module-cache
                :let [n (m :native)]
                :when n
                :let [prefix (gensym)]]
-          (print "found native " n "...")
+          (print "found native " name " (" n ")...")
           (flush)
           (put prefixes prefix n)
           (array/push static-libs (modpath-to-static toolchain n))
@@ -868,6 +869,7 @@ int main(int argc, const char **argv) {
                     cc/*cflags* [;other-cflags ;cflags]
                     cc/*c++flags* (distinct [;other-cflags ;c++flags])
                     cc/*static-libs* (distinct [;dep-libs ;static-libs])
+                    cc/*dynamic-libs* (distinct [;dynamic-libs])
                     cc/*smart-libs* smart-libs
                     cc/*use-rdynamic* use-rdynamic
                     cc/*use-rpath* use-rpath

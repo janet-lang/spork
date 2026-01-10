@@ -52,7 +52,7 @@
   (if (string/find ":" bname) (break bname))
   (let [pkgs (try
                (require "pkgs")
-               ([err]
+               ([_err]
                  (bundle-install-recursive (getpkglist))
                  (require "pkgs")))
         url (get-in pkgs ['packages :value (symbol bname)])]
@@ -130,7 +130,7 @@
 (defn download-tar-bundle
   "Download a dependency from a tape archive. The archive should have exactly one
   top level directory that contains the contents of the project."
-  [bundle-dir url &opt force-gz]
+  [bundle-dir url]
   (def has-gz (string/has-suffix? "gz" url))
   (def is-remote (string/find ":" url))
   (def dest-archive (if is-remote (string bundle-dir "/bundle-archive." (if has-gz "tar.gz" "tar")) url))
@@ -333,7 +333,7 @@
 
 (defn save-lockfile
   "Create a lockfile that can be used to reinstall all currently installed bundles at a later date."
-  [lock-dest &opt allow-local]
+  [lock-dest]
   (def lock @[])
   (each b (bundle/topolist)
     (def manifest (bundle/manifest b))
@@ -390,7 +390,7 @@
       :string (array/push string-args (string ;chunk))
       :array (each sym chunk
                (array/push string-args ~(,get opts ,(keyword (first sym)))))))
-  ~(fn [opts] (,string ,;string-args)))
+  ~(fn [opts] opts (,string ,;string-args)))
 
 (defmacro deftemplate
   ```

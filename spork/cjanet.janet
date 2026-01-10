@@ -257,7 +257,7 @@
       ['ptr val] (emit-ptr-type val alias)
       ['* val] (emit-ptr-type val alias)
       ['quote val] (emit-ptr-type val alias) # shorthand
-      ['** val] (emit-ptr-ptr-type (definition 1) alias)
+      ['** _val] (emit-ptr-ptr-type (definition 1) alias)
       ['const t] (emit-const-type t alias)
       ['array t] (emit-array-type t (get definition 2) alias)
       (errorf "unexpected type form %j" definition))
@@ -535,7 +535,7 @@
     ['break] (do (unless noindent (emit-indent)) (print "break;"))
     ['continue] (do (unless noindent (emit-indent)) (print "continue;"))
     ['label lab] (print (mangle-strict lab) ":")
-    ['goto lab] (do (unless noindent (emit-indent)) (print "goto " (mangle-strict (form 1))))
+    ['goto glab] (do (unless noindent (emit-indent)) (print "goto " (mangle-strict glab)))
     stm (do (unless noindent (emit-indent)) (emit-statement stm) (print ";")))
   (unless nobracket (emit-block-end)))
 
@@ -797,7 +797,7 @@
   (var pcount 0)
   (def argument-parsing @[])
   (var found-optional false)
-  (eachp [i p] params
+  (each p params
     (if (in '{& true &opt true &named true &keys true} p)
       (set found-optional true)
       (do
@@ -948,7 +948,7 @@
   (def c-source (string name ".c"))
   (if cache
     (do
-      (def [has-old old-source] (protect (slurp c-source)))
+      (def [_ old-source] (protect (slurp c-source)))
       (unless (deep= old-source buf)
         (spit c-source buf)))
     (spit c-source buf))

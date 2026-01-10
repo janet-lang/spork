@@ -103,7 +103,7 @@
   (default n-workers 1)
 
   (defn worker
-    [n]
+    [_n]
     (while (pos? work-count)
       (def target (ev/take q))
       (if-not target (break))
