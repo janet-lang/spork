@@ -161,21 +161,21 @@
 
 (function indexed-to-vs
   "Get vectors from an indexed collection. Must be freed with janet_sfree."
-  [coords:JanetView (n 'int)] -> 'V2
+  [coords:JanetView n:*int] -> 'V2
   (if (band 1 coords.len) (janet-panic "expected an even number of point coordinates"))
-  (def (ret 'V2) (janet-smalloc (* (sizeof V2) (/ coords.len 2))))
+  (def ret:*V2 (janet-smalloc (* (sizeof V2) (/ coords.len 2))))
   (for [(var i:int 0) (< i coords.len) (+= i 2)]
     (def x:double (janet-getnumber coords.items (+ i 0)))
     (def y:double (janet-getnumber coords.items (+ i 1)))
     (set (aref ret (/ i 2)) (v/make x y)))
-  (set 'n (/ coords.len 2))
+  (set *n (/ coords.len 2))
   (return ret))
 
 (function indexed-to-vs-join-end
   "Get vectors from an indexed collection. Must be freed with janet_sfree."
-  [coords:JanetView (n 'int)] -> 'V2
+  [coords:JanetView n:*int] -> *V2
   (if (band 1 coords.len) (janet-panic "expected an even number of point coordinates"))
-  (def (ret 'V2) (janet-smalloc (* (sizeof V2) (+ 1 (/ coords.len 2)))))
+  (def ret:*V2 (janet-smalloc (* (sizeof V2) (+ 1 (/ coords.len 2)))))
   (for [(var i:int 0) (< i coords.len) (+= i 2)]
     (def x:double (janet-getnumber coords.items (+ i 0)))
     (def y:double (janet-getnumber coords.items (+ i 1)))
@@ -185,7 +185,7 @@
   (def y:double (janet-getnumber coords.items 1))
   (set (aref ret (/ coords.len 2)) (v/make x y))
   # Set N to coords/2 + 1
-  (set 'n (+ 1 (/ coords.len 2)))
+  (set *n (+ 1 (/ coords.len 2)))
   (return ret))
 
 ###
@@ -193,85 +193,52 @@
 ###
 
 (typedef Image
-         (named-struct Image
-                       width int
-                       height int
-                       channels int
-                       data 'JanetBuffer
-                       stride int))
+  (named-struct Image
+     width int
+     height int
+     channels int
+     data *JanetBuffer
+     stride int))
 
-(function tuple-to-image
-  "Get an image from an input tuple"
-  [img:JanetTuple] -> Image
-  (if (> 4 (janet-tuple-length img)) # allow for extra attributes
-    (janet-panicf "expected image (length 4 tuple), got %V" (janet-wrap-tuple img)))
-  (def im:Image)
-  (set im.data (janet-getbuffer img 0))
-  (set im.width (janet-getnat img 1))
-  (set im.height (janet-getnat img 2))
-  (set im.channels (janet-getnat img 3))
-  (if (or (< im.channels 1) (> im.channels 4))
-    (janet-panic "expected between 1 and 4 channels"))
-  (set im.stride (* im.channels im.width))
-  (return im))
+(function mark-image
+  [p:*void s:size_t] -> int
+  (cast void s)
+  (def image:*Image p)
+  (janet-mark (janet-wrap-buffer image->data))
+  (return 0))
 
-# TODO - refactor this
-(defn- bind-image-code
-  "Generate code to unpack an image."
-  [img &opt sym-prefix]
-  (default sym-prefix "")
-  ~[(def ,(symbol sym-prefix 'width:int) 0)
-    (def ,(symbol sym-prefix 'height:int) 0)
-    (def ,(symbol sym-prefix 'channels:int) 0)
-    (def (,(symbol sym-prefix 'buf) 'JanetBuffer) NULL)
-    (unwrap-image
-      ,img
-      (addr ,(symbol sym-prefix 'buf))
-      (addr ,(symbol sym-prefix 'width))
-      (addr ,(symbol sym-prefix 'height))
-      (addr ,(symbol sym-prefix 'channels)))
-    (def (,(symbol sym-prefix 'data) 'uint8_t) ,(symbol sym-prefix 'buf->data))
-    (def ,(symbol sym-prefix 'stride:int) (* ,(symbol sym-prefix 'channels) ,(symbol sym-prefix 'width)))])
-
-(function wrap-image :static :inline
-   "wrap an image"
-   [(buf 'JanetBuffer) width:int height:int channels:int] -> JanetTuple
-   (def (tup 'Janet) (janet-tuple-begin 4))
-   (set (aref tup 0) (janet-wrap-buffer buf))
-   (set (aref tup 1) (janet-wrap-integer width))
-   (set (aref tup 2) (janet-wrap-integer height))
-   (set (aref tup 3) (janet-wrap-integer channels))
-   (return (janet-tuple-end tup)))
-
-(function unwrap-image :static :inline
-   "unwrap an image"
-   [img:JanetTuple (data ''JanetBuffer) (width 'int) (height 'int) (channels 'int)] -> void
-   (if (> 4 (janet-tuple-length img)) # allow for extra attributes
-     (janet-panicf "expected image (length 4 tuple), got %V" (janet-wrap-tuple img)))
-   (set (aref data 0) (janet-getbuffer img 0))
-   (set (aref width 0) (janet-getinteger img 1))
-   (set (aref height 0) (janet-getinteger img 2))
-   (set (aref channels 0) (janet-getinteger img 3)))
+(abstract-type Image
+               :name "gfx2d/image"
+               :gcmark mark-image)
 
 (comp-unless (dyn :shader-compile)
+
+  (function create-image
+    "Make an abstract image object"
+    [width:int height:int channel:int buf:*JanetBuffer] -> *Image
+    (def image:*Image (janet-abstract &Image-AT (sizeof Image)))
+    (set image->width width)
+    (set image->height height)
+    (set image->channels channel)
+    (set image->stride (* width channel))
+    (set image->data buf)
+    (return image))
+
   (cfunction blank
     "Create a new blank image"
-    [width:int height:int channel:int] -> tuple
+    [width:int height:int channel:int] -> *Image
     (if (> 1 width) (janet-panic "width must be positive"))
     (if (> 1 height) (janet-panic "height must be positive"))
     (if (> 1 channel) (janet-panic "channel must be between 1 and 4 inclusive"))
     (if (< 4 channel) (janet-panic "channel must be between 1 and 4 inclusive"))
-
     (def (buf 'JanetBuffer) (janet-buffer (* width height channel)))
     (set buf->count (* width height channel))
     (memset buf->data 0 (* width height channel))
-
-    # Package buffer and dimensions in tuple
-    (return (wrap-image buf width height channel)))
+    (return (create-image width height channel buf)))
 
   (cfunction load
     "Load an image from disk into a buffer"
-    [path:cstring] -> tuple
+    [path:cstring] -> *Image
     (def width:int 0)
     (def height:int 0)
     (def c:int 0)
@@ -285,7 +252,7 @@
     (stbi-image-free img) # TODO - remove this alloc, copy, free?
 
     # Package buffer and dimensions in tuple
-    (return (wrap-image buf width height c)))
+    (return (create-image width height c buf)))
 
   # Generate image-writing for each image type
   # TODO - hdr
@@ -296,63 +263,51 @@
         []))
     (def extra-args
       (case ft
-        "png" ['(* width channels)]
+        "png" ['img->stride]
         "jpg" ['quality] # - jpeg quality
         []))
     (cfunction ,(symbol 'save- ft)
       ,(string "Save an image to a file as a " ft)
-      [path:cstring img:tuple ,;extra-params] -> tuple
-      (def width:int 0)
-      (def height:int 0)
-      (def channels:int 0)
-      (def (buf 'JanetBuffer) NULL)
-      (unwrap-image img &buf &width &height &channels)
-      (def check:int (,(symbol 'stbi-write- ft) path width height channels buf->data ,;extra-args))
+      [path:cstring img:*Image ,;extra-params] -> *Image
+      (def check:int (,(symbol 'stbi-write- ft) path img->width img->height img->channels img->data->data ,;extra-args))
       (if-not check (janet-panic "failed to write image"))
       (return img))))
 
-(defn- get-pixel
-  :cjanet-block-macro
+(function image-get-pixel :static :inline
   "extract a pixel"
-  [color-var x y &opt prefix]
-  (default prefix "")
-  (def channels (symbol prefix 'channels))
-  (def data (symbol prefix 'data))
-  (def stride (symbol prefix 'stride))
-  ~(do
-     (var color-accum:uint32_t 0)
-     (for [(def c:int 0) (< c ,channels) (++ c)]
-       (def comp:uint8_t (aref ,data (+ (- ,channels c 1) (* ,x ,channels) (* ,y ,stride))))
-       (set color-accum (+ (cast uint32_t comp) (<< color-accum 8))))
-     (set ,color-var color-accum)))
+  [img:*Image x:int y:int] -> uint32_t
+  (var color-accum:uint32_t 0)
+  (def data:*uint8_t img->data->data)
+  (def stride:int img->stride)
+  (def channels:int img->channels)
+  (for [(def c:int 0) (< c img->channels) (++ c)]
+    (def comp:uint8_t (aref data (+ (- channels c 1) (* x channels) (* y stride))))
+    (set color-accum (+ (cast uint32_t comp) (<< color-accum 8))))
+  (return color-accum))
 
-(defn- set-pixel
-  :cjanet-block-macro
+(function image-set-pixel :static :inline
   "set a pixel"
-  [x y color &opt prefix]
-  (default prefix "")
-  (def channels (symbol prefix 'channels))
-  (def data (symbol prefix 'data))
-  (def stride (symbol prefix 'stride))
-  ~(for [(def c:int 0) (< c ,channels) (++ c)]
-     (set (aref ,data (+ c (* ,x ,channels) (* ,y ,stride)))
-        (band (>> ,color (* c 8)) 0xFF))))
+  [img:*Image x:int y:int color:uint32_t] -> void
+  (def data:*uint8_t img->data->data)
+  (def stride:int img->stride)
+  (def channels:int img->channels)
+  (for [(def c:int 0) (< c channels) (++ c)]
+     (set (aref data (+ c (* x channels) (* y stride)))
+        (band (>> color (* c 8)) 0xFF))))
 
 (comp-unless (dyn :shader-compile)
+
   (cfunction pixel
     "Read a pixel. Slow, be careful to use this in a loop."
-    [img:tuple x:int y:int] -> uint32
-    ,;(bind-image-code 'img)
-    (var color:uint32_t 0)
-    (get-pixel color x y)
-    (if (< channels 4) (+= color 0xFF000000))
+    [img:*Image x:int y:int] -> uint32
+    (def color:uint32_t (image-get-pixel img x y))
+    (if (< img->channels 4) (+= color 0xFF000000)) # ?
     (return color))
 
   (cfunction set-pixel
     "Set a pixel. Slow, be careful to use this in a loop."
-    [img:tuple x:int y:int color:uint32] -> tuple
-    ,;(bind-image-code 'img)
-    (set-pixel x y color)
+    [img:*Image x:int y:int color:uint32] -> *Image
+    (image-set-pixel img x y color)
     (return img)))
 
 ##
@@ -479,72 +434,59 @@
 ###
 
 (comp-unless (dyn :shader-compile)
+
   (cfunction stamp
     "Copy one image onto another"
-    [dest:tuple src:tuple dx:int dy:int] -> tuple
-    ,;(bind-image-code 'src "src-")
-    ,;(bind-image-code 'dest "dest-")
-    (if (not= src-channels dest-channels) (janet-panic "image channels don't match"))
-    (if (= src-data dest-data) (janet-panic "cannot stamp self"))
+    [dest:*Image src:*Image dx:int dy:int] -> *Image
+    (if (not= src->channels dest->channels) (janet-panic "image channels don't match"))
+    (if (= src->data dest->data) (janet-panic "cannot stamp self"))
     (def xmin:int (? (< dx 0) (- dx) 0))
     (def ymin:int (? (< dy 0) (- dy) 0))
-    (def xoverflow:int (- (+ dx src-width) dest-width))
-    (def yoverflow:int (- (+ dy src-height) dest-height))
-    (def xmax:int (? (< xoverflow 0) src-width (- src-width xoverflow)))
-    (def ymax:int (? (< yoverflow 0) src-height (- src-height yoverflow)))
-    (polymorph src-channels [1 2 3 4]
+    (def xoverflow:int (- (+ dx src->width) dest->width))
+    (def yoverflow:int (- (+ dy src->height) dest->height))
+    (def xmax:int (? (< xoverflow 0) src->width (- src->width xoverflow)))
+    (def ymax:int (? (< yoverflow 0) src->height (- src->height yoverflow)))
+    (polymorph src->channels [1 2 3 4]
                (for [(var y:int ymin) (< y ymax) (++ y)]
                  (for [(var x:int xmin) (< x xmax) (++ x)]
-                   (var color:uint32_t 0)
-                   (get-pixel color x y "src-")
-                   (set-pixel (+ dx x) (+ dy y) color "dest-"))))
+                   (image-set-pixel dest (+ dx x) (+ dy y) (image-get-pixel src x y)))))
     (return dest))
 
   (cfunction crop
     "Create a smaller sub-image from a larger image"
-    [img:tuple x1:int y1:int new-width:int new-height:int] -> tuple
-    ,;(bind-image-code 'img "img-")
+    [img:*Image x1:int y1:int new-width:int new-height:int] -> *Image
     (return
       (stamp
-        (blank new-width new-height img-channels)
+        (blank new-width new-height img->channels)
         img (- x1) (- y1))))
 
   (cfunction diff
     "Take the difference of two images"
-    [a:tuple b:tuple] -> tuple
-    ,;(bind-image-code 'a "a-")
-    ,;(bind-image-code 'b "b-")
-    (if (not= a-channels b-channels) (janet-panic "images must have the same number of channels"))
-    (if (or (not= a-height b-height) (not= a-width b-width)) (janet-panic "images must have matching dimensions"))
-    (def dest:JanetTuple (blank a-width a-height a-channels))
-    ,;(bind-image-code 'dest "dest-")
-    (polymorph a-channels [1 2 3 4]
-               (for [(var y:int 0) (< y a-height) (++ y)]
-                 (for [(var x:int 0) (< x a-width) (++ x)]
-                   (var acolor:uint32_t 0)
-                   (var bcolor:uint32_t 0)
-                   (get-pixel acolor x y "a-")
-                   (get-pixel bcolor x y "b-")
-                   (def color:uint32_t (blend-sub acolor bcolor))
-                   (set-pixel x y color "dest-"))))
+    [a:*Image b:*Image] -> *Image
+    (if (not= a->channels b->channels) (janet-panic "images must have the same number of channels"))
+    (if (or (not= a->height b->height) (not= a->width b->width)) (janet-panic "images must have matching dimensions"))
+    (def dest:*Image (blank a->width a->height a->channels))
+    (polymorph a->channels [1 2 3 4]
+               (for [(var y:int 0) (< y a->height) (++ y)]
+                 (for [(var x:int 0) (< x a->width) (++ x)]
+                   (def color:uint32_t (blend-sub (image-get-pixel a x y) (image-get-pixel b x y)))
+                   (image-set-pixel dest x y color))))
     (return dest))
 
   (cfunction resize
     "Resize an image, resampling as needed"
-    [input-img:JanetTuple new-width:int new-height:int] -> JanetTuple
-    ,;(bind-image-code 'input-img 'in-)
-    (def new-img:JanetTuple (blank new-width new-height in-channels))
-    ,;(bind-image-code 'new-img 'out-)
+    [in:*Image new-width:int new-height:int] -> *Image
+    (def out:*Image (blank new-width new-height in->channels))
     (def layout:stbir_pixel_layout
       (cond-expression
-        (= in-channels 1) STBIR-1CHANNEL
-        (= in-channels 2) STBIR-2CHANNEL
-        (= in-channels 3) STBIR-RGB
+        (= in->channels 1) STBIR-1CHANNEL
+        (= in->channels 2) STBIR-2CHANNEL
+        (= in->channels 3) STBIR-RGB
         STBIR-4CHANNEL))
-    (stbir-resize-uint8-srgb in-data in-width in-height in-stride
-                             out-data out-width out-height out-stride
+    (stbir-resize-uint8-srgb in->data->data in->width in->height in->stride
+                             out->data->data out->width out->height out->stride
                              layout)
-    (return new-img)))
+    (return out)))
 
 ###
 ### Shader!
@@ -570,22 +512,21 @@
 
 (cfunction circle
   "Draw a circle"
-  [img:tuple x:double y:double r:double ,;shader-args] -> tuple
-  ,;(bind-image-code 'img)
+  [img:*Image x:double y:double r:double ,;shader-args] -> *Image
   (var x1:int (floor (- x r)))
   (var x2:int (ceil (+ x r)))
   (var y1:int (floor (- y r)))
   (var y2:int (ceil (+ y r)))
-  (clip 0 (- width 1) 0 (- height 1) &x1 &y1)
-  (clip 0 (- width 1) 0 (- height 1) &x2 &y2)
-  (polymorph channels [1 2 3 4]
+  (clip 0 (- img->width 1) 0 (- img->height 1) &x1 &y1)
+  (clip 0 (- img->width 1) 0 (- img->height 1) &x2 &y2)
+  (polymorph img->channels [1 2 3 4]
     (for [(def yy:int y1) (<= yy y2) (++ yy)]
       (for [(def xx:int x1) (<= xx x2) (++ xx)]
         (def dx:double (- xx x))
         (def dy:double (- yy y))
         (when (>= (* r r) (+ (* dx dx) (* dy dy)))
           (def c1:uint32_t (shader xx yy ,;shader-params))
-          (set-pixel xx yy c1)))))
+          (image-set-pixel img xx yy c1)))))
   (return img))
 
 ###
@@ -708,8 +649,7 @@
 (comp-unless (dyn :shader-compile)
   (cfunction draw-simple-text
     "Draw text with a default, bitmap on an image"
-    [img:JanetTuple x:int y:int xscale:int yscale:int text:cstring color:uint32_t &opt (font-name keyword (janet-ckeyword "default"))] -> JanetTuple
-    ,;(bind-image-code 'img)
+    [img:*Image x:int y:int xscale:int yscale:int text:cstring color:uint32_t &opt (font-name keyword (janet-ckeyword "default"))] -> *Image
     (if (< xscale 1) (janet-panic "xscale must be at least 1"))
     (if (< yscale 1) (janet-panic "yscale must be at least 1"))
     (def (font (const 'BitmapFont)) (select-font font-name))
@@ -738,8 +678,8 @@
               (for [(var xoff:int 0) (< xoff xscale) (++ xoff)]
                 (def xxx:int (+ (* xscale col) xx xoff))
                 (def yyy:int (+ (* yscale row) yy yoff))
-                (when (and (>= xxx 0) (>= yyy 0) (< xxx width) (< yyy height))
-                  (set-pixel xxx yyy color)))))
+                (when (and (>= xxx 0) (>= yyy 0) (< xxx img->width) (< yyy img->height))
+                  (image-set-pixel img xxx yyy color)))))
           (set glyph-row (>> glyph-row 1))))
       (set xx (+ xx (* xscale gw))))
     (return img)))
@@ -850,8 +790,7 @@
 
 (cfunction fill-path-prototype
   "Fill a path with a solid color - very slow but straightforward implementation."
-  [img:JanetTuple points:indexed ,;shader-args] -> JanetTuple
-  ,;(bind-image-code 'img)
+  [img:*Image points:indexed ,;shader-args] -> *Image
   # 1. Get bounds of the path and extract coordinates
   (var xmin:int INT32-MAX)
   (var ymin:int INT32-MAX)
@@ -875,10 +814,10 @@
   (set (aref ipoints (+ 1 points.len)) (aref ipoints 1))
   # 2. Clipping
   (def xmin1:int xmin) # clipping should not change how we trace rays
-  (clip 0 (- width 1) 0 (- height 1) &xmin &ymin)
-  (clip 0 (- width 1) 0 (- height 1) &xmax &ymax)
+  (clip 0 (- img->width 1) 0 (- img->height 1) &xmin &ymin)
+  (clip 0 (- img->width 1) 0 (- img->height 1) &xmax &ymax)
   # 3. Fill the bounds of the path, running a ray crossing test for each pixel and color when we have an odd number of intersections
-  (polymorph channels [1 2 3 4]
+  (polymorph img->channels [1 2 3 4]
     (for [(var y:int ymin) (<= y ymax) (set y (+ y 1))]
       (for [(var x:int xmin) (<= x xmax) (set x (+ x 1))]
         (var intersection-count:int 0)
@@ -894,7 +833,7 @@
           (set intersection-count (+ intersection-count intersect)))
         (when (band 1 intersection-count)
           (def c1:uint32_t (shader x y ,;shader-params))
-          (set-pixel x y c1)))))
+          (image-set-pixel img x y c1)))))
   # 4. Cleanup
   (janet-sfree ipoints)
   (return img))
@@ -947,8 +886,7 @@
   (return 1))
 
 (function fill-path-impl
-  [img:JanetTuple (points 'V2) npoints:int ,;shader-args] -> void
-  ,;(bind-image-code 'img)
+  [img:*Image (points 'V2) npoints:int ,;shader-args] -> void
   # 1. Get y bounds of the path and extract coordinates
   (var ymin:int INT32-MAX)
   (var ymax:int INT32-MIN)
@@ -957,9 +895,9 @@
     (set ymin (min2z ymin (round (. (aref points i) y))))
     (set ymax (max2z ymax (round (. (aref points i) y)))))
   # Clip
-  (set ymin (clampz ymin 0 (- height 1)))
-  (set ymax (clampz ymax 0 (- height 1)))
-  (polymorph channels [1 2 3 4]
+  (set ymin (clampz ymin 0 (- img->height 1)))
+  (set ymax (clampz ymax 0 (- img->height 1)))
+  (polymorph img->channels [1 2 3 4]
     (for [(var y:int ymin) (<= y ymax) (++ y)]
       # Collect intersections
       (var intersection-count:int 0)
@@ -1009,17 +947,17 @@
         (def i2:Intersection (aref ibuf (+ i 1)))
         (def ix1:int i1.xcoord)
         (def ix2:int i2.xcoord)
-        (def x1:int (clampz ix1 0 (- width 1)))
-        (def x2:int (clampz (+ 1 ix2) 0 width))
+        (def x1:int (clampz ix1 0 (- img->width 1)))
+        (def x2:int (clampz (+ 1 ix2) 0 img->width))
         (for [(var x:int x1) (< x x2) (++ x)]
           (def c1:uint32_t (shader x y ,;shader-params))
-          (set-pixel x y c1)))))
+          (image-set-pixel img x y c1)))))
 
   (janet-sfree ibuf))
 
 (cfunction fill-path
   "Fill a path"
-  [img:JanetTuple points:indexed ,;shader-args] -> JanetTuple
+  [img:*Image points:indexed ,;shader-args] -> *Image
   (var npoints:int 0)
   (def (vs 'V2) (indexed-to-vs-join-end points &npoints))
   (fill-path-impl img vs npoints ,;shader-params)
@@ -1029,8 +967,7 @@
 # TODO - allow for dotted or other complex strokes.
 (cfunction stroke-path
   "Stroke a line along a path"
-  [img:JanetTuple points:indexed ,;shader-args &opt thickness:double=1 join-end:bool=0] -> JanetTuple
-  ,;(bind-image-code 'img)
+  [img:*Image points:indexed ,;shader-args &opt thickness:double=1 join-end:bool=0] -> *Image
   (var npoints:int 0)
   (var (vs 'V2))
   (if join-end

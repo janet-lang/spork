@@ -16,8 +16,9 @@
 
 (defdyn *default-ctype* "The default type used when declaring variables")
 (defdyn *indent* "current indent buffer")
-(defdyn *cfun-list* "Array of C Functions defined in the current scope")
-(defdyn *cdef-list* "Array of C Constants defined in the current scope")
+(defdyn *cfun-list* "Array of C Functions defined in the current compilation unit")
+(defdyn *cdef-list* "Array of C Constants defined in the current compilation unit")
+(defdyn *abstract-type-list* "Array of JanetAbstractTypes to register for marshalling in the current compilation unit")
 (defdyn *jit-context* "A context value for storing the current state of compilation, including buffers, flags, and tool paths.")
 
 (def- mangle-peg
@@ -60,6 +61,23 @@
 (def- type-split-peg
   (peg/compile '(* (? (* '(to ":") ":")) '(any 1))))
 
+(defn- normalize-type
+  "Convert type shorthands to their expanded, common form."
+  [t]
+  (match t
+    (s (symbol? s))
+    (cond
+      (= (chr "*") (get s 0))
+      ['* (normalize-type (symbol/slice s 1))]
+      s)
+    ['array st]  ['array (normalize-type st)]
+    ['quote st]  ['* (normalize-type st)]
+    ['ptr st]    ['* (normalize-type st)]
+    ['const st]  ['const (normalize-type st)]
+    ['** st]     ['* ['* (normalize-type st)]]
+    ['ptrptr st] ['* ['* (normalize-type st)]]
+    t))
+
 (defn type-split
   "Extract name and type from a variable. Allow typing variables as both
   (name type) or name:type as a shorthand. If no type is found, default to dflt-type. dflt-type
@@ -69,11 +87,11 @@
   # This needs to be defined based on c compiler - "auto" for msvc and c23+, and __auto_type for clang and GCC on older standards
   # Perhaps we should error if unset?
   (case (type x)
-    :tuple x
+    :tuple [(get x 0) (normalize-type (get x 1))]
     :symbol
     (let [[v t] (assert (peg/match type-split-peg x))]
       (unless t (assert dflt-type (string/format "no type found for %j, either add a type or set a default type" x)))
-      [(symbol v) (symbol (or t dflt-type))])
+      [(symbol v) (normalize-type (symbol (or t dflt-type)))])
     (errorf "expected symbol or (symbol type) pair, got %j" x)))
 
 (def- type-split-dflt-peg
@@ -84,10 +102,10 @@
   as name:type=dflt."
   [x]
   (case (type x)
-    :tuple x
+    :tuple [(get x 0) (normalize-type (get x 1)) (get x 2)]
     :symbol
     (let [[v t d] (assert (peg/match type-split-dflt-peg x))]
-      [(symbol v) (symbol t) (parse d)])
+      [(symbol v) (normalize-type (symbol t)) (parse d)])
     (errorf "expected symbol (symbol type dflt) tuple, got %j" x)))
 
 # Macros
@@ -168,7 +186,7 @@
   (emit-block-start)
   (each [field ftype] (partition 2 args)
     (emit-indent)
-    (emit-type ftype field)
+    (emit-type (normalize-type ftype) field)
     (print ";"))
   (emit-block-end)
   (if defname (prin " " (mangle-strict defname))))
@@ -217,12 +235,6 @@
   (prin " *")
   (if alias (prin (mangle alias))))
 
-(defn- emit-ptr-ptr-type
-  [x alias]
-  (emit-type x)
-  (prin " **")
-  (if alias (prin (mangle alias))))
-
 (defn- emit-const-type
   [x alias]
   (prin "const ")
@@ -242,6 +254,7 @@
 
 (varfn emit-type
   [definition &opt alias]
+  (def definition (normalize-type definition))
   (match definition
     (d (string? d)) (do (prin d) (if alias (prin " " (mangle alias))))
     (d (bytes? d)) (do (prin (mangle-strict d)) (if alias (prin " " (mangle alias))))
@@ -254,10 +267,7 @@
       ['union & body] (emit-union-def nil body alias)
       ['named-union n & body] (emit-union-def n body alias)
       ['fn n & body] (emit-fn-pointer-type n body alias)
-      ['ptr val] (emit-ptr-type val alias)
       ['* val] (emit-ptr-type val alias)
-      ['quote val] (emit-ptr-type val alias) # shorthand
-      ['** val] (emit-ptr-ptr-type val alias)
       ['const t] (emit-const-type t alias)
       ['array t] (emit-array-type t (get definition 2) alias)
       (errorf "unexpected type form %j" definition))
@@ -579,7 +589,7 @@
   [name & form]
   (def i (index-of '-> form))
   (assert i "invalid function prototype - expected -> before return type")
-  (def ret-type (in form (+ i 1)))
+  (def ret-type (normalize-type (in form (+ i 1))))
   (def arglist (in form (- i 1)))
   (def classes @[])
   (def docstring @"")
@@ -650,42 +660,43 @@
   All of the function columns can be nil if that operation is not
   supported for that type when creating bindings.
   ```
-  [[:value 'Janet nil 'aref]
-   [:any 'Janet nil 'aref]
-   [:bool 'int 'janet-wrap-boolean 'janet-getboolean 'janet-optboolean]
-   [:nat 'int 'janet-wrap-number 'janet-getnat 'janet-optnat]
-   [:int 'int 'janet-wrap-number 'janet-getinteger 'janet-optinteger]
-   [:number 'double 'janet-wrap-number 'janet-getnumber 'janet-optnumber]
-   [:double 'double 'janet-wrap-number 'janet-getnumber 'janet-optnumber]
-   [:float 'float 'janet-wrap-number 'janet-getnumber 'janet-optnumber]
-   [:int32 'int32_t 'janet-wrap-number 'janet-getinteger 'janet-optinteger]
-   [:int64 'int64_t 'janet-wrap-s64 'janet-getinteger64 'janet-optinteger64]
-   [:uint32 'uint32_t 'janet-wrap-number 'janet-getuinteger 'janet-optuinteger]
-   [:uint64 'uint64_t 'janet-wrap-u64 'janet-getuinteger64 'janet-optuinteger64]
-   [:size 'size_t 'janet-wrap-u64 'janet-getsize 'janet-optsize]
-   [:fiber '(* JanetFiber) 'janet-wrap-fiber 'janet-getfiber 'janet-optfiber]
-   [:array '(* JanetArray) 'janet-wrap-array 'janet-getarray 'janet-optarray]
-   [:tuple 'JanetTuple 'janet-wrap-tuple 'janet-gettuple 'janet-opttuple]
-   [:table '(* JanetTable) 'janet-wrap-table 'janet-gettable 'janet-opttable]
-   [:struct 'JanetStruct 'janet-wrap-struct 'janet-getstruct 'janet-optstruct]
-   [:string 'JanetString 'janet-wrap-string 'janet-getstring nil]
-   [:cstring '(const (* char)) 'janet_cstringv 'janet-getcstring 'janet-optcstring]
-   [:symbol 'JanetSymbol 'janet-wrap-symbol 'janet-getsymbol 'janet-optsymbol]
-   [:keyword 'JanetKeyword 'janet-wrap-keyword 'janet-getkeyword 'janet-optkeyword]
-   [:buffer '(* JanetBuffer) 'janet-wrap-buffer 'janet-getbuffer 'janet-optbuffer]
-   [:cfunction 'JanetCFunction 'janet-wrap-cfunction 'janet-getcfunction 'janet-optcfunction]
-   [:function '(* JanetFunction) 'janet-wrap-function 'janet-getfunction nil]
-   [:abstract '(* void) 'janet-wrap-abstract nil nil]
-   [:pointer '(* void) 'janet-wrap-pointer 'janet-getpointer 'janet-optpointer]
-   [:bytes 'JanetByteView nil 'janet-getbytes nil]
-   [:indexed 'JanetView nil 'janet-getindexed nil]
-   [:dictionary 'JanetDictView nil 'janet-getdictionary nil]])
+  [['value 'Janet nil 'aref]
+   ['any 'Janet nil 'aref]
+   ['bool 'int 'janet-wrap-boolean 'janet-getboolean 'janet-optboolean]
+   ['nat 'int 'janet-wrap-number 'janet-getnat 'janet-optnat]
+   ['int 'int 'janet-wrap-number 'janet-getinteger 'janet-optinteger]
+   ['number 'double 'janet-wrap-number 'janet-getnumber 'janet-optnumber]
+   ['double 'double 'janet-wrap-number 'janet-getnumber 'janet-optnumber]
+   ['float 'float 'janet-wrap-number 'janet-getnumber 'janet-optnumber]
+   ['int32 'int32_t 'janet-wrap-number 'janet-getinteger 'janet-optinteger]
+   ['int64 'int64_t 'janet-wrap-s64 'janet-getinteger64 'janet-optinteger64]
+   ['uint32 'uint32_t 'janet-wrap-number 'janet-getuinteger 'janet-optuinteger]
+   ['uint64 'uint64_t 'janet-wrap-u64 'janet-getuinteger64 'janet-optuinteger64]
+   ['size 'size_t 'janet-wrap-u64 'janet-getsize 'janet-optsize]
+   ['fiber '(* JanetFiber) 'janet-wrap-fiber 'janet-getfiber 'janet-optfiber]
+   ['array '(* JanetArray) 'janet-wrap-array 'janet-getarray 'janet-optarray]
+   ['tuple 'JanetTuple 'janet-wrap-tuple 'janet-gettuple 'janet-opttuple]
+   ['table '(* JanetTable) 'janet-wrap-table 'janet-gettable 'janet-opttable]
+   ['struct 'JanetStruct 'janet-wrap-struct 'janet-getstruct 'janet-optstruct]
+   ['string 'JanetString 'janet-wrap-string 'janet-getstring nil]
+   ['cstring '(const (* char)) 'janet_cstringv 'janet-getcstring 'janet-optcstring]
+   ['symbol 'JanetSymbol 'janet-wrap-symbol 'janet-getsymbol 'janet-optsymbol]
+   ['keyword 'JanetKeyword 'janet-wrap-keyword 'janet-getkeyword 'janet-optkeyword]
+   ['buffer '(* JanetBuffer) 'janet-wrap-buffer 'janet-getbuffer 'janet-optbuffer]
+   ['cfunction 'JanetCFunction 'janet-wrap-cfunction 'janet-getcfunction 'janet-optcfunction]
+   ['function '(* JanetFunction) 'janet-wrap-function 'janet-getfunction nil]
+   ['abstract '(* void) 'janet-wrap-abstract nil nil]
+   ['pointer '(* void) 'janet-wrap-pointer 'janet-getpointer 'janet-optpointer]
+   ['bytes 'JanetByteView nil 'janet-getbytes nil]
+   ['indexed 'JanetView nil 'janet-getindexed nil]
+   ['dictionary 'JanetDictView nil 'janet-getdictionary nil]])
 
 # Create convenient to use tables
 (def- alias-to-ctype @{})
 (def- alias-or-ctype-to-wrap @{})
 (def- alias-or-ctype-to-get @{})
 (def- alias-or-ctype-to-opt @{})
+(def- alias-or-ctype-to-abstract-type @{})
 
 (defn register-binding-type
   ```
@@ -702,21 +713,25 @@
     This function should have the signature `Janet optfn(const Janet *argv, int32_t argc, int32_t n, <anytype> dflt);`
     Notably, the "default" value `dflt` does not need to be any particular type.
   ```
-  [alias ctype &opt wrapfn getfn optfn]
+  [alias ctype &opt wrapfn getfn optfn abstract]
   # We should probably normalize all ctype shorthands coming in first in some way
   (if (and (tuple? ctype) (= (first ctype) '*)) # Allow for 'Type shorthand more easily.
     (register-binding-type alias ['quote (get ctype 1)] wrapfn getfn optfn))
-  (def alias (symbol alias))
+  (def ctype (normalize-type ctype))
+  # (def alias (symbol alias))
   (put alias-to-ctype alias ctype)
   (put alias-or-ctype-to-wrap ctype wrapfn)
   (put alias-or-ctype-to-wrap alias wrapfn)
   (put alias-or-ctype-to-get ctype getfn)
   (put alias-or-ctype-to-get alias getfn)
   (put alias-or-ctype-to-opt ctype optfn)
-  (put alias-or-ctype-to-opt alias optfn))
+  (put alias-or-ctype-to-opt alias optfn)
+  (put alias-or-ctype-to-abstract-type alias abstract)
+  (put alias-or-ctype-to-abstract-type alias abstract))
 
-(each [alias ctype wrapfn getfn optfn] bindgen-table
-  (register-binding-type alias ctype wrapfn getfn optfn))
+
+(each [alias ctype wrapfn getfn optfn abstract] bindgen-table
+  (register-binding-type alias ctype wrapfn getfn optfn abstract))
 
 (defn- wrap-v
   "Generate code to wrap any Janet (constant) literal"
@@ -745,11 +760,14 @@
   (def [v T] (type-split binding))
   (def ctype (get alias-to-ctype T T))
   (def getfn (get alias-or-ctype-to-get T))
+  (def abstract (get alias-or-ctype-to-abstract-type T))
   (array/push param-names v)
   (array/push cparams [v ctype])
   (if getfn
     ~(def (,v ,ctype) (,getfn ,argv ,n))
-    ~(def (,v (* void)) (janet_getabstract ,argv ,n ,T))))
+    (do
+      (assertf abstract "cannot use type alias %j as C function parameter, call 'register-binding-type' to enable this" T)
+      ~(def (,v ,ctype) (janet-getabstract ,argv ,n (& ,abstract))))))
 
 (defn- janet-opt*
   "Get cjanet fragment to extract optional parameters. Similar to non-optional parameters
@@ -759,13 +777,31 @@
   (def [v T dflt] (type-split-dflt binding))
   (def ctype (get alias-to-ctype T T))
   (def optfn (get alias-or-ctype-to-opt T))
+  (def abstract (get alias-or-ctype-to-abstract-type T))
   (array/push param-names v)
   (array/push cparams [v ctype])
   (if (in '{value 1 any 1 Janet 1} T)
     ~(def (,v Janet) (? (> argc ,n) (aref ,argv ,n) ,(wrap-v dflt)))
     (if optfn
       ~(def (,v ,ctype) (,optfn ,argv ,argc ,n ,dflt))
-      ~(def (,v (* void)) (janet_optabstract ,argv ,argc ,n ,T ,dflt)))))
+      (do
+        (assertf abstract "cannot use type alias %j as C function parameter, call 'register-binding-type' to enable this" T)
+        ~(def (,v ,ctype) (janet-optabstract ,argv ,argc ,n ,abstract ,dflt))))))
+
+(defn emit-abstract-type
+  [name & fields]
+  "Create and register an abstract type for janet. Will also register the abstract type with janet_register_abstract_type"
+  (def ats (if-let [x (dyn *abstract-type-list*)] x (setdyn *abstract-type-list* @[])))
+  (def name-at (symbol name "_AT"))
+  (array/push ats name-at)
+  (register-binding-type ['* name] ['* name] 'janet-wrap-abstract nil nil name-at)
+  (register-binding-type ['quote name] ['* name] 'janet-wrap-abstract nil nil name-at)
+  (emit-declare [name-at 'JanetAbstractType] :const :static (struct ;fields)))
+
+(defmacro abstract-type
+  "Macro version of emit-abstract-type that allows for top-level unquote"
+  [name & fields]
+  ~(,emit-abstract-type ,;(qq-wrap [name ;fields])))
 
 (defn emit-cfunction
   ```
@@ -817,7 +853,7 @@
   (def max-arity (if (or amp-index named-index keys-index) -1 pcount))
   (buffer/push signature ")")
   # Generate function for use in C
-  (emit-function-impl docstring classes mangledname cparams (get alias-to-ctype ret-type ret-type)
+  (emit-function-impl docstring classes mangledname cparams (normalize-type (get alias-to-ctype ret-type ret-type))
                       body)
                       # (eval (qq-wrap body)))
   # Generate wrapper for use in Janet
@@ -830,7 +866,7 @@
        ~(janet_fixarity argc ,min-arity)
        ~(janet_arity argc ,min-arity ,max-arity))
     ,;argument-parsing
-    (return ,(return-wrap ret-type [mangledname ;param-names])))
+    (return ,(return-wrap (normalize-type ret-type) [mangledname ;param-names])))
   (array/push cfun-list ~(JANET_REG ,(string name) ,(symbol cfun_name)))
   cfun_name)
 
@@ -872,10 +908,12 @@
   [name]
   (def all-cfuns (dyn *cfun-list* @[]))
   (def all-cdefs (dyn *cdef-list* @[]))
+  (def all-types (dyn *abstract-type-list* @[]))
   (prin "\nJANET_MODULE_ENTRY(JanetTable *env) ")
   (block
     ,;all-cdefs
     (def (cfuns (array JanetRegExt)) (array ,;all-cfuns JANET_REG_END))
+    ,;(seq [t :in all-types] ~(janet-register-abstract-type (addr ,t)))
     (janet_cfuns_ext env ,name cfuns)))
 
 (defmacro module-entry
@@ -905,12 +943,14 @@
      :build-type (get options :build-type :native)
      *cdef-list* @[]
      *cfun-list* @[]
+     *abstract-type-list* @[]
      :module-name (get options :module-name (string "cjanet" (gensym) "_" (os/getpid)))})
   (setdyn *jit-context* cont)
   (os/mkdir "_cjanet")
   (setdyn *out* compilation-unit)
   (setdyn *cdef-list* (get cont *cdef-list*))
   (setdyn *cfun-list* (get cont *cfun-list*))
+  (setdyn *abstract-type-list* (get cont *abstract-type-list*))
   cont)
 
 (defn end-jit
@@ -935,6 +975,7 @@
   # 1. Create module entry, make sure to use the correct cfuns and cdefs.
   (with-dyns [*cfun-list* (get ccontext *cfun-list*)
               *cdef-list* (get ccontext *cdef-list*)
+              *abstract-type-list* (get ccontext *abstract-type-list*)
               *out* (get ccontext :buffer)]
     (emit-module-entry module-name))
 
