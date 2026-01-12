@@ -200,7 +200,7 @@
      data *JanetBuffer
      stride int))
 
-(function mark-image
+(function mark-image :static
   [p:*void s:size_t] -> int
   (cast void s)
   (def image:*Image p)
@@ -213,7 +213,7 @@
 
 (comp-unless (dyn :shader-compile)
 
-  (function create-image
+  (function create-image :static
     "Make an abstract image object"
     [width:int height:int channel:int buf:*JanetBuffer] -> *Image
     (def image:*Image (janet-abstract &Image-AT (sizeof Image)))

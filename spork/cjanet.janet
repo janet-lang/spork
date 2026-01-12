@@ -62,7 +62,7 @@
   (peg/compile '(* (? (* '(to ":") ":")) '(any 1))))
 
 (defn- normalize-type
-  "Convert type shorthands to their expanded, common form."
+  "Convert type shorthands to their expanded, common forms."
   [t]
   (match t
     (s (symbol? s))
@@ -70,9 +70,10 @@
       (= (chr "*") (get s 0))
       ['* (normalize-type (symbol/slice s 1))]
       s)
+    ['array st n]  ['array (normalize-type st) n]
     ['array st]  ['array (normalize-type st)]
-    ['quote st]  ['* (normalize-type st)]
     ['ptr st]    ['* (normalize-type st)]
+    ['quote st]  ['* (normalize-type st)]
     ['const st]  ['const (normalize-type st)]
     ['** st]     ['* ['* (normalize-type st)]]
     ['ptrptr st] ['* ['* (normalize-type st)]]
@@ -269,7 +270,8 @@
       ['fn n & body] (emit-fn-pointer-type n body alias)
       ['* val] (emit-ptr-type val alias)
       ['const t] (emit-const-type t alias)
-      ['array t] (emit-array-type t (get definition 2) alias)
+      ['array t n] (emit-array-type t n alias)
+      ['array t] (emit-array-type t nil alias)
       (errorf "unexpected type form %j" definition))
     (errorf "unexpected type form %j" definition)))
 
