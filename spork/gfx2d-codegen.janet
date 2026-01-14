@@ -107,6 +107,17 @@
            [b ~(do ,;body (break))]))
      (assert 0)))
 
+(defn- polymorph-cond
+  :cjanet-block-macro
+  "Make specializations of a function implementation explicitly to help an optimizing compiler"
+  [sym bindings & body]
+  ~(if
+     ,;(array/join
+         @[]
+         ;(seq [b :in bindings]
+           [~(= ,b ,sym) ~(do ,;body)]))
+     (assert 0)))
+
 ###
 ### 2D floating point vector abstraction
 ###
@@ -433,6 +444,8 @@
 ### Basic Drawing (disabled when compiling shaders)
 ###
 
+(typedef BlendFunc (fn [uint32_t uint32_t] -> uint32_t))
+
 (comp-unless (dyn :shader-compile)
 
   (cfunction stamp
@@ -452,6 +465,20 @@
                    (image-set-pixel dest (+ dx x) (+ dy y) (image-get-pixel src x y)))))
     (return dest))
 
+  (cfunction unpack
+    ```
+    Extract the :width (integer), :height (integer), :channels (integer 1-4),
+    stride (integer), and underlying :data (buffer) from an image and return a struct.
+    ```
+    [img:*Image] -> JanetStruct
+    (def st:*JanetKV (janet-struct-begin 5))
+    (janet-struct-put st (janet-ckeywordv "width") (janet-wrap-integer img->width))
+    (janet-struct-put st (janet-ckeywordv "height") (janet-wrap-integer img->height))
+    (janet-struct-put st (janet-ckeywordv "channels") (janet-wrap-integer img->channels))
+    (janet-struct-put st (janet-ckeywordv "stride") (janet-wrap-integer img->stride))
+    (janet-struct-put st (janet-ckeywordv "data") (janet-wrap-buffer img->data))
+    (return (janet-struct-end st)))
+
   (cfunction crop
     "Create a smaller sub-image from a larger image"
     [img:*Image x1:int y1:int new-width:int new-height:int] -> *Image
@@ -459,6 +486,14 @@
       (stamp
         (blank new-width new-height img->channels)
         img (- x1) (- y1))))
+
+  (cfunction copy
+    "Create a duplicate image"
+    [img:*Image] -> *Image
+    (return
+      (stamp # TODO - use memcpy
+        (blank img->width img->height img->channels)
+        img 0 0)))
 
   (cfunction diff
     "Take the difference of two images"
@@ -471,6 +506,37 @@
                  (for [(var x:int 0) (< x a->width) (++ x)]
                    (def color:uint32_t (blend-sub (image-get-pixel a x y) (image-get-pixel b x y)))
                    (image-set-pixel dest x y color))))
+    (return dest))
+
+
+  (function get-blend-func :static :inline
+    [x:Janet] -> BlendFunc
+    (if
+      (janet-keyeq x "add") (return blend-add)
+      (janet-keyeq x "sub") (return blend-sub)
+      (janet-keyeq x "mul") (return blend-mul)
+      (janet-panicf "unknown blend mode %v" x)))
+
+  (cfunction stamp-blend
+    "Copy on image onto another with blending"
+    [dest:*Image src:*Image blend-mode:Janet dx:int dy:int] -> *Image
+    (if (not= src->channels dest->channels) (janet-panic "image channels don't match"))
+    (if (= src->data dest->data) (janet-panic "cannot stamp self"))
+    (def blender:BlendFunc (get-blend-func blend-mode))
+    (def xmin:int (? (< dx 0) (- dx) 0))
+    (def ymin:int (? (< dy 0) (- dy) 0))
+    (def xoverflow:int (- (+ dx src->width) dest->width))
+    (def yoverflow:int (- (+ dy src->height) dest->height))
+    (def xmax:int (? (< xoverflow 0) src->width (- src->width xoverflow)))
+    (def ymax:int (? (< yoverflow 0) src->height (- src->height yoverflow)))
+    (polymorph src->channels [1 2 3 4]
+      (polymorph-cond blender [blend-add blend-sub blend-mul]
+               (for [(var y:int ymin) (< y ymax) (++ y)]
+                 (for [(var x:int xmin) (< x xmax) (++ x)]
+                   (def src-color:uint32_t (image-get-pixel src x y))
+                   (def dest-color:uint32_t (image-get-pixel dest (+ dx x) (+ dy y)))
+                   (def final-color:uint32_t (blender dest-color src-color))
+                   (image-set-pixel dest (+ dx x) (+ dy y) final-color)))))
     (return dest))
 
   (cfunction resize
@@ -525,6 +591,27 @@
         (def dx:double (- xx x))
         (def dy:double (- yy y))
         (when (>= (* r r) (+ (* dx dx) (* dy dy)))
+          (def c1:uint32_t (shader xx yy ,;shader-params))
+          (image-set-pixel img xx yy c1)))))
+  (return img))
+
+(cfunction ring
+  "Draw a ring"
+  [img:*Image x:double y:double r-inner:double r-outer:double,;shader-args] -> *Image
+  (var x1:int (floor (- x r-outer)))
+  (var x2:int (ceil (+ x r-outer)))
+  (var y1:int (floor (- y r-outer)))
+  (var y2:int (ceil (+ y r-outer)))
+  (clip 0 (- img->width 1) 0 (- img->height 1) &x1 &y1)
+  (clip 0 (- img->width 1) 0 (- img->height 1) &x2 &y2)
+  (polymorph img->channels [1 2 3 4]
+    (for [(def yy:int y1) (<= yy y2) (++ yy)]
+      (for [(def xx:int x1) (<= xx x2) (++ xx)]
+        (def dx:double (- xx x))
+        (def dy:double (- yy y))
+        (when (and
+                (>= (* r-outer r-outer) (+ (* dx dx) (* dy dy)))
+                (<= (* r-inner r-inner) (+ (* dx dx) (* dy dy))))
           (def c1:uint32_t (shader xx yy ,;shader-params))
           (image-set-pixel img xx yy c1)))))
   (return img))

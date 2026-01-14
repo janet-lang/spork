@@ -43,6 +43,12 @@
 
 (def- uops {'bnot "~" 'not "!" 'neg "-" '- "-" '! "!" '++ "++" '-- "--"})
 
+(defn- make-trampoline
+  "Make a function that will allow us to stick custom strings into our stacktrace for compiler error messages."
+  [name]
+  (def maker (compile ~(fn ,(keyword "compile/" name) [f & args] (def result (f ;args)) result)))
+  (maker))
+
 (defn mangle
   ``
   Convert any sequence of bytes to a valid C identifier in a way that is unlikely to collide. The period character
@@ -218,9 +224,10 @@
 
 (defn- emit-fn-pointer-type
   [ret-type args defname]
-  (prin "(")
+  (assert defname "function pointer type requires an alias")
+  (prin " ")
   (emit-type ret-type)
-  (prin ")(*" (mangle defname) ")(")
+  (prin " (*" (mangle defname) ")(")
   (var is-first true)
   (each x args
     (unless is-first (prin ", "))
@@ -267,7 +274,7 @@
       ['named-enum n & body] (emit-enum-def n body alias)
       ['union & body] (emit-union-def nil body alias)
       ['named-union n & body] (emit-union-def n body alias)
-      ['fn n & body] (emit-fn-pointer-type n body alias)
+      ['fn (params (indexed? params)) '-> rtype] (emit-fn-pointer-type rtype params alias)
       ['* val] (emit-ptr-type val alias)
       ['const t] (emit-const-type t alias)
       ['array t n] (emit-array-type t n alias)
@@ -586,8 +593,7 @@
   [& args]
   (print "#" (string/join (map string args) " ")))
 
-(defn emit-function
-  "Emit a C function definition."
+(defn- emit-function-1
   [name & form]
   (def i (index-of '-> form))
   (assert i "invalid function prototype - expected -> before return type")
@@ -604,8 +610,12 @@
   (def body (tuple/slice form (+ 2 i)))
   (emit-function-impl docstring classes name arglist ret-type body))
 
-(defn emit-declare
-  "Emit a declaration of a variable or constant."
+(defn emit-function
+  "Emit a C function definition."
+  [name & form]
+  ((make-trampoline name) emit-function-1 name ;form))
+
+(defn- emit-declare-1
   [binding & form]
   (def storage-classes (slice form 0 (dec (length form))))
   (def v (last form))
@@ -613,6 +623,11 @@
     (emit-storage-classes storage-classes))
   (emit-declaration binding v)
   (print ";"))
+
+(defn emit-declare
+  "Emit a declaration of a variable or constant."
+  [binding & form]
+  ((make-trampoline binding) emit-declare-1 binding ;form))
 
 (defn emit-extern
   "Emit a declaration of a variable or constant."
@@ -623,7 +638,7 @@
   "Emit a type declaration (C typedef)."
   [name definition]
   (print)
-  (emit-typedef-impl name definition))
+  ((make-trampoline name) emit-typedef-impl name definition))
 
 (defn emit-include
   [path]
@@ -880,7 +895,7 @@
   or janet_fixarity).
   ```
   [name & more]
-  ~(,emit-cfunction ,;(qq-wrap [name ;more])))
+  ~(,(make-trampoline name) ,emit-cfunction ,;(qq-wrap [name ;more])))
   #(emit-cfunction name ;more))
 
 (defn emit-cdef
@@ -903,7 +918,7 @@
   It takes care of the docstring.
   ```
   [name & more]
-  ~(,emit-cdef ,;(qq-wrap [name ;more])))
+  ~(,(make-trampoline name) ,emit-cdef ,;(qq-wrap [name ;more])))
 
 (defn emit-module-entry
   "Call this at the end of a cjanet module to add a module entry function."

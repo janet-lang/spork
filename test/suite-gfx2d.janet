@@ -36,7 +36,7 @@
     (save img fullpath)
     (do
       (def reference (load fullpath))
-      (assert (deep= reference img) (string "reference not identical to test image " file-name)))))
+      (assert (deep= (unpack reference) (unpack img)) (string "reference not identical to test image " file-name)))))
 
 (defn rrect
   [img x1 y1 x2 y2 color]
@@ -90,15 +90,12 @@
 
 (defn test-copy
   []
-  (defn copy [img]
-    (def [buf w h c] img)
-    [(buffer/slice buf) w h c])
   (def img (blank 154 113 3))
   (rrect img 16 16 112 112 red)
   (circle img 16 16 1000 cyan) # oob circle
   (rrect img 32 32 96 96 blue)
   (def cop (copy img))
-  (assert (deep= cop img))
+  (assert (deep= (unpack cop) (unpack img)))
   (def empty1 (diff cop img))
   (def empty2 (diff img img))
   (check-image empty1 "empty.png")
