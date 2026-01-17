@@ -6,11 +6,10 @@
 (var start-time 0)
 (var skip-count 0)
 (var skip-n 0)
-
 (def- is-verbose (delay (os/getenv "VERBOSE")))
 
 (defn- assert-no-tail
-  "Override's the default assert with some nice error handling."
+  "Overrides the default assert with some nice error handling."
   [x &opt e]
   (++ num-tests-run)
   (when (pos? skip-n)
@@ -69,7 +68,8 @@
   (set suite-num name)
   (set start-time (os/clock))
   (set num-tests-passed 0)
-  (set num-tests-run 0))
+  (set num-tests-run 0)
+  (set skip-count 0))
 
 (defn end-suite
   "Ends test suite, prints summary and exits if any tests have failed."
