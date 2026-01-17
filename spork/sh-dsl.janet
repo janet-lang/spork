@@ -92,7 +92,7 @@
         (fn :pipeline []
           (def res (os/proc-wait p))
           (if w (ev/close w))
-          (if r (ev/close r))
+          #(if r (ev/close r))
           res)))
 
     (when capture

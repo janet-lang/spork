@@ -4,24 +4,45 @@
 (var num-tests-run 0)
 (var suite-num 0)
 (var start-time 0)
+(var skip-count 0)
+(var skip-n 0)
 
-(def- tests-passed-ref (get (dyn 'num-tests-passed) :ref))
-(def- tests-run-ref (get (dyn 'num-tests-run) :ref))
+(def- is-verbose (delay (os/getenv "VERBOSE")))
+
+(defn- assert-no-tail
+  "Override's the default assert with some nice error handling."
+  [x &opt e]
+  (++ num-tests-run)
+  (when (pos? skip-n)
+    (-- skip-n)
+    (++ skip-count)
+    (break x))
+  (default e "assert error")
+  (when x (++ num-tests-passed))
+  (def stack (debug/stack (fiber/current)))
+  (def frame (last stack))
+  (def line-info (string/format "%s:%d"
+                              (frame :source) (frame :source-line)))
+  (if x
+    (when (is-verbose) (eprintf "\e[32m✔\e[0m %s: %s: %v" line-info (describe e) x))
+    (do
+      (eprintf "\e[31m✘\e[0m %s: %s: %v" line-info (describe e) x) (eflush)))
+  x)
+
+(defn skip-asserts
+  "Skip some asserts"
+  [n]
+  (+= skip-n n)
+  nil)
 
 (defmacro assert
   "Overrides the default assert with some nice error handling."
   [x &opt e]
-  (default e (string/format "%j" (dyn :macro-form)))
   (def xx (gensym))
+  (default e (string/format "%j" x))
   ~(do
-     (++ (',tests-run-ref 0))
      (def ,xx ,x)
-     (if ,xx (++ (',tests-passed-ref 0)))
-     (as-macro ,unless ,xx
-               (if (os/isatty)
-                 (,prin "\e[31m✘\e[0m  ")
-                 (,prin "[FAIL] "))
-               (,print ,e))
+     (,assert-no-tail ,xx ,e)
      ,xx))
 
 (defmacro assert-not
