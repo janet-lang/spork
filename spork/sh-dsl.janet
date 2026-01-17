@@ -51,48 +51,77 @@
   (if (= (chr "\r") (last buf)) (buffer/popn buf 1))
   buf)
 
+(compwhen (= (os/which) :windows)
+  (defn- get-write-fd [path] (file/open path :wb))
+  (defn- get-read-fd [path] (file/open path :rb))
+  (defn- get-append-fd [path] (file/open path :wb+)))
+
+# The os/open verions _should_ work better on windows.
+(compwhen (not= (os/which) :windows)
+  (defn- get-write-fd [path] (os/open path :wct))
+  (defn- get-read-fd [path] (os/open path :r))
+  (defn- get-append-fd [path] (os/open path :wca)))
+
 (defn- do-pipeline-impl
+  ```
+  Build the final pipeline from parsed tokens. Creates pipes
+  and opens files, calls os/spawn on each command, and finally waits
+  until completion. Also cleans up resources when done.
+  ```
   [pipeline &opt capture return-all]
   (def procs @[])
   (def fds @[])
   (var pipein nil)
-  (defn getfd [f]
-    (array/push fds f)
-    f)
+  (defn getfd [f] (array/push fds f) f)
 
   (defer
     (each f fds (:close f)) # Don't leak descriptors
     (eachp [i {:cmd cmd :tab t}] pipeline
       (def is-last (= i (dec (length pipeline))))
+      (def to-close @[])
       (var pipe-w nil)
-      (when pipein
-        (put t :in pipein))
+      (when pipein (put t :in pipein))
+
+      # Handle pipes
       (unless (and is-last (not capture))
         (def [r w] (os/pipe (if (and is-last capture) :W :WR)))
         (put t :out w)
+        (array/push to-close w)
         (set pipe-w (getfd w))
         (set pipein (getfd r)))
+
       (each key [:out :err :in] # Create file descriptors for inputs and outputs.
-        (if (string? (t key))
-          (set (t key) (getfd (os/open (t key) (if (= key :in) :r :wct))))))
-      (each key [:out-append :err-append] # TODO - make append work correctly on windows - does os/open handle :a flag correctly
-        (if (string? (t key))
-          (set (t (keyword/slice key 0 3)) (getfd (os/open (t key) :wca)))))
+        (when (string? (t key))
+          (def getter (if (= key :in) get-read-fd get-write-fd))
+          (set (t key) (getfd (getter (t key))))
+          (array/push to-close (t key))))
+
+      # Append versions
+      (each key [:out-append :err-append]
+        (when (string? (t key))
+          (def tkey (keyword/slice key 0 3))
+          (set (t tkey) (getfd (get-append-fd (t key))))
+          (array/push to-close (t tkey))))
+
+      # Make env table to pass to os/spawn
       (def has-env-var (get t :has-envvar))
       (def finalt
         (if has-env-var
           (merge-into (os/environ) t)
           t))
+
+      # Create process
       (def proc (os/spawn (map string-token cmd) (if has-env-var :pe :p) finalt))
       (getfd proc)
-      (array/push procs [proc pipein pipe-w]))
+
+      # Make array of all spawned processes that we can query
+      (array/push procs [proc to-close]))
 
     (def thunks
-      (seq [[p r w] :in procs]
+      (seq [[p to-close] :in procs]
         (fn :pipeline []
           (def res (os/proc-wait p))
-          (if w (ev/close w))
-          #(if r (ev/close r))
+          (each x to-close (:close x))
           res)))
 
     (when capture
@@ -106,6 +135,10 @@
 
     (def out (wait-thunks thunks))
     (if return-all out (last out))))
+
+###
+### DSL Parsing
+###
 
 (defn- parse-token
   [t]
