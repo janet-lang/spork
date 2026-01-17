@@ -50,8 +50,7 @@ variables from the calling process can also be passed in by passing in symbols t
 Keep in mind that this syntax is not the same as Posix shell - environment variable expansion will not work everywhere and
 can always be substituted with inline Janet code instead.
 
-
-### Janet Substitution
+### Janet Expression Substitution
 
 Users may want to mix Janet expressions with literals when invoking subprograms, and this library makes it easy
 using the familiar @code`unquote` special.
@@ -73,6 +72,32 @@ using the familiar @code`unquote` special.
 
 # This will print "(+ 1 2 3)"
 ($ echo '(+ 1 2 3))
+```
+
+### Pipes
+
+The input of one command can be piped into another as in shell scripts.
+
+@codeblock[janet]```
+(use spork/sh-dsl)
+
+($ ip address | grep docker)
+(json/decode ($<_ curl -s https://www.githubstatus.com/api/v2/status.json | jq .))
+```
+
+## File Redirection
+
+Standard IO (stdin, stdout, and stderr) can also be redirect to files much like the usual shell syntax.
+
+@codeblock[janet]```
+(use spork/sh-dsl)
+
+($ echo hi > out.txt) # Returns 0 and outputs nothing to the console - output has been redirected.
+($ cat out.txt) # prints hi
+($ janet -e '(error :oops) :err-to-out > out.txt) # redirect stderr to stdout
+($ janet -e '(error :oops) :err-to-out >> out.txt) # redirect stderr to stdout and append to out.txt instead of overwriting
+
+($ janet -e '(prin (:read stdin :all)) < out.txt) # reprint out.txt
 ```
 
 ## Reference

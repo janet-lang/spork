@@ -74,7 +74,7 @@
         (set pipein (getfd r)))
       (each key [:out :err :in] # Create file descriptors for inputs and outputs.
         (if (string? (t key))
-          (set (t key) (getfd (os/open (t key) (if (= key :in) :rct :wct))))))
+          (set (t key) (getfd (os/open (t key) (if (= key :in) :r :wct))))))
       (each key [:out-append :err-append] # TODO - make append work correctly on windows - does os/open handle :a flag correctly
         (if (string? (t key))
           (set (t (keyword/slice key 0 3)) (getfd (os/open (t key) :wca)))))
