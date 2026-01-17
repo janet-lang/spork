@@ -166,7 +166,7 @@
       (s (and (empty? cmd-buffer) (bytes? s) (peg/match parse-env-set-peg s)))
       (let [[k v] (peg/match parse-env-set-peg s)]
         (put tab :has-envvar true)
-        (put tab k v))
+        (put tab k (parse-token (if (symbol? s) (symbol v) v))))
       # Pipe
       ['short-fn x]
       (do (unless (empty? cmd-buffer) (next-cmd)) (look-token x))
