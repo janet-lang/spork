@@ -27,9 +27,10 @@
   (assert (not ($? ,janet -e "(assert (os/getenv `BONKERS`))" :err-to-out > ,(sh/devnull))) "setting env vars works 2")
   (os/setenv "BONKERS" "2")
   (assert (deep= @"2" ($<_ echo $BONKERS)) "passing env vars works 1")
-  (assert (deep= @"BONKERS=2" ($<_ echo BONKERS=2)) "setting env vars doesn't work after program name"))
+  (assert (deep= @"BONKERS=2" ($<_ echo BONKERS=2)) "setting env vars doesn't work after program name")
 
-(def version (buffer janet/version "-" janet/build))
-(assert (deep= version ($<_ ,janet --version | ,janet -e '(prin (:read stdin :all)))) "janet pipe example")
+  # More pipes using just janet
+  (def version (buffer janet/version "-" janet/build))
+  (assert (deep= version ($<_ ,janet --version | ,janet -e '(prin (:read stdin :all)))) "janet pipe example"))
 
 (end-suite)
