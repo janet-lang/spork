@@ -80,13 +80,15 @@
       (def is-last (= i (dec (length pipeline))))
       (def to-close @[])
       (var pipe-w nil)
-      (when pipein (put t :in pipein))
+      (when pipein
+        (put t :in pipein)
+        (array/push to-close pipein))
 
       # Handle pipes
       (unless (and is-last (not capture))
         (def [r w] (os/pipe (if (and is-last capture) :W :WR)))
         (put t :out w)
-        (array/push to-close w)
+        (array/push to-close r w)
         (set pipe-w (getfd w))
         (set pipein (getfd r)))
 

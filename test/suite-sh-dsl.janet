@@ -4,6 +4,7 @@
 
 (start-suite)
 
+(assert true)
 (def janet (sh/self-exe))
 
 # TODO - windows has a very different command line environment
@@ -11,7 +12,7 @@
 
 # Basic commands
 (unless is-windows
-  (assert ($ echo) "echo 1")
+  (assert ($< echo) "echo 1")
   (assert (deep= @"hi\n" ($< echo hi)) "echo 2")
   (assert (deep= @"hi" ($<_ echo hi)) "echo 3")
 
@@ -27,5 +28,8 @@
   (os/setenv "BONKERS" "2")
   (assert (deep= @"2" ($<_ echo $BONKERS)) "passing env vars works 1")
   (assert (deep= @"BONKERS=2" ($<_ echo BONKERS=2)) "setting env vars doesn't work after program name"))
+
+(def version (buffer janet/version "-" janet/build))
+(assert (deep= version ($<_ ,janet --version | ,janet -e '(prin (:read stdin :all)))) "janet pipe example")
 
 (end-suite)
