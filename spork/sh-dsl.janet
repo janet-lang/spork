@@ -40,6 +40,11 @@
 
 # End ev/go-gather
 
+(defn- string-token [x]
+  (if (bytes? x)
+    (string x)
+    (string/format "%j" x)))
+
 (defn- drop-newline
   [buf]
   (if (= (chr "\n") (last buf)) (buffer/popn buf 1))
@@ -78,7 +83,7 @@
         (if has-env-var
           (merge-into (os/environ) t)
           t))
-      (def proc (os/spawn (map string cmd) (if has-env-var :pe :p) finalt))
+      (def proc (os/spawn (map string-token cmd) (if has-env-var :pe :p) finalt))
       (getfd proc)
       (array/push procs [proc pipein pipe-w]))
 
@@ -108,13 +113,15 @@
     # Env variable
     (s (and (symbol? s) (= (in s 0) (chr "$"))))
     ~(,os/getenv ,(string/slice t 1))
-    # Literal
-    #['quote _] t
     # Binding
+    ['quote x] t
     ['unquote x] x
+    # Tuple shorthand
+    (x (and (tuple? x) (= (tuple/type x) :parens)))
+    x
     # Normal token
     x
-    (string x)))
+    (string-token x)))
 
 (defn- build-pipeline
   [tokens]
