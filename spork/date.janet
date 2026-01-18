@@ -225,8 +225,8 @@
 
   (def date-struct (-> (struct/with-proto (os/date 0) ;(kvs parsed-date))
                        os/mktime os/date))
-  (struct :date-str date-str :format-str format-str 
-          ;(kvs date-struct)))
+  (struct :date-str date-str :format-str format-str
+    ;(kvs date-struct)))
 
 (defmacro- capitalize [str]
   (with-syms [$str]

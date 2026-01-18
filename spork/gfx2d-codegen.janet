@@ -104,7 +104,7 @@
      ,;(array/join
          @[]
          ;(seq [b :in bindings]
-           [b ~(do ,;body (break))]))
+            [b ~(do ,;body (break))]))
      (assert 0)))
 
 (defn- polymorph-cond
@@ -115,7 +115,7 @@
      ,;(array/join
          @[]
          ;(seq [b :in bindings]
-           [~(= ,b ,sym) ~(do ,;body)]))
+            [~(= ,b ,sym) ~(do ,;body)]))
      (assert 0)))
 
 ###
@@ -129,14 +129,14 @@
     ,(string "Vectorized " op)
     [a:V2 b:V2] -> V2
     (return (named-struct V2
-             x (,op a.x b.x)
-             y (,op a.y b.y))))
+              x (,op a.x b.x)
+              y (,op a.y b.y))))
   (function ,(symbol "v/s" op) :static :inline
     ,(string "Element-wise vectorized " op)
     [scalar:double a:V2] -> V2
     (return (named-struct V2
-             x (,op a.x scalar)
-             y (,op a.y scalar)))))
+              x (,op a.x scalar)
+              y (,op a.y scalar)))))
 
 (function v/make :static :inline
   [x:double y:double] -> V2
@@ -205,11 +205,11 @@
 
 (typedef Image
   (named-struct Image
-     width int
-     height int
-     channels int
-     data *JanetBuffer
-     stride int))
+    width int
+    height int
+    channels int
+    data *JanetBuffer
+    stride int))
 
 (function mark-image :static
   [p:*void s:size_t] -> int
@@ -303,8 +303,8 @@
   (def stride:int img->stride)
   (def channels:int img->channels)
   (for [(def c:int 0) (< c channels) (++ c)]
-     (set (aref data (+ c (* x channels) (* y stride)))
-        (band (>> color (* c 8)) 0xFF))))
+    (set (aref data (+ c (* x channels) (* y stride)))
+         (band (>> color (* c 8)) 0xFF))))
 
 (comp-unless (dyn :shader-compile)
 
@@ -326,14 +326,14 @@
 ##
 
 (def- colors
-  {:red     0xFF0000FF
-   :green   0xFF00FF00
-   :blue    0xFFFF0000
-   :clear   0x00000000
-   :black   0xFF000000
-   :white   0xFFFFFFFF
-   :cyan    0xFFFFFF00
-   :yellow  0xFF00FFFF
+  {:red 0xFF0000FF
+   :green 0xFF00FF00
+   :blue 0xFFFF0000
+   :clear 0x00000000
+   :black 0xFF000000
+   :white 0xFFFFFFFF
+   :cyan 0xFFFFFF00
+   :yellow 0xFF00FFFF
    :magenta 0xFFFF00FF})
 
 (eachp [name value] colors
@@ -350,9 +350,9 @@
   "Swap two variables"
   [x y typ]
   ~(do
-    (def (tmp ,typ) ,x)
-    (set ,x ,y)
-    (set ,y tmp)))
+     (def (tmp ,typ) ,x)
+     (set ,x ,y)
+     (set ,y tmp)))
 
 (defn- sort2
   :cjanet-block-macro
@@ -398,13 +398,13 @@
 
 (function max3z :static :inline [a:int b:int c:int] -> int
   (return (? (> a b)
-     (? (> a c) a c)
-     (? (> b c) b c))))
+             (? (> a c) a c)
+             (? (> b c) b c))))
 
 (function min3z :static :inline [a:int b:int c:int] -> int
   (return (? (< a b)
-     (? (< a c) a c)
-     (? (< b c) b c))))
+             (? (< a c) a c)
+             (? (< b c) b c))))
 
 (function max2z :static :inline [a:int b:int] -> int
   (return (? (< a b) b a)))
@@ -417,28 +417,28 @@
 ###
 
 (function blend-default [dest:uint32_t src:uint32_t] -> uint32_t
-          (return src))
+  (return src))
 
 # Blend operators
 (each [name op] [['add '+] ['sub '-] ['mul '*]]
   (function ,(symbol 'blend- name) :static :inline
-      ,(string "Blending function for dest = dest " op " src ")
-      [dest:uint32_t src:uint32_t] -> uint32_t
-      (var dest-r:int 0)
-      (var dest-g:int 0)
-      (var dest-b:int 0)
-      (var dest-a:int 0)
-      (var src-r:int 0)
-      (var src-g:int 0)
-      (var src-b:int 0)
-      (var src-a:int 0)
-      (colorsplit dest &dest-r &dest-g &dest-b &dest-a)
-      (colorsplit src &src-r &src-g &src-b &src-a)
-      (def r:int (clampz (,op dest-r src-r) 0 0xFF))
-      (def g:int (clampz (,op dest-g src-g) 0 0xFF))
-      (def b:int (clampz (,op dest-b src-b) 0 0xFF))
-      (def a:int (clampz (,op dest-a src-a) 0 0xFF))
-      (return (colorjoin r g b a))))
+    ,(string "Blending function for dest = dest " op " src ")
+    [dest:uint32_t src:uint32_t] -> uint32_t
+    (var dest-r:int 0)
+    (var dest-g:int 0)
+    (var dest-b:int 0)
+    (var dest-a:int 0)
+    (var src-r:int 0)
+    (var src-g:int 0)
+    (var src-b:int 0)
+    (var src-a:int 0)
+    (colorsplit dest &dest-r &dest-g &dest-b &dest-a)
+    (colorsplit src &src-r &src-g &src-b &src-a)
+    (def r:int (clampz (,op dest-r src-r) 0 0xFF))
+    (def g:int (clampz (,op dest-g src-g) 0 0xFF))
+    (def b:int (clampz (,op dest-b src-b) 0 0xFF))
+    (def a:int (clampz (,op dest-a src-a) 0 0xFF))
+    (return (colorjoin r g b a))))
 
 ###
 ### Basic Drawing (disabled when compiling shaders)
@@ -460,9 +460,9 @@
     (def xmax:int (? (< xoverflow 0) src->width (- src->width xoverflow)))
     (def ymax:int (? (< yoverflow 0) src->height (- src->height yoverflow)))
     (polymorph src->channels [1 2 3 4]
-               (for [(var y:int ymin) (< y ymax) (++ y)]
-                 (for [(var x:int xmin) (< x xmax) (++ x)]
-                   (image-set-pixel dest (+ dx x) (+ dy y) (image-get-pixel src x y)))))
+      (for [(var y:int ymin) (< y ymax) (++ y)]
+        (for [(var x:int xmin) (< x xmax) (++ x)]
+          (image-set-pixel dest (+ dx x) (+ dy y) (image-get-pixel src x y)))))
     (return dest))
 
   (cfunction unpack
@@ -492,8 +492,8 @@
     [img:*Image] -> *Image
     (return
       (stamp # TODO - use memcpy
-        (blank img->width img->height img->channels)
-        img 0 0)))
+             (blank img->width img->height img->channels)
+             img 0 0)))
 
   (cfunction diff
     "Take the difference of two images"
@@ -502,12 +502,11 @@
     (if (or (not= a->height b->height) (not= a->width b->width)) (janet-panic "images must have matching dimensions"))
     (def dest:*Image (blank a->width a->height a->channels))
     (polymorph a->channels [1 2 3 4]
-               (for [(var y:int 0) (< y a->height) (++ y)]
-                 (for [(var x:int 0) (< x a->width) (++ x)]
-                   (def color:uint32_t (blend-sub (image-get-pixel a x y) (image-get-pixel b x y)))
-                   (image-set-pixel dest x y color))))
+      (for [(var y:int 0) (< y a->height) (++ y)]
+        (for [(var x:int 0) (< x a->width) (++ x)]
+          (def color:uint32_t (blend-sub (image-get-pixel a x y) (image-get-pixel b x y)))
+          (image-set-pixel dest x y color))))
     (return dest))
-
 
   (function get-blend-func :static :inline
     [x:Janet] -> BlendFunc
@@ -531,12 +530,12 @@
     (def ymax:int (? (< yoverflow 0) src->height (- src->height yoverflow)))
     (polymorph src->channels [1 2 3 4]
       (polymorph-cond blender [blend-add blend-sub blend-mul]
-               (for [(var y:int ymin) (< y ymax) (++ y)]
-                 (for [(var x:int xmin) (< x xmax) (++ x)]
-                   (def src-color:uint32_t (image-get-pixel src x y))
-                   (def dest-color:uint32_t (image-get-pixel dest (+ dx x) (+ dy y)))
-                   (def final-color:uint32_t (blender dest-color src-color))
-                   (image-set-pixel dest (+ dx x) (+ dy y) final-color)))))
+        (for [(var y:int ymin) (< y ymax) (++ y)]
+          (for [(var x:int xmin) (< x xmax) (++ x)]
+            (def src-color:uint32_t (image-get-pixel src x y))
+            (def dest-color:uint32_t (image-get-pixel dest (+ dx x) (+ dy y)))
+            (def final-color:uint32_t (blender dest-color src-color))
+            (image-set-pixel dest (+ dx x) (+ dy y) final-color)))))
     (return dest))
 
   (cfunction resize
@@ -597,7 +596,7 @@
 
 (cfunction ring
   "Draw a ring"
-  [img:*Image x:double y:double r-inner:double r-outer:double,;shader-args] -> *Image
+  [img:*Image x:double y:double r-inner:double r-outer:double ,;shader-args] -> *Image
   (var x1:int (floor (- x r-outer)))
   (var x2:int (ceil (+ x r-outer)))
   (var y1:int (floor (- y r-outer)))
@@ -931,11 +930,11 @@
 
 # Allow for sorting intersesctions
 (typedef Intersection
-         (named-struct Intersection
-                       xcoord int
-                       sign int
-                       tail int
-                       endpoint int))
+  (named-struct Intersection
+    xcoord int
+    sign int
+    tail int
+    endpoint int))
 
 (function intersection-compare :static :inline
   "Compare two intersections"

@@ -21,7 +21,7 @@
   (def stack (debug/stack (fiber/current)))
   (def frame (last stack))
   (def line-info (string/format "%s:%d"
-                              (frame :source) (frame :source-line)))
+                                (frame :source) (frame :source-line)))
   (if x
     (when (is-verbose) (eprintf "\e[32m✔\e[0m %s: %s: %v" line-info (describe e) x))
     (do

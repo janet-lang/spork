@@ -49,7 +49,7 @@
     (def config (ap "config"))
     (def [exists contents] (protect (slurp config)))
     (if exists
-      (setdyn fmt/*user-indent-2-forms* (parse contents))
+      (setdyn fmt/*user-indent-2-forms* (map string (parse contents)))
       (when (not= config default-config)
         (eprintf "Configuration file '%s' does not exist" config))))
 

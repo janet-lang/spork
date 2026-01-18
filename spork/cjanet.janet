@@ -76,12 +76,12 @@
       (= (chr "*") (get s 0))
       ['* (normalize-type (symbol/slice s 1))]
       s)
-    ['array st n]  ['array (normalize-type st) n]
-    ['array st]  ['array (normalize-type st)]
-    ['ptr st]    ['* (normalize-type st)]
-    ['quote st]  ['* (normalize-type st)]
-    ['const st]  ['const (normalize-type st)]
-    ['** st]     ['* ['* (normalize-type st)]]
+    ['array st n] ['array (normalize-type st) n]
+    ['array st] ['array (normalize-type st)]
+    ['ptr st] ['* (normalize-type st)]
+    ['quote st] ['* (normalize-type st)]
+    ['const st] ['const (normalize-type st)]
+    ['** st] ['* ['* (normalize-type st)]]
     ['ptrptr st] ['* ['* (normalize-type st)]]
     t))
 
@@ -410,7 +410,7 @@
         [(bs (uops bs)) & rest] (emit-unop (uops bs) ;rest)
         ['literal l] (prin (string l))
         ['aref v i & more]
-          (do (assert (empty? more) "aref expects two arguments") (emit-aindex v i))
+        (do (assert (empty? more) "aref expects two arguments") (emit-aindex v i))
         ['call & args] (emit-funcall args)
         ['set v i] (emit-set v i)
         ['deref v] (emit-deref v)
@@ -872,7 +872,7 @@
   # Generate function for use in C
   (emit-function-impl docstring classes mangledname cparams (normalize-type (get alias-to-ctype ret-type ret-type))
                       body)
-                      # (eval (qq-wrap body)))
+  # (eval (qq-wrap body)))
   # Generate wrapper for use in Janet
   (def cfun_name (mangle (string "_generated_cfunction_" mangledname)))
   (print "\nJANET_FN(" cfun_name ",")
@@ -896,7 +896,7 @@
   ```
   [name & more]
   ~(,(make-trampoline name) ,emit-cfunction ,;(qq-wrap [name ;more])))
-  #(emit-cfunction name ;more))
+#(emit-cfunction name ;more))
 
 (defn emit-cdef
   ```

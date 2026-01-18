@@ -660,7 +660,7 @@
 
 (deftemplate enter-shell-template
   :private
-    ````
+  ````
     # . bin/activate
     if [ -n "$${_OLD_JANET_PATH+set}" ]; then
       echo 'An environment is already active, please run `deactivate` first.';
@@ -771,10 +771,10 @@
   (print "(Unix sh)    run `. " path "/bin/activate` to enter the new environment, then `deactivate` to exit."))
 
 (defn- try-copy
-    [src dest]
-    (unless (sh/exists? src) (break false))
-    (sh/copy src dest)
-    true)
+  [src dest]
+  (unless (sh/exists? src) (break false))
+  (sh/copy src dest)
+  true)
 
 (defn vendor-binaries-pm-shell
   ```
