@@ -348,9 +348,9 @@
             13 # enter
             (do (set more-input false) (buffer/push buf "\n") (clear-lines))
             14 # ctrl-n
-            (set hindex (history-move hindex -1))
-            16 # ctrl-p
             (set hindex (history-move hindex 1))
+            16 # ctrl-p
+            (set hindex (history-move hindex -1))
             17 # ctrl-q
             (do (set more-input false) (set ret-value :cancel) (clear-lines))
             21 # ctrl-u
