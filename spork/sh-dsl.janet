@@ -197,10 +197,8 @@
       '>>out (do (set tabkey :out-append) (put tab :out nil))
       '>err (do (set tabkey :err) (put tab :err-append nil))
       '>>err (do (set tabkey :err-append) (put tab :err nil))
-      # Out-to-Error and Error-to-Out
-      '>out-to-err (do (put tab :out :err) (put tab :out-append nil))
+      # Error-to-Out
       '>err-to-out (do (put tab :err :out) (put tab :err-append nil))
-      :out-to-err (do (put tab :out :err) (put tab :out-append nil))
       :err-to-out (do (put tab :err :out) (put tab :err-append nil))
       # Env binding set
       (s (and (empty? cmd-buffer) (bytes? s) (peg/match parse-env-set-peg s)))
