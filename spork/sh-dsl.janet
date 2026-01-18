@@ -53,9 +53,9 @@
 
 (compwhen (= (os/which) :windows)
   # Try the share read (:R) flag on windows
-  (defn- get-write-fd [path] (os/open path :wctR))
-  (defn- get-read-fd [path] (os/open path :rbR))
-  (defn- get-append-fd [path] (os/open path :wcaR)))
+  (defn- get-write-fd [path] (os/open path :wctRV))
+  (defn- get-read-fd [path] (os/open path :rbRV))
+  (defn- get-append-fd [path] (os/open path :caRV)))
 
 # The os/open verions _should_ work better on windows.
 (compwhen (not= (os/which) :windows)
