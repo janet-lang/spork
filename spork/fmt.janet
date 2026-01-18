@@ -64,6 +64,11 @@
     [tag (xs (array? xs))]
     (do
       (while (= "\n" (array/peek xs)) (array/pop xs)) # remove trailing newlines
+      # Replace a trailing :comment node with :comment-last node
+      (when-let [last-node (array/peek xs)]
+        (when (= :comment (first last-node))
+          (array/pop xs)
+          (array/push xs [:comment-last (get last-node 1)])))
       (when-let [index (find-index |(not= "\n" $) xs)]
         (array/remove xs 0 index)) # remove leading newlines
       # remove too many consecutive newlines
@@ -171,6 +176,7 @@
     (match node
       "\n" (newline)
       [:comment x] (do (emit "#" x) (newline))
+      [:comment-last x] (do (indent) (emit "#" x) (newline) (dedent) (flushwhite))
       [:span x] (do (emit x) (addwhite))
       [:string x] (do (emit-string x) (addwhite))
       [:buffer x] (do (emit "@") (emit-string x) (addwhite))
