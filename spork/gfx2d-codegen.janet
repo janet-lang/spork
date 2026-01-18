@@ -1085,7 +1085,7 @@
   (each-i 0 npoints
     (def P:V2 (aref vs i))
     (circle img P.x P.y thickness ,;shader-params))
-  (janet-sfree vs)
+  (janet-sfree vs:*V2)
   (return img))
 
 (comp-unless (dyn :shader-compile)

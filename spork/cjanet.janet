@@ -23,8 +23,8 @@
 
 (def- mangle-peg
   (peg/compile
-    ~{:valid (range "az" "AZ" "__" ".." "::")
-      :one (+ '"->" (/ "-" "_") '" " ':valid (/ '1 ,|(string "_X" ($ 0))))
+    ~{:valid (range "az" "AZ" "__" "..")
+      :one (+ '"->" (/ "-" "_") '"::" '" " ':valid (/ '(if-not ":" 1) ,|(string "_X" ($ 0))))
       :main (% (* (? "@") '(any (set "*&")) :one (any (+ ':d :one))))}))
 
 (def- mangle-strict-peg
@@ -52,7 +52,8 @@
 (defn mangle
   ``
   Convert any sequence of bytes to a valid C identifier in a way that is unlikely to collide. The period character
-  is left unchanged even though it is not a valid identifier to allow for easy access into structs.
+  is left unchanged even though it is not a valid identifier to allow for easy access into structs. Will also remove
+  any grafted type info. E.g. abc:int -> abc
   ``
   [token]
   (first (peg/match mangle-peg token)))
