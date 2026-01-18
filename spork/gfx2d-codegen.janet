@@ -19,7 +19,7 @@
 ### [x] - get/set individual pixels (mostly for testing)
 ### [x] - text w/ simple font
 ### [x] - stroke paths (w/ thickness)
-### [ ] - blending
+### [x] - blending
 ### [x] - image resizing
 ### [x] - bezier
 ### [ ] - splines
@@ -219,8 +219,8 @@
   (return 0))
 
 (abstract-type Image
-               :name "gfx2d/image"
-               :gcmark mark-image)
+  :name "gfx2d/image"
+  :gcmark mark-image)
 
 (comp-unless (dyn :shader-compile)
 
@@ -1085,7 +1085,7 @@
   (each-i 0 npoints
     (def P:V2 (aref vs i))
     (circle img P.x P.y thickness ,;shader-params))
-  (janet-sfree vs:*V2)
+  (janet-sfree vs:*V2) # self-test for mangling of type-grafted symbols
   (return img))
 
 (comp-unless (dyn :shader-compile)
