@@ -176,7 +176,7 @@
     (match node
       "\n" (newline)
       [:comment x] (do (emit "#" x) (newline))
-      [:comment-last x] (do (indent) (emit "#" x) (newline) (dedent) (flushwhite))
+      [:comment-last x] (do (emit "#" x) (newline) (flushwhite))
       [:span x] (do (emit x) (addwhite))
       [:string x] (do (emit-string x) (addwhite))
       [:buffer x] (do (emit "@") (emit-string x) (addwhite))
