@@ -15,13 +15,13 @@
   (def res
     (capture-stdout
       (fmt/format-print "{:a 0\n:b 1 # test comment\n}")))
-  (assert (= res [nil "{:a 0\n :b 1 # test comment\n}\n"]) "format-print comment in collection 1"))
+  (assert (= res [nil "{:a 0\n :b 1 # test comment\n }\n"]) "format-print comment in collection 1"))
 
 (do
   (def res
     (capture-stdout
       (fmt/format-print "[:a       0\n:b\n# test comment\n]")))
-  (assert (= res [nil "[:a 0\n :b\n # test comment\n]\n"]) "format-print comment in collection 2"))
+  (assert (= res [nil "[:a 0\n :b\n # test comment\n ]\n"]) "format-print comment in collection 2"))
 
 (do
   (def res
