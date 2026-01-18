@@ -688,7 +688,7 @@
           (os/execute [executable] :x {:out devnull :err devnull}))
         true)
       ([_e]
-       false))))
+        false))))
 
 (defn- search-libs-impl
   [dynb libs]
