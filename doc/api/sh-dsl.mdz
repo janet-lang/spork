@@ -1,0 +1,105 @@
+{:title "sh-dsl"
+ :template "mdzdoc/main.html"}
+ ---
+
+A Domain specific language for creating shell commands and pipelines. This module complements
+the @code`spork/sh` module with a terser tool for common operations. The general syntax is based
+around the @code`$` macro, which can be used to run commands and collect results in a manner that
+very much looks like POSIX shell, but will also work on windows.
+
+@codeblock[janet]```
+(use spork/sh-dsl)
+
+# On posix systems, will use /bin/echo or similar to print "hello world!" and return 0, the exit code.
+($ echo hello world!)
+
+# To collect the stdout as a buffer result, use $<
+($< echo hello world!)
+
+# Same as $< but trims the last trailing newline
+($<_ echo hello world!)
+```
+
+Several basic shell features are supported with nice syntax:
+@ul{
+    @li{Basic commands}
+    @li{Environment variables}
+    @li{Redirecting stdio to/from files}
+    @li{Janet expressions via unquote}
+    @li{Pipes}
+    @li{Windows Support}
+}
+
+### Environment Variables
+
+Environment variables can be set for commands with the usual shell syntax of ENVVAR=VALUE preceding the program name. Environment
+variables from the calling process can also be passed in by passing in symbols that begin with a "$" character
+
+@codeblock[janet]```
+(use spork/sh-dsl)
+
+# Set the JANET_PATH and invoke the janet shell
+($ JANET_PATH=/home/janet-user janet -e '(print (dyn *syspath*)))
+
+# Also works
+($ JANET_PATH=$HOME -e '(print (dyn *syspath*)))
+($ echo $HOME)
+($ echo ,(os/getenv "HOME")) # same thing
+```
+
+Keep in mind that this syntax is not the same as Posix shell - environment variable expansion will not work everywhere and
+can always be substituted with inline Janet code instead.
+
+### Janet Expression Substitution
+
+Users may want to mix Janet expressions with literals when invoking subprograms, and this library makes it easy
+using the familiar @code`unquote` special.
+
+@codeblock[janet]```
+(use spork/sh-dsl)
+
+(def x 1)
+
+# This will print "x"
+($ echo x)
+
+# This will print "1"
+($ echo ,x)
+
+# Both of these will print 6
+($ echo ,(+ 1 2 3))
+($ echo (+ 1 2 3))
+
+# This will print "(+ 1 2 3)"
+($ echo '(+ 1 2 3))
+```
+
+### Pipes
+
+The input of one command can be piped into another as in shell scripts.
+
+@codeblock[janet]```
+(use spork/sh-dsl)
+
+($ ip address | grep docker)
+(json/decode ($<_ curl -s https://www.githubstatus.com/api/v2/status.json | jq .))
+```
+
+## File Redirection
+
+Standard IO (stdin, stdout, and stderr) can also be redirect to files much like the usual shell syntax.
+
+@codeblock[janet]```
+(use spork/sh-dsl)
+
+($ echo hi > out.txt) # Returns 0 and outputs nothing to the console - output has been redirected.
+($ cat out.txt) # prints hi
+($ janet -e '(error :oops) :err-to-out > out.txt) # redirect stderr to stdout
+($ janet -e '(error :oops) :err-to-out >> out.txt) # redirect stderr to stdout and append to out.txt instead of overwriting
+
+($ janet -e '(prin (:read stdin :all)) < out.txt) # reprint out.txt
+```
+
+## Reference
+
+@api-docs("../../spork" "sh-dsl")

@@ -479,11 +479,11 @@
   Generate random permutation of the array `xs`
   which is shuffled in place.
   ```
-  [xs]
+  [xs &opt rng]
+  (default rng (math/rng (string (math/random))))
   (var xl (length xs))
   (var t nil)
   (var i nil)
-  (def rng (math/rng (os/time)))
   (while (pos? xl)
     (set i (math/rng-int rng xl))
     (-- xl)
