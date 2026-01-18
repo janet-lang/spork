@@ -1050,6 +1050,18 @@
   (janet-sfree vs)
   (return img))
 
+(cfunction fill-rect
+  "Fill a rectangle"
+  [img:*Image x1:double y1:double x2:double y2:double ,;shader-args] -> *Image
+  (def (vs (array V2))
+    (array
+      (v/make x1 y1)
+      (v/make x1 y2)
+      (v/make x2 y2)
+      (v/make x2 y1)))
+  (fill-path-impl img vs 4 ,;shader-params)
+  (return img))
+
 # TODO - allow for dotted or other complex strokes.
 (cfunction stroke-path
   "Stroke a line along a path"

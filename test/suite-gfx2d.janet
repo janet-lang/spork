@@ -38,19 +38,11 @@
       (def reference (load fullpath))
       (assert (deep= (unpack reference) (unpack img)) (string "reference not identical to test image " file-name)))))
 
-(defn rrect
-  [img x1 y1 x2 y2 color]
-  (def xa (min x1 x2))
-  (def xb (max x1 x2))
-  (def ya (min y1 y2))
-  (def yb (max y1 y2))
-  (fill-path img [xa ya xa yb xb yb xb ya] color))
-
 (defn test-image-1
   []
   (def img (blank 128 128 3))
-  (rrect img 16 16 112 112 red)
-  (rrect img 32 32 96 96 blue)
+  (fill-rect img 16 16 112 112 red)
+  (fill-rect img 32 32 96 96 blue)
   (circle img 64 64 30.5 yellow)
   (check-image img "target1.png")
   (check-image img "target1.bmp")
@@ -61,8 +53,8 @@
 (defn test-stamp
   []
   (def img (blank 128 128 3))
-  (rrect img 16 16 112 112 red)
-  (rrect img 32 32 96 96 blue)
+  (fill-rect img 16 16 112 112 red)
+  (fill-rect img 32 32 96 96 blue)
   (circle img 64 64 30.5 yellow)
   (def dest (blank 1024 1024 3))
   # Don't crash for oob
@@ -91,9 +83,9 @@
 (defn test-copy
   []
   (def img (blank 154 113 3))
-  (rrect img 16 16 112 112 red)
+  (fill-rect img 16 16 112 112 red)
   (circle img 16 16 1000 cyan) # oob circle
-  (rrect img 32 32 96 96 blue)
+  (fill-rect img 32 32 96 96 blue)
   (def cop (copy img))
   (assert (deep= (unpack cop) (unpack img)))
   (def empty1 (diff cop img))
@@ -257,7 +249,7 @@
   "Test bumpy chart for fill path"
   []
   (def img (blank 1024 1024 4))
-  (rrect img 0 0 10000 10000 black)
+  (fill-rect img 0 0 10000 10000 black)
   (math/seedrandom 0)
   (def xs (range 1000))
   (def ys (seq [x :in xs] (* 100 (+ (math/log (inc x)) (math/random)))))
@@ -268,7 +260,7 @@
   (fill-path img path2 blue)
   #(check-image img "big-bumpy-chart.png")
   (check-image (resize img 256 256) "bumpy-chart.png")
-  (rrect img 0 0 10000 10000 black)
+  (fill-rect img 0 0 10000 10000 black)
   (def path2 (mapcat identity (reverse (partition 2 path2))))
   (fill-path img path2 green)
   (check-image (resize img 256 256) "bumpy-chart-2.png"))
