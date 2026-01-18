@@ -93,7 +93,8 @@
         (set pipe-w (getfd w))
         (set pipein (getfd r)))
 
-      (each key [:out :err :in] # Create file descriptors for inputs and outputs.
+      # Create file descriptors for inputs and outputs.
+      (each key [:out :err :in]
         (when (string? (t key))
           (def getter (if (= key :in) get-read-fd get-write-fd))
           (set (t key) (getfd (getter (t key))))
@@ -105,6 +106,9 @@
           (def tkey (keyword/slice key 0 3))
           (set (t tkey) (getfd (get-append-fd (t key))))
           (array/push to-close (t tkey))))
+
+      # Redirect stderr to stdout - work-around for older janet versions before native support
+      (if (= (get t :err) :out) (set (t :err) (get t :out stdout)))
 
       # Make env table to pass to os/spawn
       (def has-env-var (get t :has-envvar))
