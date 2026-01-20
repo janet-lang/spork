@@ -175,4 +175,21 @@
 (generator-assert! s)
 (assert (deep= @[1 4 7 10 -1 2 5 8 11 -2] (generators/to-array s)))
 
+# interpose
+(def s (generators/interpose "ok" [1]))
+(generator-assert! s)
+(assert (deep= @[1] (generators/to-array s)))
+
+(def s (generators/interpose "ok" [1 2]))
+(generator-assert! s)
+(assert (deep= @[1 "ok" 2] (generators/to-array s)))
+
+(def s (generators/interpose "ok" @[1 2]))
+(generator-assert! s)
+(assert (deep= @[1 "ok" 2] (generators/to-array s)))
+
+(def s (generators/interpose "ok" (generators/from-iterable [1 2])))
+(generator-assert! s)
+(assert (deep= @[1 "ok" 2] (generators/to-array s)))
+
 (end-suite)

@@ -225,3 +225,16 @@
   ```
   [iterable & iterables]
   (yield-iterables mapcat-step tuple iterable iterables))
+
+(defn interpose
+  "Returns a coroutine that yields `iterable` elements. sep is yielded between each element."
+  [sep iterable]
+  (coro
+    (var i (next iterable))
+    (when (not= i nil)
+      (yield (in iterable i))
+      (set i (next iterable i))
+      (while (not= i nil)
+        (yield sep)
+        (yield (in iterable i))
+        (set i (next iterable i))))))
