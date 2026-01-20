@@ -238,3 +238,51 @@
         (yield sep)
         (yield (in iterable i))
         (set i (next iterable i))))))
+
+(defn partition
+  "Returns a coroutine that partitions `iterable` into arrays of size `n` and yields the arrays."
+  [n iterable]
+  (if (< n 1)
+    (coro)
+    (coro
+      (var i (next iterable))
+      (var i-p 0)
+      (var arr @[])
+      (while (not= i nil)
+        (array/push arr (in iterable i))
+        (++ i-p)
+        (when (>= i-p n)
+          (yield arr)
+          (set arr @[])
+          (set i-p 0))
+        (set i (next iterable i)))
+      (unless (empty? arr)
+        (yield arr)))))
+
+(defn partition-by
+  ```
+  Returns a coroutine that partitions `iterable` elements into arrays by a representative function `f` and yields the
+  arrays. Partitions split when (f current-element) differs from (f previous-element).
+  ```
+  [f iterable]
+  (coro
+    (var i (next iterable))
+    (var arr @[])
+    (when (not= i nil)
+      (var val (in iterable i))
+      (var prev (f val))
+      (var cur nil)
+      (array/push arr val)
+      (set i (next iterable i))
+      (while (not= i nil)
+        (set val (in iterable i))
+        (set cur (f val))
+        (if (= cur prev)
+          (array/push arr val)
+          (do
+            (yield arr)
+            (set arr @[val])
+            (set prev cur)))
+        (set i (next iterable i)))
+      (unless (empty? arr)
+        (yield arr)))))

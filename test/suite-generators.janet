@@ -192,4 +192,46 @@
 (generator-assert! s)
 (assert (deep= @[1 "ok" 2] (generators/to-array s)))
 
+# partition
+(def s (generators/partition 3 [1]))
+(generator-assert! s)
+(assert (deep= @[@[1]] (generators/to-array s)))
+
+(def s (generators/partition 3 @[1 2]))
+(generator-assert! s)
+(assert (deep= @[@[1 2]] (generators/to-array s)))
+
+(def s (generators/partition 3 (generators/from-iterable @[1 2 3])))
+(generator-assert! s)
+(assert (deep= @[@[1 2 3]] (generators/to-array s)))
+
+(def s (generators/partition 3 [1 2 3 4]))
+(generator-assert! s)
+(assert (deep= @[@[1 2 3] @[4]] (generators/to-array s)))
+
+(def s (generators/partition 3 [1 2 3 4 5]))
+(generator-assert! s)
+(assert (deep= @[@[1 2 3] @[4 5]] (generators/to-array s)))
+
+(def s (generators/partition 3 [1 2 3 4 5 6]))
+(generator-assert! s)
+(assert (deep= @[@[1 2 3] @[4 5 6]] (generators/to-array s)))
+
+(def s (generators/partition 3 [1 2 3 4 5 6 7]))
+(generator-assert! s)
+(assert (deep= @[@[1 2 3] @[4 5 6] @[7]] (generators/to-array s)))
+
+# partition-by
+(def s (generators/partition-by even? [1]))
+(generator-assert! s)
+(assert (deep= @[@[1]] (generators/to-array s)))
+
+(def s (generators/partition-by even? @[1 2]))
+(generator-assert! s)
+(assert (deep= @[@[1] @[2]] (generators/to-array s)))
+
+(def s (generators/partition-by even? (generators/from-iterable @[1 1 2 2 3 3 4 4 5 6 5 6 7 7 7 8 8 8])))
+(generator-assert! s)
+(assert (deep= @[@[1 1] @[2 2] @[3 3] @[4 4] @[5] @[6] @[5] @[6] @[7 7 7] @[8 8 8]] (generators/to-array s)))
+
 (end-suite)
