@@ -286,3 +286,19 @@
         (set i (next iterable i)))
       (unless (empty? arr)
         (yield arr)))))
+
+(defmacro- keep-step
+  [val]
+  ~(when-let [v , val]
+     (yield v)))
+
+(defn keep
+  ```
+  Returns a coroutine that yields truthy results among
+  (pred first-element-of-iterable ;first-elements-of-iterables),
+  (pred second-element-of-iterable ;second-elements-of-iterables),
+  (pred third-element-of-iterable ;third-elements-of-iterables),
+  and so on until any of the given iterables doesn't have any more element.
+  ```
+  [pred iterable & iterables]
+  (yield-iterables keep-step pred iterable iterables))

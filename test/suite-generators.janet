@@ -234,4 +234,45 @@
 (generator-assert! s)
 (assert (deep= @[@[1 1] @[2 2] @[3 3] @[4 4] @[5] @[6] @[5] @[6] @[7 7 7] @[8 8 8]] (generators/to-array s)))
 
+# keep
+(def s (generators/keep |(when (even? $) (* $ $)) [1]))
+(generator-assert! s)
+(assert (deep= @[] (generators/to-array s)))
+
+(def s (generators/keep |(when (even? $) (* $ $)) @[1 1 1 2 3 4 5 6 7 8 9 10 10 11 2]))
+(generator-assert! s)
+(assert (deep= @[4 16 36 64 100 100 4] (generators/to-array s)))
+
+(def s (generators/keep |(when (even? $) (* $ $)) (generators/from-iterable [1 1 1 2 3 4 5 6 7 8 9 10 10 11 2])))
+(generator-assert! s)
+(assert (deep= @[4 16 36 64 100 100 4] (generators/to-array s)))
+
+(def s (generators/keep (fn [a b]
+                          (when (all even? [a b])
+                            (* a b)))
+                        [1 2 3] [2 2 5]))
+(generator-assert! s)
+(assert (deep= @[4] (generators/to-array s)))
+
+(def s (generators/keep (fn [a b c]
+                          (when (all even? [a b c])
+                            (* a b c)))
+                        [1 2 3 4] [2 2 5 4] @[1 2 1 2]))
+(generator-assert! s)
+(assert (deep= @[8 32] (generators/to-array s)))
+
+(def s (generators/keep (fn [a b c d]
+                          (when (all even? [a b c d])
+                            (* a b c d)))
+                        [1 2 3 4] [2 2 5 4] @[2 2 2 2] (generators/from-iterable [1 2 1 2])))
+(generator-assert! s)
+(assert (deep= @[16 64] (generators/to-array s)))
+
+(def s (generators/keep (fn [a b c d e]
+                          (when (all even? [a b c d e])
+                            (* a b c d e)))
+                        [1 2 3 4] [2 2 5 4 5] [2 2 2 2] [1 2 1 2] [1 2 1 2 2]))
+(generator-assert! s)
+(assert (deep= @[32 128] (generators/to-array s)))
+
 (end-suite)
