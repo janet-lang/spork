@@ -10,9 +10,17 @@
   (coro (each x iterable (yield x))))
 
 (defn range
-  "Create a lazy range."
-  [from to]
-  (coro (for i from to (yield i))))
+  "Returns a coroutine that yields a range. step is the optional step size. The default step size is 1."
+  [from to &opt step]
+  (default step 1)
+  (if (= step 0)
+    (coro)
+    (let [cmp-fn (if (> step 0) < >)]
+      (coro
+        (var i from)
+        (while (cmp-fn i to)
+          (yield i)
+          (set i (+ i step)))))))
 
 (defn to-array
   "Collect `iterable` elements into a new array."
