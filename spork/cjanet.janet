@@ -8,7 +8,7 @@
 ### The semantics of the language are basically the
 ### same as C so a higher level language (or type system)
 ### should be built on top of this. This IR emits a very useful
-### subset of valid C 99.
+### subset of valid C 99, plus other features that enable C++ integration.
 ###
 
 (import ./cc)
@@ -25,19 +25,18 @@
   (peg/compile
     ~{:valid (range "az" "AZ" "__" "..")
       :one (+ '"->" (/ "-" "_") '"::" '" " ':valid (/ '(if-not ":" 1) ,|(string "_X" ($ 0))))
-      :main (% (* (? "@") '(any (set "*&")) :one (any (+ ':d :one))))}))
+      :main (% (* (? "@") '(any (set "*&")) :one (any (+ ':d :one)) -1))}))
 
-(def- mangle-strict-peg
+(def- mangle-name-peg
   (peg/compile
     ~{:valid (range "az" "AZ" "__")
       :one (+ (/ "-" "_") ':valid (/ '1 ,|(string "_X" ($ 0))))
-      :main (% (* (? "@") :one (any (+ ':d :one))))}))
+      :main (% (* (? "@") :one (any (+ ':d :one)) -1))}))
 
 (def- bops
   {'+ '+ '- '- '* '* '/ '/ '% '% '< '<
    '> '> '<= '<= '>= '>= '== '== '= '== '!= '!=
-   'not= "!="
-   '>> ">>" '<< "<<" '&& "&&" '^ "^"
+   'not= "!=" '>> ">>" '<< "<<" '&& "&&" '^ "^"
    'and "&&" 'or "||" 'band "&" 'bor "|" 'bxor "^" 'set "="
    'blshift "<<" 'brshift ">>"})
 
@@ -54,19 +53,33 @@
   Convert any sequence of bytes to a valid C identifier in a way that is unlikely to collide. The period character
   is left unchanged even though it is not a valid identifier to allow for easy access into structs. Will also remove
   any grafted type info. E.g. abc:int -> abc
+  For generating lvalues and rvalues.
   ``
   [token]
-  (first (peg/match mangle-peg token)))
+  (def m (peg/match mangle-peg token))
+  (assert m (string/format "bad mangle %j" token))
+  (first m))
 
-(defn mangle-strict
+(defn mangle-name
   ``
   Same as `mangle` but only emit proper C identifiers (no ., :,  or -> allowed).
+  For C identifiers.
   ``
   [token]
-  (first (peg/match mangle-strict-peg token)))
+  (def m (peg/match mangle-name-peg token))
+  (assert m (string/format "bad mangle name %j" token))
+  (first m))
 
-(def- type-split-peg
-  (peg/compile '(* (? (* '(to ":") ":")) '(any 1))))
+(defn mangle-type
+  ``
+  Same as `mangle` but for valid C
+  ``
+  [token] # same as name for now
+  (def m (peg/match mangle-name-peg token))
+  (assert m (string/format "bad mangle type %j" token))
+  (first m))
+
+(def- type-split-peg (peg/compile '(* (? (* '(to ":") ":")) '(any 1))))
 
 (defn- normalize-type
   "Convert type shorthands to their expanded, common forms."
@@ -79,17 +92,15 @@
       s)
     ['array st n] ['array (normalize-type st) n]
     ['array st] ['array (normalize-type st)]
-    ['ptr st] ['* (normalize-type st)]
     ['quote st] ['* (normalize-type st)]
     ['const st] ['const (normalize-type st)]
     ['** st] ['* ['* (normalize-type st)]]
-    ['ptrptr st] ['* ['* (normalize-type st)]]
     t))
 
 (defn type-split
   "Extract name and type from a variable. Allow typing variables as both
   (name type) or name:type as a shorthand. If no type is found, default to dflt-type. dflt-type
-  itself defaults to 'CJANET_DEFAULT_TYPE'"
+  itself defaults to (dyn *default-ctype* 'CJANET_DEFAULT_TYPE')"
   [x &opt dflt-type]
   (default dflt-type (dyn *default-ctype* "CJANET_DEFAULT_TYPE"))
   # This needs to be defined based on c compiler - "auto" for msvc and c23+, and __auto_type for clang and GCC on older standards
@@ -185,19 +196,19 @@
 (defn- emit-struct-union-def
   [which name args defname]
   (when (or (nil? args) (empty? args))
-    (prin which " " (mangle-strict name))
-    (if defname (prin " " (mangle-strict defname)))
+    (prin which " " (mangle-name name))
+    (if defname (prin " " (mangle-name defname)))
     (break))
   (assert (even? (length args)) (string/format "expected even number of arguments, got %j" args))
   (prin which " ")
-  (if name (prin (mangle-strict name) " "))
+  (if name (prin (mangle-name name) " "))
   (emit-block-start)
   (each [field ftype] (partition 2 args)
     (emit-indent)
     (emit-type (normalize-type ftype) field)
     (print ";"))
   (emit-block-end)
-  (if defname (prin " " (mangle-strict defname))))
+  (if defname (prin " " (mangle-name defname))))
 
 (defn- emit-struct-def
   [name args defname]
@@ -210,7 +221,7 @@
 (defn- emit-enum-def
   [name args defname]
   (prin "enum ")
-  (if name (prin (mangle-strict name) " "))
+  (if name (prin (mangle-name name) " "))
   (emit-block-start)
   (each x args
     (emit-indent)
@@ -221,7 +232,7 @@
         (print ","))
       (print x ",")))
   (emit-block-end)
-  (if defname (prin " " (mangle-strict defname))))
+  (if defname (prin " " (mangle-name defname))))
 
 (defn- emit-fn-pointer-type
   [ret-type args defname]
@@ -266,7 +277,7 @@
   (def definition (normalize-type definition))
   (match definition
     (d (string? d)) (do (prin d) (if alias (prin " " (mangle alias))))
-    (d (bytes? d)) (do (prin (mangle-strict d)) (if alias (prin " " (mangle alias))))
+    (d (bytes? d)) (do (prin (mangle-type d)) (if alias (prin " " (mangle alias))))
     (t (tuple? t))
     (match t
       ['struct & body] (emit-struct-def nil body alias)
@@ -368,7 +379,7 @@
   (each [k v] (partition 2 args)
     (unless (= k 'type)
       (emit-indent)
-      (prin "." (mangle-strict k) " = ")
+      (prin "." (mangle-name k) " = ")
       (emit-expression v true)
       (print ",")))
   (emit-block-end))
@@ -391,7 +402,8 @@
   (def form (expand-macro :cjanet-expression-macro form))
   #(tracev form)
   (match form
-    (f (or (symbol? f) (keyword? f))) (prin (mangle f))
+    (f (symbol? f)) (prin (mangle (first (type-split f 'void))))
+    (f (keyword? f)) (prin (mangle f))
     (n (number? n)) (prinf "%.17g" n)
     (s (string? s)) (prinf "%v" s) # todo - better match escape codes
     (a (array? a)) (do
@@ -554,8 +566,8 @@
     ['return val] (emit-return val)
     ['break] (do (unless noindent (emit-indent)) (print "break;"))
     ['continue] (do (unless noindent (emit-indent)) (print "continue;"))
-    ['label lab] (print (mangle-strict lab) ":")
-    ['goto glab] (do (unless noindent (emit-indent)) (print "goto " (mangle-strict glab)))
+    ['label lab] (print (mangle-name lab) ":")
+    ['goto glab] (do (unless noindent (emit-indent)) (print "goto " (mangle-name glab)))
     stm (do (unless noindent (emit-indent)) (emit-statement stm) (print ";")))
   (unless nobracket (emit-block-end)))
 

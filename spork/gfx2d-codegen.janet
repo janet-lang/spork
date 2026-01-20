@@ -6,6 +6,9 @@
 ### by evaluating this file with `(dyn :shader-compile)` set, which disables a number of functions and allows
 ### passing in a pixel shader stub.
 ###
+### Leans on the underlying C compiler for optimization - recommended to be used with JANET_BUILD_TYPE=native
+### to take advantage of the best available vectorization.
+###
 ### Includes:
 ### * Wrappers around stb_image for loading, saving, and modifying images.
 ###
@@ -28,15 +31,14 @@
 ### [x] - fill path (raycast rasterizer)
 ### [ ] - LUTs (possibly w/ shaders)
 ### [ ] - Gradients (possibly w/ shaders)
-### [ ] - Better 2D point abstraction
+### [x] - Better 2D point abstraction
 ### [ ] - Affine transforms
-### [x] - integer coordinate primitives (paths, rect, line, etc)
-### [ ] - float coordinate primitives (paths, rect, line, etc)
+### [x] - float coordinate primitives (paths, rect, line, etc)
 
 ### Stretch TODO
 ### [ ] - vector font rendering
-### [ ] - anti-aliasing w/ MXAA
-### [ ] - shaders using cjanet-jit - "fill" and "stroke" shaders
+### [ ] - anti-aliasing w/ mutli-sampling and/or analysis
+### [x] - shaders using cjanet-jit - "fill" and "stroke" shaders
 ### [ ] - sub-images for rendering / alternatives to JanetBuffer for data storage
 ### [ ] - multithreading
 
@@ -325,6 +327,23 @@
 ## Color Constants
 ##
 
+(function clampz :static :inline
+  [x:int min_x:int max_x:int] -> int
+  (if (< x min_x) (return min_x))
+  (if (> x max_x) (return max_x))
+  (return x))
+
+(function colorsplit :static :inline
+  [color:uint32_t (r 'int) (g 'int) (b 'int) (a 'int)] -> void
+  (set 'r (cast int (band color 0xFF)))
+  (set 'g (cast int (band (>> color 8) 0xFF)))
+  (set 'b (cast int (band (>> color 16) 0xFF)))
+  (set 'a (cast int (band (>> color 24) 0xFF))))
+
+(function colorjoin :static :inline
+  [r:int g:int b:int a:int] -> uint32_t
+  (return (+ r (<< g 8) (<< b 16) (<< a 24))))
+
 (def- colors
   {:red 0xFF0000FF
    :green 0xFF00FF00
@@ -340,6 +359,15 @@
   (@ define ,name ,value)
   (unless (dyn :shader-compile)
     (emit-cdef (symbol name) (string "color constant for " name) ~(janet-wrap-number ,value))))
+
+(comp-unless (dyn :shader-compile)
+  (cfunction rgb
+    "Make an RGB color constant from components. Each component is a number from 0 to 1."
+    [r:double g:double b:double &opt a:double=1.0] -> uint32_t
+    (return (colorjoin (cast int (* 255 r))
+                       (cast int (* 255 g))
+                       (cast int (* 255 b))
+                       (cast int (* 255 a))))))
 
 ###
 ### Math helpers
@@ -373,23 +401,6 @@
   (if (> x max_x) (return max_x))
   (return x))
 
-(function clampz :static :inline
-  [x:int min_x:int max_x:int] -> int
-  (if (< x min_x) (return min_x))
-  (if (> x max_x) (return max_x))
-  (return x))
-
-(function colorsplit :static :inline
-  [color:uint32_t (r 'int) (g 'int) (b 'int) (a 'int)] -> void
-  (set 'r (cast int (band color 0xFF)))
-  (set 'g (cast int (band (>> color 8) 0xFF)))
-  (set 'b (cast int (band (>> color 16) 0xFF)))
-  (set 'a (cast int (band (>> color 24) 0xFF))))
-
-(function colorjoin :static :inline
-  [r:int g:int b:int a:int] -> uint32_t
-  (return (+ r (<< g 8) (<< b 16) (<< a 24))))
-
 (function clip :static :inline
   [xmin:int xmax:int ymin:int ymax:int
    (x 'int) (y 'int)] -> void
@@ -415,9 +426,6 @@
 ###
 ### Blending modes
 ###
-
-(function blend-default [dest:uint32_t src:uint32_t] -> uint32_t
-  (return src))
 
 # Blend operators
 (each [name op] [['add '+] ['sub '-] ['mul '*]]
@@ -1062,7 +1070,6 @@
   (fill-path-impl img vs 4 ,;shader-params)
   (return img))
 
-# TODO - allow for dotted or other complex strokes.
 (cfunction stroke-path
   "Stroke a line along a path"
   [img:*Image points:indexed ,;shader-args &opt thickness:double=1 join-end:bool=0] -> *Image
