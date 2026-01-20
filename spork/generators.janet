@@ -217,3 +217,11 @@
       (set i (next iterable i))
       (if (nil? i) (set i (next iterable)))
       (yield (in iterable i)))))
+
+(defn interleave
+  ```
+  Returns a coroutine that yields the first elements of iterables, and then the second elements of iterables, and then
+  the third elements of iterables, and so on until any of the given iterables doesn't have any more element.
+  ```
+  [iterable & iterables]
+  (yield-iterables mapcat-step tuple iterable iterables))
