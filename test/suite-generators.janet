@@ -9,6 +9,7 @@
   (assert (fiber? s))
   (assert (= :new (fiber/status s))))
 
+# from-iterable
 (def s (generators/from-iterable [1 2 3]))
 (generator-assert! s)
 (assert (deep= @[1 2 3] (generators/to-array s)))
@@ -22,10 +23,32 @@
 (generator-assert! s)
 (assert (deep= @[1 2 3] (generators/to-array s2)))
 
+# range
 (def s (generators/range 1 10))
 (generator-assert! s)
 (assert (deep= @[1 2 3 4 5 6 7 8 9] (generators/to-array s)))
 
+(def s (generators/range 1 10 2))
+(generator-assert! s)
+(assert (deep= @[1 3 5 7 9] (generators/to-array s)))
+
+(def s (generators/range 1 3 2))
+(generator-assert! s)
+(assert (deep= @[1] (generators/to-array s)))
+
+(def s (generators/range 5 1 -1))
+(generator-assert! s)
+(assert (deep= @[5 4 3 2] (generators/to-array s)))
+
+(def s (generators/range 5 1 -2))
+(generator-assert! s)
+(assert (deep= @[5 3] (generators/to-array s)))
+
+(def s (generators/range 5 3 -2))
+(generator-assert! s)
+(assert (deep= @[5] (generators/to-array s)))
+
+# concat
 (def s (generators/concat [1] @[2] (generators/from-iterable [3 4 5])))
 (generator-assert! s)
 (assert (deep= @[1 2 3 4 5] (generators/to-array s)))
