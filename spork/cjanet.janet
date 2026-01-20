@@ -250,9 +250,11 @@
   (prin ")"))
 
 (defn- emit-ptr-type
-  [x alias]
+  [x alias &opt rep]
   (emit-type x)
-  (prin " *")
+  (if rep
+    (prin " " (string/repeat "*" rep))
+    (prin " *"))
   (if alias (prin (mangle alias))))
 
 (defn- emit-const-type
@@ -287,6 +289,8 @@
       ['union & body] (emit-union-def nil body alias)
       ['named-union n & body] (emit-union-def n body alias)
       ['fn (params (indexed? params)) '-> rtype] (emit-fn-pointer-type rtype params alias)
+      ['* ['* ['* val]]] (emit-ptr-type val alias 3)
+      ['* ['* val]] (emit-ptr-type val alias 2)
       ['* val] (emit-ptr-type val alias)
       ['const t] (emit-const-type t alias)
       ['array t n] (emit-array-type t n alias)
@@ -581,7 +585,8 @@
 (defn- emit-function-impl
   [docstring classes name arglist rtype body]
   (print)
-  (emit-comment docstring)
+  (unless (empty? (string/trim docstring))
+    (emit-comment docstring))
   (emit-storage-classes classes)
   (emit-type rtype)
   (prin " " (mangle name) "(")

@@ -427,26 +427,28 @@
 ### Blending modes
 ###
 
-# Blend operators
-(each [name op] [['add '+] ['sub '-] ['mul '*]]
-  (function ,(symbol 'blend- name) :static :inline
-    ,(string "Blending function for dest = dest " op " src ")
-    [dest:uint32_t src:uint32_t] -> uint32_t
-    (var dest-r:int 0)
-    (var dest-g:int 0)
-    (var dest-b:int 0)
-    (var dest-a:int 0)
-    (var src-r:int 0)
-    (var src-g:int 0)
-    (var src-b:int 0)
-    (var src-a:int 0)
-    (colorsplit dest &dest-r &dest-g &dest-b &dest-a)
-    (colorsplit src &src-r &src-g &src-b &src-a)
-    (def r:int (clampz (,op dest-r src-r) 0 0xFF))
-    (def g:int (clampz (,op dest-g src-g) 0 0xFF))
-    (def b:int (clampz (,op dest-b src-b) 0 0xFF))
-    (def a:int (clampz (,op dest-a src-a) 0 0xFF))
-    (return (colorjoin r g b a))))
+(comp-unless (dyn :shader-compile)
+
+   # Blend operators
+   (each [name op] [['add '+] ['sub '-] ['mul '*] ['lighten 'max2z] ['darken 'min2z]]
+     (function ,(symbol 'blend- name) :static :inline
+       ,(string "Blending function for dest = dest " op " src ")
+       [dest:uint32_t src:uint32_t] -> uint32_t
+       (var dest-r:int 0)
+       (var dest-g:int 0)
+       (var dest-b:int 0)
+       (var dest-a:int 0)
+       (var src-r:int 0)
+       (var src-g:int 0)
+       (var src-b:int 0)
+       (var src-a:int 0)
+       (colorsplit dest &dest-r &dest-g &dest-b &dest-a)
+       (colorsplit src &src-r &src-g &src-b &src-a)
+       (def r:int (clampz (,op dest-r src-r) 0 0xFF))
+       (def g:int (clampz (,op dest-g src-g) 0 0xFF))
+       (def b:int (clampz (,op dest-b src-b) 0 0xFF))
+       (def a:int (clampz (,op dest-a src-a) 0 0xFF))
+       (return (colorjoin r g b a)))))
 
 ###
 ### Basic Drawing (disabled when compiling shaders)
