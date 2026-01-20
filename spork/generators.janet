@@ -42,16 +42,112 @@
     (each iterable iterables
       (each elem iterable (yield elem)))))
 
+(defmacro- yield-n-iterables
+  ```
+  It calls
+  (step (f first-element-of-iterable ;first-elements-of-n-iterables)),
+  (step (f second-element-of-iterable ;second-elements-of-n-iterables)),
+  (step (f third-element-of-iterable ;third-elements-of-n-iterables)),
+  and so on until any of the given iterables doesn't have any more element. step should yield a value.
+  It is meant to be used by yield-iterables.
+  ```
+  [n step f iterable iterables]
+  # the following comments are macro expansions that help you understand what the macro expands to.
+  ~(do
+     # (def [iterable0 iterable1 ... iterablen] iterables)
+     (def
+       ,(seq [k :range [0 n]] (symbol 'iterable k))
+       ,iterables)
+     # (var key0 nil)
+     # (var key1 nil)
+     # ...
+     # (var keyn nil)
+     ,;(seq [k :range [0 n]] ~(var ,(symbol 'key k) nil))
+     (each x ,iterable
+       # (set key0 (next iterable0 key0))
+       # (when (nil? key0) (break))
+       # (set key1 (next iterable1 key1))
+       # (when (nil? key1) (break))
+       # ...
+       # (set keyn (next iterablen keyn))
+       # (when (nil? keyn) (break))
+       ,;;(seq [k :range [0 n]]
+            ~[(set ,(symbol 'key k)
+                   (next ,(symbol 'iterable k) ,(symbol 'key k)))
+              (when (nil? ,(symbol 'key k))
+                (break))])
+       # (step (f x (in iterable0 key0) (in iterable1 key1) ... (in iterablen keyn)))
+       (,step (,f x ,;(seq [k :range [0 n]]
+                        ~(in ,(symbol 'iterable k)
+                             ,(symbol 'key k))))))))
+
+(defmacro- yield-iterables
+  ```
+  Returns a coroutine that calls
+  (step (f first-element-of-iterable ;first-elements-of-iterables)),
+  (step (f second-element-of-iterable ;second-elements-of-iterables)),
+  (step (f third-element-of-iterable ;third-elements-of-iterables)),
+  and so on until any of the given iterables doesn't have any more element. step should yield a value.
+  ```
+  [step f iterable iterables]
+  ~(coro
+     (def niter (length ,iterables))
+     (case niter
+       0 (each x ,iterable (,step (,f x)))
+       1 (yield-n-iterables 1 ,step ,f ,iterable ,iterables)
+       2 (yield-n-iterables 2 ,step ,f ,iterable ,iterables)
+       3 (yield-n-iterables 3 ,step ,f ,iterable ,iterables)
+       (do
+         (def keys (array/new-filled niter))
+         (def call-buffer (array/new-filled niter))
+         (var done false)
+         (var old-key nil)
+         (var ii nil)
+         (var new-key nil)
+         (each x ,iterable
+           (for i 0 niter
+             (set old-key (in keys i))
+             (set ii (in ,iterables i))
+             (set new-key (next ii old-key))
+             (if (nil? new-key)
+               (do
+                 (set done true)
+                 (break))
+               (do
+                 (put keys i new-key)
+                 (put call-buffer i (in ii new-key)))))
+           (when done (break))
+           (,step (,f x ;call-buffer)))))))
+
+(defmacro- map-step
+  [val]
+  ~(yield ,val))
+
 (defn map
-  "Create a generator that maps `f` over `ds`."
-  [f ds]
-  (coro (each x ds (yield (f x)))))
+  ```
+  Returns a coroutine that yields
+  (f first-element-of-iterable ;first-elements-of-iterables),
+  (f second-element-of-iterable ;second-elements-of-iterables),
+  (f third-element-of-iterable ;third-elements-of-iterables),
+  and so on until any of the given iterables doesn't have any more element.
+  ```
+  [f iterable & iterables]
+  (yield-iterables map-step f iterable iterables))
+
+(defmacro- mapcat-step
+  [val]
+  ~(each x ,val (yield x)))
 
 (defn mapcat
-  "Map `f` over `ds`, concatenating the results into a new generator."
-  [f ds]
-  (coro (each x ds
-          (each elem (f x) (yield elem)))))
+  ```
+  Returns a coroutine that yields
+  elements of (f first-element-of-iterable ;first-elements-of-iterables),
+  elements of (f second-element-of-iterable ;second-elements-of-iterables),
+  elements of (f third-element-of-iterable ;third-elements-of-iterables),
+  and so on until any of the given iterables doesn't have any more element.
+  ```
+  [f iterable & iterables]
+  (yield-iterables mapcat-step f iterable iterables))
 
 (defn filter
   "Returns a coroutine that yields only `iterable` elements for which `(pred element)` is truthy."
