@@ -3,7 +3,6 @@
 (import spork/fmt)
 (import spork/argparse)
 
-
 (def- default-config ".janet-format.jdn")
 
 (defn- main
