@@ -442,6 +442,7 @@
         ['-> v f] (emit-indexer "->" v f)
         ['? c t f] (emit-ternary c t f)
         ['. v f] (emit-indexer "." v f)
+        [(s (and (symbol? s) (string/has-prefix? "." s))) v] (emit-indexer "." v (symbol/slice s 1))
         (emit-funcall t))
       (unless noparen (prin ")")))
     (b (boolean? b)) (prinf "%j" form)
@@ -551,6 +552,7 @@
 (defn- emit-return
   [v]
   (emit-indent)
+  (if (= nil v) (break (print "return;")))
   (prin "return ")
   (emit-expression v true)
   (print ";"))
@@ -568,6 +570,7 @@
     ['switch cond & body] (emit-switch cond body)
     ['cond & body] (emit-cond body)
     ['return val] (emit-return val)
+    ['return] (emit-return nil)
     ['break] (do (unless noindent (emit-indent)) (print "break;"))
     ['continue] (do (unless noindent (emit-indent)) (print "continue;"))
     ['label lab] (print (mangle-name lab) ":")

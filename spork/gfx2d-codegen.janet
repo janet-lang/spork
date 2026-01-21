@@ -308,6 +308,15 @@
     (set (aref data (+ c (* x channels) (* y stride)))
          (band (>> color (* c 8)) 0xFF))))
 
+(function image-set-pixel-bc :static :inline
+  "set a pixel bounds checked"
+  [img:*Image x:int y:int color:uint32_t] -> void
+  (if (< x 0) (return))
+  (if (< y 0) (return))
+  (if (>= x img->width) (return))
+  (if (>= y img->height) (return))
+  (image-set-pixel img x y color))
+
 (comp-unless (dyn :shader-compile)
 
   (cfunction pixel
@@ -429,26 +438,26 @@
 
 (comp-unless (dyn :shader-compile)
 
-   # Blend operators
-   (each [name op] [['add '+] ['sub '-] ['mul '*] ['lighten 'max2z] ['darken 'min2z]]
-     (function ,(symbol 'blend- name) :static :inline
-       ,(string "Blending function for dest = dest " op " src ")
-       [dest:uint32_t src:uint32_t] -> uint32_t
-       (var dest-r:int 0)
-       (var dest-g:int 0)
-       (var dest-b:int 0)
-       (var dest-a:int 0)
-       (var src-r:int 0)
-       (var src-g:int 0)
-       (var src-b:int 0)
-       (var src-a:int 0)
-       (colorsplit dest &dest-r &dest-g &dest-b &dest-a)
-       (colorsplit src &src-r &src-g &src-b &src-a)
-       (def r:int (clampz (,op dest-r src-r) 0 0xFF))
-       (def g:int (clampz (,op dest-g src-g) 0 0xFF))
-       (def b:int (clampz (,op dest-b src-b) 0 0xFF))
-       (def a:int (clampz (,op dest-a src-a) 0 0xFF))
-       (return (colorjoin r g b a)))))
+  # Blend operators
+  (each [name op] [['add '+] ['sub '-] ['mul '*] ['lighten 'max2z] ['darken 'min2z]]
+    (function ,(symbol 'blend- name) :static :inline
+      ,(string "Blending function for dest = dest " op " src ")
+      [dest:uint32_t src:uint32_t] -> uint32_t
+      (var dest-r:int 0)
+      (var dest-g:int 0)
+      (var dest-b:int 0)
+      (var dest-a:int 0)
+      (var src-r:int 0)
+      (var src-g:int 0)
+      (var src-b:int 0)
+      (var src-a:int 0)
+      (colorsplit dest &dest-r &dest-g &dest-b &dest-a)
+      (colorsplit src &src-r &src-g &src-b &src-a)
+      (def r:int (clampz (,op dest-r src-r) 0 0xFF))
+      (def g:int (clampz (,op dest-g src-g) 0 0xFF))
+      (def b:int (clampz (,op dest-b src-b) 0 0xFF))
+      (def a:int (clampz (,op dest-a src-a) 0 0xFF))
+      (return (colorjoin r g b a)))))
 
 ###
 ### Basic Drawing (disabled when compiling shaders)
@@ -843,6 +852,78 @@
 
     (janet-sfree dpoints)
     (return arr)))
+
+###
+### Plotting (1-pixel lines)
+###
+
+(comp-unless (dyn :shader-compile)
+
+  (cfunction plot
+    "Draw a 1 pixel line from x1,y1 to x2,y2"
+    [img:*Image x1:int y1:int x2:int y2:int color:uint32] -> *Image
+    # Use Bresenham's algorithm to draw the line
+    (def dx:int (cast int (abs (- x2 x1))))
+    (def dy:int (- (cast int (abs (- y2 y1)))))
+    (def sx:int (? (< x1 x2) 1 -1))
+    (def sy:int (? (< y1 y2) 1 -1))
+    (def err:int (+ dx dy))
+    (var x:int x1)
+    (var y:int y1)
+    (while 1
+      (when (and (>= x 0) (< x img->width) (>= y 0) (< y img->height))
+        (image-set-pixel img x y color))
+      (when (>= (* 2 err) dy)
+        (if (== x x2) (return img))
+        (+= err dy)
+        (+= x sx))
+      (when (<= (* 2 err) dx)
+        (if (== y y2) (return img))
+        (+= err dx)
+        (+= y sy)))
+    (return img))
+
+  (cfunction plot-path
+    "Plot 1 pixel lines over a path"
+    [img:*Image points:indexed color:uint32_t &opt join-end:bool=0] -> *Image
+    (var npoints:int 0)
+    (var (vs 'V2))
+    (if join-end
+      (set vs (indexed-to-vs-join-end points &npoints))
+      (set vs (indexed-to-vs points &npoints)))
+    (for [(var i:int 1) (< i npoints) (++ i)]
+      (plot img
+            (round (.x (aref vs (- i 1))))
+            (round (.y (aref vs (- i 1))))
+            (round (.x (aref vs i)))
+            (round (.y (aref vs i)))
+            color))
+    (return img))
+
+  (cfunction plot-ring
+    "Plot a 1 pixel thick ring around (x, y) with radius r."
+    [img:*Image x:int y:int r:int color:uint32_t] -> *Image
+    # Midpoint circle algorithm
+    (def d:int (/ (- 5 (* r 4)) 4))
+    (def dx:int 0)
+    (def dy:int r)
+    (while 1
+      (image-set-pixel-bc img (+ x dx) (+ y dy) color)
+      (image-set-pixel-bc img (+ x dx) (- y dy) color)
+      (image-set-pixel-bc img (- x dx) (+ y dy) color)
+      (image-set-pixel-bc img (- x dx) (- y dy) color)
+      (image-set-pixel-bc img (+ x dy) (+ y dx) color)
+      (image-set-pixel-bc img (+ x dy) (- y dx) color)
+      (image-set-pixel-bc img (- x dy) (+ y dx) color)
+      (image-set-pixel-bc img (- x dy) (- y dx) color)
+      (if (< d 0)
+        (+= d (+ 1 (* 2 dx)))
+        (do
+          (+= d (+ 1 (* 2 (- dx dy))))
+          (-- dy)))
+      (++ dx)
+      (if (> dx dy) (break)))
+    (return img)))
 
 ###
 ### Raster path fill reference version
