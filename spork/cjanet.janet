@@ -767,7 +767,6 @@
   (put alias-or-ctype-to-abstract-type alias abstract)
   (put alias-or-ctype-to-abstract-type alias abstract))
 
-
 (each [alias ctype wrapfn getfn optfn abstract] bindgen-table
   (register-binding-type alias ctype wrapfn getfn optfn abstract))
 

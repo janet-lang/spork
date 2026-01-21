@@ -298,6 +298,15 @@
     (set color-accum (+ (cast uint32_t comp) (<< color-accum 8))))
   (return color-accum))
 
+(function image-get-pixel-bc :static :inline
+  "extract a pixel bounds checked"
+  [img:*Image x:int y:int] -> uint32_t
+  (if (< x 0) (return 0))
+  (if (< y 0) (return 0))
+  (if (>= x img->width) (return 0))
+  (if (>= y img->height) (return 0))
+  (return (image-get-pixel img x y)))
+
 (function image-set-pixel :static :inline
   "set a pixel"
   [img:*Image x:int y:int color:uint32_t] -> void
@@ -322,14 +331,13 @@
   (cfunction pixel
     "Read a pixel. Slow, be careful to use this in a loop."
     [img:*Image x:int y:int] -> uint32
-    (def color:uint32_t (image-get-pixel img x y))
-    (if (< img->channels 4) (+= color 0xFF000000)) # ?
+    (def color:uint32_t (image-get-pixel-bc img x y))
     (return color))
 
   (cfunction set-pixel
     "Set a pixel. Slow, be careful to use this in a loop."
     [img:*Image x:int y:int color:uint32] -> *Image
-    (image-set-pixel img x y color)
+    (image-set-pixel-bc img x y color)
     (return img)))
 
 ##
@@ -495,7 +503,7 @@
     (janet-struct-put st (janet-ckeywordv "height") (janet-wrap-integer img->height))
     (janet-struct-put st (janet-ckeywordv "channels") (janet-wrap-integer img->channels))
     (janet-struct-put st (janet-ckeywordv "stride") (janet-wrap-integer img->stride))
-    (janet-struct-put st (janet-ckeywordv "data") (janet-wrap-buffer img->data))
+    (janet-struct-put st (janet-ckeywordv "data") (janet-wrap-buffer img->data)) # TODO - the buffer can't be modified
     (return (janet-struct-end st)))
 
   (cfunction crop
@@ -509,10 +517,9 @@
   (cfunction copy
     "Create a duplicate image"
     [img:*Image] -> *Image
-    (return
-      (stamp # TODO - use memcpy
-             (blank img->width img->height img->channels)
-             img 0 0)))
+    (def new-img:*Image (blank img->width img->height img->channels))
+    (memcpy new-img->data->data img->data->data img->data->count)
+    (return new-img))
 
   (cfunction diff
     "Take the difference of two images"
