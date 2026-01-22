@@ -10,7 +10,16 @@
 ### to take advantage of the best available vectorization.
 ###
 ### Includes:
-### * Wrappers around stb_image for loading, saving, and modifying images.
+### * Saving and loading to and from several common image file formats.
+### * Image blitting
+### * Blend modes
+### * Cropping imges
+### * Read/Set individual pixels
+### * Built in simple text rendering
+### * Image resizing
+### * Stroke and Fill paths
+### * Bezier curves
+### * Pixel shader abstraction with spork/cjanet
 ###
 
 ### TODO
@@ -22,6 +31,7 @@
 ### [x] - get/set individual pixels (mostly for testing)
 ### [x] - text w/ simple font
 ### [x] - stroke paths (w/ thickness)
+### [x] - plotting (1 pixel wide lines, no aa)
 ### [x] - blending
 ### [x] - image resizing
 ### [x] - bezier
@@ -41,6 +51,7 @@
 ### [x] - shaders using cjanet-jit - "fill" and "stroke" shaders
 ### [ ] - sub-images for rendering / alternatives to JanetBuffer for data storage
 ### [ ] - multithreading
+### [ ] - Image analysis and statistics (RMSE, histogram, k-means, etc.)
 
 (use ../spork/cjanet)
 
@@ -368,6 +379,7 @@
 ## Color Constants
 ##
 
+# For unpacking pixels from image buffers more easily
 (typedef Color
   (named-struct Color
     r int
@@ -419,6 +431,7 @@
                        (cast int (* 255 g))
                        (cast int (* 255 b))
                        (cast int (* 255 a)))))
+
   (cfunction rgb-pre-mul
     "Make an RRB color constants from components and premultiply the alpha"
     [r:double g:double b:double &opt a:double=1.0] -> uint32_t
@@ -467,6 +480,11 @@
 ### Blending modes
 ###
 
+# TODO - optimize?
+#  - check floating point speed (probably better)
+#  - optimize for 1, 2, and 3 components as well
+#  - More blend modes?
+
 (comp-unless (dyn :shader-compile)
 
   (function blend-over :static :inline
@@ -487,7 +505,7 @@
       (def g:int (/ (+ (* s.a s.g 255) (* d.g d.a ainv)) aa))
       (def b:int (/ (+ (* s.a s.b 255) (* d.b d.a ainv)) aa))
       (return (colorjoin r g b a)))
-    (return 0))
+    (return dest))
 
   (function blend-premul :static :inline
     ```
@@ -529,7 +547,7 @@
 
   (cfunction stamp
     "Copy one image onto another"
-    [dest:*Image src:*Image dx:int dy:int] -> *Image
+    [dest:*Image src:*Image &opt dx:int=0 dy:int=0] -> *Image
     (if (not= src->channels dest->channels) (janet-panic "image channels don't match"))
     (if (= src->data dest->data) (janet-panic "cannot stamp self"))
     (def xmin:int (? (< dx 0) (- dx) 0))
@@ -600,7 +618,7 @@
 
   (cfunction stamp-blend
     "Copy on image onto another with blending"
-    [dest:*Image src:*Image blend-mode:Janet dx:int dy:int] -> *Image
+    [dest:*Image src:*Image blend-mode:Janet &opt dx:int=0 dy:int=0] -> *Image
     (if (not= src->channels dest->channels) (janet-panic "image channels don't match"))
     (if (= src->data dest->data) (janet-panic "cannot stamp self"))
     (def blender:BlendFunc (get-blend-func blend-mode))
