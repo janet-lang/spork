@@ -65,6 +65,30 @@
 ### Macros
 ###
 
+(defn- unused
+  :cjanet-expression-macro
+  "Mark a variable as unused"
+  [x]
+  ~(cast void ,x))
+
+(defn- swap
+  :cjanet-block-macro
+  "Swap two variables"
+  [x y typ]
+  ~(do
+     (def (tmp ,typ) ,x)
+     (set ,x ,y)
+     (set ,y tmp)))
+
+(defn- sort2
+  :cjanet-block-macro
+  "sort 2 variables such that x is less the y. If not, swap them."
+  [x y typ]
+  ~(when (< ,y ,x)
+     (def (tmp ,typ) ,x)
+     (set ,x ,y)
+     (set ,y tmp)))
+
 (defn- each-i
   :cjanet-block-macro
   "For loop shortand for `(for [(var i:int start) (< i end) (++ i)] ...)`"
@@ -107,7 +131,7 @@
          @[]
          ;(seq [b :in bindings]
             [b ~(do ,;body (break))]))
-     (assert 0)))
+     (assert (and 0 "polymorph case fallthrough"))))
 
 (defn- polymorph-cond
   :cjanet-block-macro
@@ -118,7 +142,7 @@
          @[]
          ;(seq [b :in bindings]
             [~(= ,b ,sym) ~(do ,;body)]))
-     (assert 0)))
+     (assert (and 0 "polymorph-cond case fallthrough"))))
 
 ###
 ### 2D floating point vector abstraction
@@ -164,11 +188,11 @@
   [a:V2 b:V2 t:double] -> V2
   (return (v/+ (v/s* t a) (v/s* (- 1 t) b))))
 
-(function v/rotate-cw-90
+(function v/rotate-cw-90 :static :inline
   [a:V2] -> V2
   (return (v/make (- a.y) a.x)))
 
-(function v/rotate-ccw-90
+(function v/rotate-ccw-90 :static :inline
   [a:V2] -> V2
   (return (v/make a.y (- a.x))))
 
@@ -215,7 +239,7 @@
 
 (function mark-image :static
   [p:*void s:size_t] -> int
-  (cast void s)
+  (unused s)
   (def image:*Image p)
   (janet-mark (janet-wrap-buffer image->data))
   (return 0))
@@ -344,6 +368,13 @@
 ## Color Constants
 ##
 
+(typedef Color
+  (named-struct Color
+    r int
+    g int
+    b int
+    a int))
+
 (function clampz :static :inline
   [x:int min_x:int max_x:int] -> int
   (if (< x min_x) (return min_x))
@@ -351,11 +382,13 @@
   (return x))
 
 (function colorsplit :static :inline
-  [color:uint32_t (r 'int) (g 'int) (b 'int) (a 'int)] -> void
-  (set 'r (cast int (band color 0xFF)))
-  (set 'g (cast int (band (>> color 8) 0xFF)))
-  (set 'b (cast int (band (>> color 16) 0xFF)))
-  (set 'a (cast int (band (>> color 24) 0xFF))))
+  [color:uint32_t] -> Color
+  (return
+    (named-struct Color
+      r (cast int (band color 0xFF))
+      g (cast int (band (>> color 8) 0xFF))
+      b (cast int (band (>> color 16) 0xFF))
+      a (cast int (band (>> color 24) 0xFF)))))
 
 (function colorjoin :static :inline
   [r:int g:int b:int a:int] -> uint32_t
@@ -378,35 +411,25 @@
     (emit-cdef (symbol name) (string "color constant for " name) ~(janet-wrap-number ,value))))
 
 (comp-unless (dyn :shader-compile)
+
   (cfunction rgb
     "Make an RGB color constant from components. Each component is a number from 0 to 1."
     [r:double g:double b:double &opt a:double=1.0] -> uint32_t
     (return (colorjoin (cast int (* 255 r))
                        (cast int (* 255 g))
                        (cast int (* 255 b))
+                       (cast int (* 255 a)))))
+  (cfunction rgb-pre-mul
+    "Make an RRB color constants from components and premultiply the alpha"
+    [r:double g:double b:double &opt a:double=1.0] -> uint32_t
+    (return (colorjoin (cast int (* 255 r a))
+                       (cast int (* 255 g a))
+                       (cast int (* 255 b a))
                        (cast int (* 255 a))))))
 
 ###
 ### Math helpers
 ###
-
-(defn- swap
-  :cjanet-block-macro
-  "Swap two variables"
-  [x y typ]
-  ~(do
-     (def (tmp ,typ) ,x)
-     (set ,x ,y)
-     (set ,y tmp)))
-
-(defn- sort2
-  :cjanet-block-macro
-  "sort 2 variables such that x is less the y. If not, swap them."
-  [x y typ]
-  ~(when (< ,y ,x)
-     (def (tmp ,typ) ,x)
-     (set ,x ,y)
-     (set ,y tmp)))
 
 (function lerp :static :inline
   [a:double b:double t:double] -> double
@@ -446,25 +469,54 @@
 
 (comp-unless (dyn :shader-compile)
 
+  (function blend-over :static :inline
+    ```
+    Blend over (normal alpha compositing, like a painter)
+    final.A   = src.A + dest.A * (1 - src.A)
+    final.RGB = ((src.RGB * src.A) + (dest.RGB * dest.A * (1 - src.A))) / final.A
+    ```
+    [dest:uint32_t src:uint32_t] -> uint32_t
+    (def d:Color (colorsplit dest))
+    (def s:Color (colorsplit src))
+    # TODO - use floating point for blending (if faster)
+    (def ainv:int (- 255 s.a))
+    (def aa:int (+ (* 255 s.a) (* d.a ainv)))
+    (when aa
+      (def a:int (/ aa 255))
+      (def r:int (/ (+ (* s.a s.r 255) (* d.r d.a ainv)) aa))
+      (def g:int (/ (+ (* s.a s.g 255) (* d.g d.a ainv)) aa))
+      (def b:int (/ (+ (* s.a s.b 255) (* d.b d.a ainv)) aa))
+      (return (colorjoin r g b a)))
+    (return 0))
+
+  (function blend-premul :static :inline
+    ```
+    Blend over with premultiplied alpha (normal alpha compositing, like a painter)
+    final.A   = src.A + dest.A * (1 - src.A)
+    final.RGB = src.RGB + (dest.RGB * (1 - src.A))
+    ```
+    [dest:uint32_t src:uint32_t] -> uint32_t
+    (def d:Color (colorsplit dest))
+    (def s:Color (colorsplit src))
+    # TODO - use floating point for blending (if faster)
+    (def ainv:int (- 255 s.a))
+    (def a:int (/ (+ (* s.a 255) (* d.a ainv)) 255))
+    (def r:int (/ (+ (* s.r 255) (* d.r ainv)) 255))
+    (def g:int (/ (+ (* s.g 255) (* d.g ainv)) 255))
+    (def b:int (/ (+ (* s.b 255) (* d.b ainv)) 255))
+    (return (colorjoin r g b a)))
+
   # Blend operators
   (each [name op] [['add '+] ['sub '-] ['mul '*] ['lighten 'max2z] ['darken 'min2z]]
     (function ,(symbol 'blend- name) :static :inline
       ,(string "Blending function for dest = dest " op " src ")
       [dest:uint32_t src:uint32_t] -> uint32_t
-      (var dest-r:int 0)
-      (var dest-g:int 0)
-      (var dest-b:int 0)
-      (var dest-a:int 0)
-      (var src-r:int 0)
-      (var src-g:int 0)
-      (var src-b:int 0)
-      (var src-a:int 0)
-      (colorsplit dest &dest-r &dest-g &dest-b &dest-a)
-      (colorsplit src &src-r &src-g &src-b &src-a)
-      (def r:int (clampz (,op dest-r src-r) 0 0xFF))
-      (def g:int (clampz (,op dest-g src-g) 0 0xFF))
-      (def b:int (clampz (,op dest-b src-b) 0 0xFF))
-      (def a:int (clampz (,op dest-a src-a) 0 0xFF))
+      (def d:Color (colorsplit dest))
+      (def s:Color (colorsplit src))
+      (def r:int (clampz (,op d.r s.r) 0 0xFF))
+      (def g:int (clampz (,op d.g s.g) 0 0xFF))
+      (def b:int (clampz (,op d.b s.b) 0 0xFF))
+      (def a:int (clampz (,op d.a s.a) 0 0xFF))
       (return (colorjoin r g b a)))))
 
 ###
@@ -537,9 +589,13 @@
   (function get-blend-func :static :inline
     [x:Janet] -> BlendFunc
     (if
+      (janet-keyeq x "over") (return blend-over)
+      (janet-keyeq x "premul") (return blend-premul)
       (janet-keyeq x "add") (return blend-add)
       (janet-keyeq x "sub") (return blend-sub)
       (janet-keyeq x "mul") (return blend-mul)
+      (janet-keyeq x "darken") (return blend-darken)
+      (janet-keyeq x "lighten") (return blend-lighten)
       (janet-panicf "unknown blend mode %v" x)))
 
   (cfunction stamp-blend
@@ -555,13 +611,14 @@
     (def xmax:int (? (< xoverflow 0) src->width (- src->width xoverflow)))
     (def ymax:int (? (< yoverflow 0) src->height (- src->height yoverflow)))
     (polymorph src->channels [1 2 3 4]
-      (polymorph-cond blender [blend-add blend-sub blend-mul]
+      # TODO - automatically add all blend modes here if we add more
+      (polymorph-cond blender [blend-add blend-sub blend-mul blend-over blend-premul blend-lighten blend-darken]
         (for [(var y:int ymin) (< y ymax) (++ y)]
           (for [(var x:int xmin) (< x xmax) (++ x)]
             (def src-color:uint32_t (image-get-pixel src x y))
             (def dest-color:uint32_t (image-get-pixel dest (+ dx x) (+ dy y)))
             (def final-color:uint32_t (blender dest-color src-color))
-            (image-set-pixel dest (+ dx x) (+ dy y) final-color)))))
+            (image-set-pixel-bc dest (+ dx x) (+ dy y) final-color)))))
     (return dest))
 
   (cfunction resize
@@ -583,6 +640,8 @@
 ### Shader!
 ### Evaluate file with `(dyn :pixel-shader)` set to use a different pixel shader.
 ###
+
+# TODO - pick blend mode with shader
 
 (def shader-args (dyn :shader-args '[color:uint32_t]))
 (def shader-params (map first (map type-split shader-args)))
@@ -867,7 +926,7 @@
 (comp-unless (dyn :shader-compile)
 
   (cfunction plot
-    "Draw a 1 pixel line from x1,y1 to x2,y2"
+    "Draw a 1 pixel line from (x1, y1) to (x2, y2)"
     [img:*Image x1:int y1:int x2:int y2:int color:uint32] -> *Image
     # Use Bresenham's algorithm to draw the line
     (def dx:int (cast int (abs (- x2 x1))))

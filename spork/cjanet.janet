@@ -915,8 +915,8 @@
   or janet_fixarity).
   ```
   [name & more]
+  #(emit-cfunction name ;more))
   ~(,(make-trampoline name) ,emit-cfunction ,;(qq-wrap [name ;more])))
-#(emit-cfunction name ;more))
 
 (defn emit-cdef
   ```
