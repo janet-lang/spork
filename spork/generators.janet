@@ -289,7 +289,7 @@
 
 (defmacro- keep-step
   [val]
-  ~(when-let [v , val]
+  ~(when-let [v ,val]
      (yield v)))
 
 (defn keep
