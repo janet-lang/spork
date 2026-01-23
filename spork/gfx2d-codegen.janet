@@ -33,6 +33,7 @@
 ### [x] - stroke paths (w/ thickness)
 ### [x] - plotting (1 pixel wide lines, no aa)
 ### [x] - blending
+### [ ] - sRGB correct blending
 ### [x] - image resizing
 ### [x] - bezier
 ### [ ] - splines
@@ -44,12 +45,12 @@
 ### [x] - Better 2D point abstraction
 ### [ ] - Affine transforms
 ### [x] - float coordinate primitives (paths, rect, line, etc)
+### [ ] - sRGB gamma correction/conversion
 
 ### Stretch TODO
 ### [ ] - vector font rendering
 ### [ ] - anti-aliasing w/ mutli-sampling and/or analysis
 ### [x] - shaders using cjanet-jit - "fill" and "stroke" shaders
-### [ ] - sub-images for rendering / alternatives to JanetBuffer for data storage
 ### [ ] - multithreading
 ### [ ] - Image analysis and statistics (RMSE, histogram, k-means, etc.)
 
@@ -242,34 +243,43 @@
 
 (typedef Image
   (named-struct Image
+    parent (* (named-struct Image))
     width int
     height int
     channels int
-    data *JanetBuffer
+    data *uint8_t
     stride int))
 
-(function mark-image :static
+(function gc-image :static
   [p:*void s:size_t] -> int
   (unused s)
   (def image:*Image p)
-  (janet-mark (janet-wrap-buffer image->data))
+  (janet-free image->data)
+  (return 0))
+
+(function gc-mark :static
+  [p:*void s:size_t] -> int
+  (unused s)
+  (when p (janet-mark (janet-wrap-abstract p)))
   (return 0))
 
 (abstract-type Image
   :name "gfx2d/image"
-  :gcmark mark-image)
+  :gcmark gc-mark
+  :gc gc-image)
 
 (comp-unless (dyn :shader-compile)
 
   (function create-image :static
     "Make an abstract image object"
-    [width:int height:int channel:int buf:*JanetBuffer] -> *Image
-    (def image:*Image (janet-abstract &Image-AT (sizeof Image)))
+    [parent:*Image width:int height:int channel:int stride:int data:*uint8_t] -> *Image
+    (def image:*Image (janet-abstract-threaded &Image-AT (sizeof Image)))
+    (set image->parent parent)
     (set image->width width)
     (set image->height height)
     (set image->channels channel)
-    (set image->stride (* width channel))
-    (set image->data buf)
+    (set image->stride stride)
+    (set image->data data)
     (return image))
 
   (cfunction blank
@@ -279,10 +289,20 @@
     (if (> 1 height) (janet-panic "height must be positive"))
     (if (> 1 channel) (janet-panic "channel must be between 1 and 4 inclusive"))
     (if (< 4 channel) (janet-panic "channel must be between 1 and 4 inclusive"))
-    (def (buf 'JanetBuffer) (janet-buffer (* width height channel)))
-    (set buf->count (* width height channel))
-    (memset buf->data 0 (* width height channel))
-    (return (create-image width height channel buf)))
+    (def data:*uint8_t (janet-malloc (* width height channel)))
+    (memset data 0 (* width height channel))
+    (return (create-image NULL width height channel (* width channel) data)))
+
+  (cfunction viewport
+    "Create a new image that shares backing memory with another image. This allow parallel drawing in different threads."
+    [img:*Image x:int y:int width:int height:int] -> *Image
+    (def channel:int img->channels)
+    (if (or (<= width 0) (< x 0)) (janet-panic "viewport out of range"))
+    (if (or (<= height 0) (< y 0)) (janet-panic "viewport out of range"))
+    (if (> (+ x width) img->width) (janet-panic "viewport out of range"))
+    (if (> (+ y height) img->height) (janet-panic "viewport out of range"))
+    (def data-window:*uint8_t (+ img->data (* y img->stride channel) (* x channel)))
+    (return (create-image img width height channel img->stride data-window)))
 
   (cfunction load
     "Load an image from disk into a buffer"
@@ -292,15 +312,7 @@
     (def c:int 0)
     (def (img 'uint8_t) (stbi-load path &width &height &c 0))
     (unless img (janet-panic "failed to load image"))
-
-    # Copy into buffer
-    (def (buf 'JanetBuffer) (janet-buffer (* width height c)))
-    (memcpy buf->data img (* width height c))
-    (set buf->count (* width height c))
-    (stbi-image-free img) # TODO - remove this alloc, copy, free?
-
-    # Package buffer and dimensions in tuple
-    (return (create-image width height c buf)))
+    (return (create-image NULL width height c (* width c) img)))
 
   # Generate image-writing for each image type
   # TODO - hdr
@@ -317,7 +329,7 @@
     (cfunction ,(symbol 'save- ft)
       ,(string "Save an image to a file as a " ft)
       [path:cstring img:*Image ,;extra-params] -> *Image
-      (def check:int (,(symbol 'stbi-write- ft) path img->width img->height img->channels img->data->data ,;extra-args))
+      (def check:int (,(symbol 'stbi-write- ft) path img->width img->height img->channels img->data ,;extra-args))
       (if-not check (janet-panic "failed to write image"))
       (return img))))
 
@@ -325,7 +337,7 @@
   "extract a pixel"
   [img:*Image x:int y:int] -> uint32_t
   (var color-accum:uint32_t 0)
-  (def data:*uint8_t img->data->data)
+  (def data:*uint8_t img->data)
   (def stride:int img->stride)
   (def channels:int img->channels)
   (for [(def c:int 0) (< c img->channels) (++ c)]
@@ -345,7 +357,7 @@
 (function image-set-pixel :static :inline
   "set a pixel"
   [img:*Image x:int y:int color:uint32_t] -> void
-  (def data:*uint8_t img->data->data)
+  (def data:*uint8_t img->data)
   (def stride:int img->stride)
   (def channels:int img->channels)
   (for [(def c:int 0) (< c channels) (++ c)]
@@ -525,7 +537,7 @@
     (return (colorjoin r g b a)))
 
   # Blend operators
-  (each [name op] [['add '+] ['sub '-] ['mul '*] ['lighten 'max2z] ['darken 'min2z]]
+  (each [name op] [['add '+] ['sub '-] ['lighten 'max2z] ['darken 'min2z]]
     (function ,(symbol 'blend- name) :static :inline
       ,(string "Blending function for dest = dest " op " src ")
       [dest:uint32_t src:uint32_t] -> uint32_t
@@ -573,7 +585,7 @@
     (janet-struct-put st (janet-ckeywordv "height") (janet-wrap-integer img->height))
     (janet-struct-put st (janet-ckeywordv "channels") (janet-wrap-integer img->channels))
     (janet-struct-put st (janet-ckeywordv "stride") (janet-wrap-integer img->stride))
-    (janet-struct-put st (janet-ckeywordv "data") (janet-wrap-buffer img->data)) # TODO - the buffer can't be modified
+    (janet-struct-put st (janet-ckeywordv "data") (janet-wrap-pointer img->data))
     (return (janet-struct-end st)))
 
   (cfunction crop
@@ -588,7 +600,8 @@
     "Create a duplicate image"
     [img:*Image] -> *Image
     (def new-img:*Image (blank img->width img->height img->channels))
-    (memcpy new-img->data->data img->data->data img->data->count)
+    (def byte-count:size_t (* img->width img->height img->channels))
+    (memcpy new-img->data img->data byte-count)
     (return new-img))
 
   (cfunction diff
@@ -611,7 +624,7 @@
       (janet-keyeq x "premul") (return blend-premul)
       (janet-keyeq x "add") (return blend-add)
       (janet-keyeq x "sub") (return blend-sub)
-      (janet-keyeq x "mul") (return blend-mul)
+      #(janet-keyeq x "mul") (return blend-mul)
       (janet-keyeq x "darken") (return blend-darken)
       (janet-keyeq x "lighten") (return blend-lighten)
       (janet-panicf "unknown blend mode %v" x)))
@@ -630,7 +643,7 @@
     (def ymax:int (? (< yoverflow 0) src->height (- src->height yoverflow)))
     (polymorph src->channels [1 2 3 4]
       # TODO - automatically add all blend modes here if we add more
-      (polymorph-cond blender [blend-add blend-sub blend-mul blend-over blend-premul blend-lighten blend-darken]
+      (polymorph-cond blender [blend-add blend-sub blend-over blend-premul blend-lighten blend-darken]
         (for [(var y:int ymin) (< y ymax) (++ y)]
           (for [(var x:int xmin) (< x xmax) (++ x)]
             (def src-color:uint32_t (image-get-pixel src x y))
@@ -649,8 +662,8 @@
         (= in->channels 2) STBIR-2CHANNEL
         (= in->channels 3) STBIR-RGB
         STBIR-4CHANNEL))
-    (stbir-resize-uint8-srgb in->data->data in->width in->height in->stride
-                             out->data->data out->width out->height out->stride
+    (stbir-resize-uint8-srgb in->data in->width in->height in->stride
+                             out->data out->width out->height out->stride
                              layout)
     (return out)))
 

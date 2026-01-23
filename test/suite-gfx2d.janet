@@ -14,7 +14,6 @@
 (defn- save
   "Save image to disk"
   [img name]
-  (print "Saving image " name)
   (case (path/ext name)
     ".png" (save-png name img)
     ".jpeg" (save-jpg name img 100) # Testing against jpeg is risky - lossy format.
@@ -22,6 +21,11 @@
     ".bmp" (save-bmp name img)
     ".tga" (save-tga name img)
     (errorf "unknown image format of %s" name)))
+
+(defn- freeze-image
+  [img]
+  (def {:width w :height h :channels c :data d :stride s} (unpack img))
+  [w h c s (ffi/pointer-buffer d (* c w h) (* c w h))])
 
 (defn check-image
   "Either save image to a directory or compare against the existing image"
@@ -33,10 +37,10 @@
   (if (or (os/getenv "GOLD")
           (os/getenv (string "GOLD_" (first (string/split "." file-name))))
           (not (os/stat fullpath :mode)))
-    (save img fullpath)
-    (do
-      (def reference (load fullpath))
-      (assert (deep= (unpack reference) (unpack img)) (string "reference not identical to test image " file-name)))))
+    (print "Saving gold image " fullpath)
+    (save img fullpath))
+  (def reference (load fullpath))
+  (assert (deep= (freeze-image reference) (freeze-image img)) (string "reference not identical to test image " file-name)))
 
 (defn test-image-1
   []
@@ -87,7 +91,7 @@
   (circle img 16 16 1000 cyan) # oob circle
   (fill-rect img 32 32 96 96 blue)
   (def cop (copy img))
-  (assert (deep= (unpack cop) (unpack img)))
+  (assert (deep= (freeze-image cop) (freeze-image img)))
   (def empty1 (diff cop img))
   (def empty2 (diff img img))
   (check-image empty1 "empty.png")
@@ -266,5 +270,23 @@
   (check-image (resize img 256 256) "bumpy-chart-2.png"))
 
 (test-bumpy-chart)
+
+(defn test-blend
+  "Test default blending"
+  []
+  (def img (blank 128 128 4))
+  (fill-rect img 0 0 128 128 black)
+  (loop [col :range [0 128 8]]
+    (fill-rect img col 0 (+ col 8) 128
+               (if (even? (div col 8))
+                 (rgb 0.9 0.9 0.8)
+                 (rgb 0.1 0.1 0.1))))
+  (def sonic (blank 64 64 4))
+  (each [radius color] [[10 green] [20 yellow] [30 blue]]
+    (plot-ring sonic 32 32 radius color))
+  (stamp-blend img sonic :over 32 32)
+  (check-image img "blend-ring.png"))
+
+(test-blend)
 
 (end-suite)
