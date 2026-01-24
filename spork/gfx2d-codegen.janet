@@ -1276,4 +1276,4 @@
   (return img))
 
 (comp-unless (dyn :shader-compile)
-  (module-entry "spork_gfx2d"))
+  (module-entry "gfx2d"))
