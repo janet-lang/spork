@@ -264,16 +264,16 @@
   (return 0))
 
 (abstract-type Image
-  :name "gfx2d/image"
-  :gcmark gc-mark
-  :gc gc-image)
+   :name "gfx2d/image"
+   :gcmark gc-mark
+   :gc gc-image)
 
 (comp-unless (dyn :shader-compile)
 
   (function create-image :static
     "Make an abstract image object"
     [parent:*Image width:int height:int channel:int stride:int data:*uint8_t] -> *Image
-    (def image:*Image (janet-abstract-threaded &Image-AT (sizeof Image)))
+    (def image:*Image (janet-abstract-threaded Image-ATP (sizeof Image)))
     (set image->parent parent)
     (set image->width width)
     (set image->height height)
@@ -850,7 +850,7 @@
 
 (comp-unless (dyn :shader-compile)
   (cfunction draw-simple-text
-    "Draw text with a default, bitmap on an image"
+    "Draw text with a default, bitmap on an image. Font should be one of :default, :tall, or :olive."
     [img:*Image x:int y:int xscale:int yscale:int text:cstring color:uint32_t &opt (font-name keyword (janet-ckeyword "default"))] -> *Image
     (if (< xscale 1) (janet-panic "xscale must be at least 1"))
     (if (< yscale 1) (janet-panic "yscale must be at least 1"))
@@ -888,7 +888,7 @@
 
 (comp-unless (dyn :shader-compile)
   (cfunction measure-simple-text
-    "Return the height and width of text as a tuple"
+    "Return the height and width of text as a tuple. Font should be one of :default, :tall, or :olive."
     [text:cstring &opt (font-name keyword (janet-ckeyword "default"))] -> JanetTuple
     (var w:int 0)
     (var xcursor:int 0)

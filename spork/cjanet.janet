@@ -804,7 +804,7 @@
     ~(def (,v ,ctype) (,getfn ,argv ,n))
     (do
       (assertf abstract "cannot use type alias %j as C function parameter, call 'register-binding-type' to enable this" T)
-      ~(def (,v ,ctype) (janet-getabstract ,argv ,n (& ,abstract))))))
+      ~(def (,v ,ctype) (janet-getabstract ,argv ,n ,abstract)))))
 
 (defn- janet-opt*
   "Get cjanet fragment to extract optional parameters. Similar to non-optional parameters
@@ -830,10 +830,15 @@
   "Create and register an abstract type for janet. Will also register the abstract type with janet_register_abstract_type"
   (def ats (if-let [x (dyn *abstract-type-list*)] x (setdyn *abstract-type-list* @[])))
   (def name-at (symbol name "_AT"))
-  (array/push ats name-at)
-  (register-binding-type ['* name] ['* name] 'janet-wrap-abstract nil nil name-at)
-  (register-binding-type ['quote name] ['* name] 'janet-wrap-abstract nil nil name-at)
-  (emit-declare [name-at 'JanetAbstractType] :const :static (struct ;fields)))
+  (def name-atp (symbol name "_ATP"))
+  (def fields-dict (struct ;fields))
+  (def registered-name (get fields-dict :name))
+  (assert registered-name "key :name is required for abstract types")
+  (array/push ats [name-at name-atp registered-name])
+  (register-binding-type ['* name] ['* name] 'janet-wrap-abstract nil nil name-atp)
+  (register-binding-type ['quote name] ['* name] 'janet-wrap-abstract nil nil name-atp)
+  (emit-declare [name-at 'JanetAbstractType] :static :const fields-dict)
+  (emit-declare [name-atp '*JanetAbstractType] :static :const ~(& ,name-at)))
 
 (defmacro abstract-type
   "Macro version of emit-abstract-type that allows for top-level unquote"
@@ -950,7 +955,14 @@
   (block
     ,;all-cdefs
     (def (cfuns (array JanetRegExt)) (array ,;all-cfuns JANET_REG_END))
-    ,;(seq [t :in all-types] ~(janet-register-abstract-type (addr ,t)))
+    ,;(seq [[t at-t registered-name] :in all-types]
+        ~(do
+           (def (existing (const *JanetAbstractType)) (janet-get-abstract-type (janet-csymbolv ,registered-name)))
+           (if existing
+             (set ,at-t existing)
+             (do
+               (set ,at-t (& ,t))
+               (janet-register-abstract-type ,at-t)))))
     (janet_cfuns_ext env ,name cfuns)))
 
 (defmacro module-entry
