@@ -45,6 +45,8 @@
 ### [x] - Better 2D point abstraction
 ### [ ] - Affine transforms
 ### [x] - float coordinate primitives (paths, rect, line, etc)
+### [ ] - stippled lines
+### [ ] - right-angle image rotation / flips
 ### [ ] - sRGB gamma correction/conversion
 
 ### Stretch TODO
@@ -254,13 +256,15 @@
   [p:*void s:size_t] -> int
   (unused s)
   (def image:*Image p)
-  (janet-free image->data)
+  (unless image->parent
+    (janet-free image->data))
   (return 0))
 
 (function gc-mark :static
   [p:*void s:size_t] -> int
   (unused s)
-  (when p (janet-mark (janet-wrap-abstract p)))
+  (def image:*Image p)
+  (when image->parent (janet-mark (janet-wrap-abstract image->parent)))
   (return 0))
 
 (abstract-type Image
@@ -284,7 +288,7 @@
 
   (cfunction blank
     "Create a new blank image"
-    [width:int height:int channel:int] -> *Image
+    [width:int height:int &opt channel:int=4] -> *Image
     (if (> 1 width) (janet-panic "width must be positive"))
     (if (> 1 height) (janet-panic "height must be positive"))
     (if (> 1 channel) (janet-panic "channel must be between 1 and 4 inclusive"))
@@ -301,7 +305,7 @@
     (if (or (<= height 0) (< y 0)) (janet-panic "viewport out of range"))
     (if (> (+ x width) img->width) (janet-panic "viewport out of range"))
     (if (> (+ y height) img->height) (janet-panic "viewport out of range"))
-    (def data-window:*uint8_t (+ img->data (* y img->stride channel) (* x channel)))
+    (def data-window:*uint8_t (+ img->data (* y img->stride) (* x channel)))
     (return (create-image img width height channel img->stride data-window)))
 
   (cfunction load
@@ -519,6 +523,15 @@
       (return (colorjoin r g b a)))
     (return dest))
 
+  (function blend-under :static :inline
+    ```
+    Blend under (normal alpha compositing, like a painter). Invert src and dest from blend-over.
+    final.A   = dest.A + src.A * (1 - dest.A)
+    final.RGB = ((dest.RGB * dest.A) + (src.RGB * src.A * (1 - dest.A))) / final.A
+    ```
+    [dest:uint32_t src:uint32_t] -> uint32_t
+    (return (blend-over src dest)))
+
   (function blend-premul :static :inline
     ```
     Blend over with premultiplied alpha (normal alpha compositing, like a painter)
@@ -621,6 +634,7 @@
     [x:Janet] -> BlendFunc
     (if
       (janet-keyeq x "over") (return blend-over)
+      (janet-keyeq x "under") (return blend-under)
       (janet-keyeq x "premul") (return blend-premul)
       (janet-keyeq x "add") (return blend-add)
       (janet-keyeq x "sub") (return blend-sub)
@@ -643,7 +657,7 @@
     (def ymax:int (? (< yoverflow 0) src->height (- src->height yoverflow)))
     (polymorph src->channels [1 2 3 4]
       # TODO - automatically add all blend modes here if we add more
-      (polymorph-cond blender [blend-add blend-sub blend-over blend-premul blend-lighten blend-darken]
+      (polymorph-cond blender [blend-add blend-sub blend-over blend-under blend-premul blend-lighten blend-darken]
         (for [(var y:int ymin) (< y ymax) (++ y)]
           (for [(var x:int xmin) (< x xmax) (++ x)]
             (def src-color:uint32_t (image-get-pixel src x y))

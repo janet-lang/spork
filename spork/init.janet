@@ -4,6 +4,7 @@
 (import ./build-rules :export true)
 (import ./cc :export true)
 (import ./channel :export true)
+(import ./charts :export true)
 (import ./cjanet :export true)
 (import ./cron :export true)
 (import ./data :export true)

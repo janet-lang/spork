@@ -1,13 +1,14 @@
 (use ../spork/test)
 (import ../spork/path)
 (use spork/gfx2d)
+(import spork/charts :as charts)
 
 (start-suite)
 
 (assert true)
 
 ##
-## Please keep gold images small on disk to avoid large repository sizes (no larger than 256x256).
+## Please keep gold images small on disk to avoid large repository sizes (usually no larger than 256x256).
 ## Make liberal use of `resize` to shrink images before calling `check-image` on them.
 ##
 
@@ -34,11 +35,12 @@
   (def tmppath (path/join "tmp" file-name))
   (os/mkdir "tmp")
   (save img tmppath)
-  (if (or (os/getenv "GOLD")
+  (when (or (os/getenv "GOLD")
           (os/getenv (string "GOLD_" (first (string/split "." file-name))))
           (not (os/stat fullpath :mode)))
     (print "Saving gold image " fullpath)
-    (save img fullpath))
+    (save img fullpath)
+    (break))
   (def reference (load fullpath))
   (assert (deep= (freeze-image reference) (freeze-image img)) (string "reference not identical to test image " file-name)))
 
@@ -288,5 +290,34 @@
   (check-image img "blend-ring.png"))
 
 (test-blend)
+
+# Charting test
+(defn test-temperature-chart
+  "Test the chart module"
+  []
+  (def npoints 100)
+  (def rng (math/rng 10))
+  (def data
+    {:timestamp (map |(/ $ 10) (range npoints))
+     :temperature-1 (seq [i :range [0 npoints]] (+ (math/log (+ i 1)) (* 0.3 (math/rng-uniform rng))))
+     :temperature-2 (seq [i :range [0 npoints]] (+ (* 0.94 (math/log (+ i 1))) (* 0.2 (math/rng-uniform rng))))
+     :temperature-3 (seq [i :range [0 npoints]] (+ (* 0.79 (math/log (+ i 1))) (* 0.4 (math/rng-uniform rng))))
+     :temperature-4 (seq [i :range [0 npoints]] (+ (* 0.45 (math/log (+ i 8))) (* 0.4 (math/rng-uniform rng))))
+     })
+
+  (def img
+    (charts/line-chart
+      :title "Data over Time"
+      :width 512
+      :height 512
+      :data data
+      :x-column :timestamp
+      :padding 10
+      :font :tall
+      :y-columns [:temperature-1 :temperature-2 :temperature-3 :temperature-4]))
+
+  (check-image img "complex-chart.png"))
+
+(test-temperature-chart)
 
 (end-suite)
