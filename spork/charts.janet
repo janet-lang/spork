@@ -16,6 +16,11 @@
 (import ./path)
 (import spork/gfx2d :as g)
 
+# TODO - configurable
+(def- text-color g/black)
+(def- paper-color g/white)
+(def- grid-color (g/rgb 0.8 0.8 0.8))
+
 (defn- save
   "Save image to disk"
   [img name]
@@ -39,16 +44,18 @@
   (def x (if (= 0 x) (math/abs x) x)) # no negative 0, messes up rendering!
   (/ (math/round (* n x)) n))
 
+# TODO - bias light or dark depending on background
 (defn- color-hash
   "Given a value, generate a psuedo-random color for visualization"
   [x &opt color-seed]
   (def rng (math/rng (hash [x color-seed])))
-  (g/rgb (* 0.7 (math/rng-uniform rng))
-         (* 0.7 (math/rng-uniform rng))
-         (* 0.7 (math/rng-uniform rng))))
+  (g/rgb (+ 0.2 (* 0.6 (math/rng-uniform rng)))
+         (+ 0.2 (* 0.6 (math/rng-uniform rng)))
+         (+ 0.2 (* 0.6 (math/rng-uniform rng)))))
 
 (defn- calculate-data-bounds
-  "Given a data frame, return [min-x max-x min-y max-y]. Use this information for calculating render transform. Should handle non-existant columns."
+  "Given a data frame, return [min-x max-x min-y max-y].
+  Use this information for calculating render transform. Should handle non-existant columns."
   [data x-column y-columns
    override-min-x override-max-x
    override-min-y override-max-y]
@@ -111,10 +118,11 @@
     (if (> (+ 10 max-text-width) delta)
       (break (guess-axis-ticks minimum maximum pixel-span (+ 10 max-text-width) font prefix suffix force-formatter true))))
 
+  # TODO - use text boundaries to set padding
   [result formatter max-text-width max-text-height])
 
 (defn- draw-frame
-  "Draw a frame enclosing a rectangle"
+  "Draw a frame enclosing a rectangle that is `outer` pixels wide"
   [image x1 y1 x2 y2 color &opt outer]
   (default outer 1)
   (g/plot-path image [x1 y1 x1 y2 x2 y2 x2 y1] color true)
@@ -140,12 +148,15 @@
 
   Return [w h] of the area that was or would be drawn if the legend were to be drawn.
   ```
-  [canvas &named background-color font padding color-map labels horizontal frame color-seed]
+  [canvas &named
+   background-color font padding color-map labels
+   horizontal frame color-seed legend-map]
   (default font :default)
   (default padding 8)
   (default color-map {})
-  (default background-color g/white)
-  (def line-color (g/rgb 0.1 0.1 0.1))
+  (default legend-map {})
+  (default background-color paper-color)
+  (def line-color text-color)
   (when canvas
     (def {:width width :height height} (g/unpack canvas))
     (when frame (g/fill-rect canvas 0 0 width height background-color)))
@@ -157,10 +168,10 @@
   (var x padding)
   (var max-width 0)
   (each i labels
-    (def label (string i))
+    (def label (string (get legend-map i i)))
     (def [text-width _] (g/measure-simple-text label font))
     (when canvas
-      (def color (get color-map i (color-hash label color-seed)))
+      (def color (get color-map i (color-hash i color-seed)))
       (g/fill-rect canvas x y (+ x swatch-size) (+ y swatch-size) color)
       (g/draw-simple-text canvas (+ x swatch-size 3) y 1 1 label color font))
     (def item-width (+ padding padding text-width swatch-size))
@@ -180,11 +191,20 @@
 (defn draw-axes
   ```
   Draw the axis for the chart. Also return a function that can be used
-  to convert a coordinate in the meric space to the screen space.
+  to convert a coordinate in the meric space to the screen space. Most parameters
+  are optional with sane defaults, but canvas, x-min, x-max, y-min, y-max are all required.
 
   * :padding - the number of pixels to leave around all drawn content
   * :font - the font to use for axis text
   * :{x,y}-{min,max} - The bounds for coordinate system to draw
+  * :grid - Boolean to enable drawing grid-lines.
+  * :format-x - unary function (fn [x] ...) that returns a string to label x axis tick marks with
+  * :format-y - unary function (fn [y] ...) that returns a string to label y axis tick marks with
+  * :x-prefix - if format-x not provided, allows easily adding a string prefix to x axis tick mark labels
+  * :y-prefix - if format-y not provided, allows easily adding a string prefiox to y axis tick mark labels
+  * :x-suffix - if format-x not provided, allows easily adding a string suffix to x axis tick mark labels
+  * :y-suffix - if format-y not provided, allows easily adding a string suffix to y axis tick mark labels
+  * :x-ticks - Allow setting specific tick marks to be used marking the x axis rather than making a guess.
 
   Returns a tuple [view:gfx2d/Image to-pixel-space:fn to-metric-space:fn]
 
@@ -192,18 +212,22 @@
   * `(to-pixel-space metric-x metric-y)` converts metric space coordinates to pixel space for plotting on `view`.
   * `(to-metric-space pixel-x pixel-y)` converts pixel coordinates to the metric space.
   ```
-  [canvas &named padding font x-min x-max y-min y-max grid format-x format-y x-suffix x-prefix y-suffix y-prefix]
+  [canvas &named padding font
+   x-min x-max y-min y-max
+   grid format-x format-y
+   x-suffix x-prefix y-suffix y-prefix
+   x-ticks]
 
   (default padding 10)
   (default font :default)
+  (assert canvas)
   (assert x-min)
   (assert x-max)
   (assert y-min)
   (assert y-max)
 
   (def {:width width :height height} (g/unpack canvas))
-  (def line-color (g/rgb 0.1 0.1 0.1))
-  (def grid-color (g/rgb 0.8 0.8 0.8))
+  (def line-color text-color)
 
   (def dx (- x-max x-min))
   (def dy (- y-max y-min))
@@ -236,8 +260,10 @@
     [(+ offset-x (* scale-x metric-x))
      (+ offset-y (* scale-y metric-y))])
 
-  # Draw X axis
-  (def [xticks xformat _ xtextheight] (guess-axis-ticks x-min x-max (- width left-padding right-padding) 20 font x-prefix x-suffix format-x))
+  # Draw X axis - allow manual override for x tick marks
+  (def [xticks xformat]
+    (if x-ticks [x-ticks (if format-x format-x string)] 
+      (guess-axis-ticks x-min x-max (- width left-padding right-padding) 20 font x-prefix x-suffix format-x)))
   (each metric-x xticks
     (def [pixel-x _] (convert metric-x 0))
     (def rounded-pixel-x (math/round pixel-x))
@@ -248,7 +274,7 @@
     (g/plot canvas rounded-pixel-x (- height outer-bottom-padding) rounded-pixel-x (- height outer-bottom-padding tick-height) line-color))
 
   # Draw Y axis - unlike X axis, we always expect y axis to be numeric
-  (def [yticks yformat ytextwidth] (guess-axis-ticks y-min y-max (- height top-padding bottom-padding) 20 font y-prefix y-suffix format-y))
+  (def [yticks yformat] (guess-axis-ticks y-min y-max (- height top-padding bottom-padding) 20 font y-prefix y-suffix format-y))
   (each metric-y yticks
     (def [_ pixel-y] (convert 0 metric-y))
     (def rounded-pixel-y (math/round pixel-y))
@@ -283,7 +309,11 @@
   [view view-convert view-unconvert])
 
 (defn line-chart
-  "Render a basic line chart. Returns a gfx2d/Image which can be further manipulated with the spork/gfx2d module."
+  ```
+  Render a line chart. Returns a gfx2d/Image which can be further manipulated with the spork/gfx2d module.
+
+
+  ```
   [&named
    width height data x-spacing y-spacing
    font background-color color-map
@@ -295,9 +325,12 @@
    format-x format-y
    color-seed
    save-as
+   legend-map
    x-suffix x-prefix y-suffix y-prefix
-   x-column y-columns]
+   x-column y-columns
+   x-ticks]
 
+  # Check parameters and set defaults.
   (assert x-column)
   (assert y-columns)
   (default width 1280)
@@ -305,10 +338,12 @@
   (default padding 20)
   (default point-radius 3)
   (default color-map {})
-  (default background-color g/white)
+  (default background-color paper-color)
   (default font :tall)
   (default circle-points false)
   (default grid false)
+
+  # Get canvas
   (def canvas (g/blank width height 4))
   (g/fill-rect canvas 0 0 width height background-color)
 
@@ -317,15 +352,15 @@
   (when title
     (def [title-width title-height] (g/measure-simple-text title font))
     (set title-padding (* 2 title-height))
-    (g/draw-simple-text canvas (math/round (* 0.5 (- width title-width title-width))) padding 2 2 title g/black font))
+    (g/draw-simple-text canvas (math/round (* 0.5 (- width title-width title-width))) padding 2 2 title text-color font))
 
   # Add legend if horizontal
   (when (= legend :top)
     (+= title-padding padding)
-    (def [lw lh] (draw-legend nil :font font :padding 4 :horizontal true :labels y-columns))
+    (def [lw lh] (draw-legend nil :font font :padding 4 :horizontal true :labels y-columns :legend-map legend-map))
     (def legend-view (g/viewport canvas (math/floor (* (- width lw) 0.5)) title-padding lw lh))
     (+= title-padding lh)
-    (draw-legend legend-view :font font :padding 4 :horizontal true :labels y-columns :color-map color-map :color-seed color-seed))
+    (draw-legend legend-view :font font :padding 4 :horizontal true :labels y-columns :color-map color-map :color-seed color-seed :legend-map legend-map))
 
   # Crop title section out of place where axis and charting will draw
   (def view (g/viewport canvas 0 title-padding width (- height title-padding)))
@@ -337,7 +372,8 @@
                :x-suffix x-suffix :x-prefix x-prefix
                :y-suffix y-suffix :y-prefix y-prefix
                :x-min x-min :x-max x-max
-               :y-min y-min :y-max y-max))
+               :y-min y-min :y-max y-max
+               :x-ticks x-ticks))
 
   # Draw graph
   (def xs (get data x-column))
