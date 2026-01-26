@@ -16,21 +16,16 @@
 (import ./path)
 (import spork/gfx2d :as g)
 
-# TODO - configurable
+# Defaults
+# TODO - use these
+(defdyn *default-font* "Default font for chart rendering")
+(defdyn *default-text-color* "Default font color for title and axis labels")
+(defdyn *default-background-color* "Default background color for chart rendering")
+(defdyn *default-grid-color* "Default color for grid lines")
+
 (def- text-color g/black)
 (def- paper-color g/white)
 (def- grid-color (g/rgb 0.8 0.8 0.8))
-
-(defn- save
-  "Save image to disk"
-  [img name]
-  (case (path/ext name)
-    ".png" (g/save-png name img)
-    ".jpeg" (g/save-jpg name img 100)
-    ".jpg" (g/save-jpg name img 100)
-    ".bmp" (g/save-bmp name img)
-    ".tga" (g/save-tga name img)
-    (errorf "unknown image format of %s" name)))
 
 (defn- floorn
   "Floor mod n"
@@ -59,6 +54,8 @@
   [data x-column y-columns
    override-min-x override-max-x
    override-min-y override-max-y]
+  # TODO - expand bounds for nice axis ticks in the same way as `guess-axis-ticks`.
+  # e.g. [1-99] -> [0-100]
   (var min-y math/inf)
   (var max-y math/-inf)
   (def min-x (extreme < (get data x-column)))
@@ -72,7 +69,7 @@
 (defn- guess-axis-ticks
   "Given a set of numeric values, generate a reasonable array of tick marks given a minimum spacing.
   Biases the tick spacing to a power of 10 (or by 5s) for nicer charts by default"
-  [minimum maximum pixel-span min-spacing font prefix suffix &opt force-formatter no-retry]
+  [minimum maximum pixel-span min-spacing vertical font prefix suffix &opt force-formatter no-retry] # TODO - too many unnamed arguments
   (default suffix "")
   (default prefix "")
   (var max-ticks (math/floor (/ pixel-span min-spacing)))
@@ -80,7 +77,9 @@
   (def result (array/new max-ticks))
   (var delta (/ (- maximum minimum) max-ticks))
   (var metric minimum)
-  # Bias delta towards a power of 10
+
+  # Bias delta towards a power of 10 for nice tick intervals
+  # TODO - allow for other bases
   (def delta-log10 (math/log10 delta))
   (set delta (math/pow 10 (math/ceil delta-log10)))
 
@@ -90,10 +89,10 @@
   (def epsilon (* delta 0.001))
 
   # Get tick metrics
-  (set metric (floorn delta metric))
+  (set metric (floorn (/ delta) metric))
   (while (< metric (- minimum epsilon))
     (+= metric delta))
-  (while (< metric (+ epsilon maximum))
+  (while (<= metric (+ epsilon maximum))
     (array/push result metric)
     (+= metric delta))
 
@@ -112,11 +111,12 @@
     (def [x y] (g/measure-simple-text (formatter metric) font))
     (set max-text-width (max max-text-width x))
     (set max-text-height (max max-text-height y)))
+  (def min-spacing (+ 10 (if vertical max-text-height max-text-width)))
 
   # Retry if ticks are too close together
   (unless no-retry
-    (if (> (+ 10 max-text-width) delta)
-      (break (guess-axis-ticks minimum maximum pixel-span (+ 10 max-text-width) font prefix suffix force-formatter true))))
+    (if (> (+ 10 min-spacing) delta)
+      (break (guess-axis-ticks minimum maximum pixel-span min-spacing vertical font prefix suffix force-formatter true))))
 
   # TODO - use text boundaries to set padding
   [result formatter max-text-width max-text-height])
@@ -236,21 +236,23 @@
   (def font-half-height 4)
   (def tick-height 8)
 
-  # TODO - measure required space from x and y legend labels
-  (def y-axis-legend-width 25)
-
-  # Allow for more space around final graph
-  (def outer-left-padding (+ padding y-axis-legend-width))
-  (def outer-right-padding padding)
+  # Calculate top and bottom padding
   (def outer-top-padding padding)
   (def outer-bottom-padding (+ padding 10))
-  (def left-padding (+ outer-left-padding tick-height))
-  (def right-padding outer-right-padding)
   (def top-padding outer-top-padding)
   (def bottom-padding (+ outer-bottom-padding tick-height))
 
-  # Closure to convert metric space to pixel space
-  # TODO - replace with affine transform abstraction
+  # Guess y axis ticks - used to calculate left and right padding
+  (def [yticks yformat y-axis-tick-label-width]
+    (guess-axis-ticks y-min y-max (- height top-padding bottom-padding) 20 true font y-prefix y-suffix format-y))
+
+  # Calculate left and right padding once y-axis is guessed
+  (def outer-left-padding (+ padding y-axis-tick-label-width))
+  (def outer-right-padding padding)
+  (def left-padding (+ outer-left-padding tick-height))
+  (def right-padding outer-right-padding)
+
+  # Closure to convert metric space to pixel space - only can be done after full padding calculations
   (def scale-x (/ (- width left-padding right-padding tick-height tick-height) dx))
   (def scale-y (- (/ (- height top-padding bottom-padding tick-height tick-height) dy)))
   (def offset-x (- left-padding (- tick-height) (* scale-x x-min)))
@@ -260,21 +262,7 @@
     [(+ offset-x (* scale-x metric-x))
      (+ offset-y (* scale-y metric-y))])
 
-  # Draw X axis - allow manual override for x tick marks
-  (def [xticks xformat]
-    (if x-ticks [x-ticks (if format-x format-x string)] 
-      (guess-axis-ticks x-min x-max (- width left-padding right-padding) 20 font x-prefix x-suffix format-x)))
-  (each metric-x xticks
-    (def [pixel-x _] (convert metric-x 0))
-    (def rounded-pixel-x (math/round pixel-x))
-    (def text (xformat metric-x))
-    (def [text-width] (g/measure-simple-text text font))
-    (g/draw-simple-text canvas (- rounded-pixel-x -1 (* text-width 0.5)) (- height outer-bottom-padding -3) 1 1 text line-color font)
-    (when grid (g/plot canvas rounded-pixel-x top-padding rounded-pixel-x (- height bottom-padding) grid-color))
-    (g/plot canvas rounded-pixel-x (- height outer-bottom-padding) rounded-pixel-x (- height outer-bottom-padding tick-height) line-color))
-
-  # Draw Y axis - unlike X axis, we always expect y axis to be numeric
-  (def [yticks yformat] (guess-axis-ticks y-min y-max (- height top-padding bottom-padding) 20 font y-prefix y-suffix format-y))
+  # Draw Y axis
   (each metric-y yticks
     (def [_ pixel-y] (convert 0 metric-y))
     (def rounded-pixel-y (math/round pixel-y))
@@ -283,6 +271,19 @@
     (g/draw-simple-text canvas (- outer-left-padding text-width 3) (- rounded-pixel-y font-half-height) 1 1 text line-color font)
     (when grid (g/plot canvas left-padding rounded-pixel-y (- width right-padding) rounded-pixel-y grid-color))
     (g/plot canvas outer-left-padding rounded-pixel-y (+ outer-left-padding tick-height) rounded-pixel-y line-color))
+
+  # Draw X axis - allow manual override for x tick marks
+  (def [xticks xformat]
+    (if x-ticks [x-ticks (if format-x format-x string)]
+      (guess-axis-ticks x-min x-max (- width left-padding right-padding) 20 false font x-prefix x-suffix format-x)))
+  (each metric-x xticks
+    (def [pixel-x _] (convert metric-x 0))
+    (def rounded-pixel-x (math/round pixel-x))
+    (def text (xformat metric-x))
+    (def [text-width] (g/measure-simple-text text font))
+    (g/draw-simple-text canvas (- rounded-pixel-x -1 (* text-width 0.5)) (- height outer-bottom-padding -3) 1 1 text line-color font)
+    (when grid (g/plot canvas rounded-pixel-x top-padding rounded-pixel-x (- height bottom-padding) grid-color))
+    (g/plot canvas rounded-pixel-x (- height outer-bottom-padding) rounded-pixel-x (- height outer-bottom-padding tick-height) line-color))
 
   # Draw frame
   (draw-frame canvas left-padding top-padding (- width right-padding) (- height bottom-padding) line-color 2)
@@ -354,16 +355,19 @@
     (set title-padding (* 2 title-height))
     (g/draw-simple-text canvas (math/round (* 0.5 (- width title-width title-width))) padding 2 2 title text-color font))
 
-  # Add legend if horizontal
-  (when (= legend :top)
+  # Add legend if legend = :top. This makes a horizontal legend just below the title with no extra framing
+  (when (or (= legend true) (= legend :top))
     (+= title-padding padding)
     (def [lw lh] (draw-legend nil :font font :padding 4 :horizontal true :labels y-columns :legend-map legend-map))
     (def legend-view (g/viewport canvas (math/floor (* (- width lw) 0.5)) title-padding lw lh))
     (+= title-padding lh)
+    (-= title-padding (math/floor (* 0.5 padding))) # just looks a bit better
     (draw-legend legend-view :font font :padding 4 :horizontal true :labels y-columns :color-map color-map :color-seed color-seed :legend-map legend-map))
 
   # Crop title section out of place where axis and charting will draw
   (def view (g/viewport canvas 0 title-padding width (- height title-padding)))
+
+  # Draw axes
   (def [x-min x-max y-min y-max] (calculate-data-bounds data x-column y-columns x-min x-max y-min y-max))
   (def [graph-view to-pixel-space to-metric-space]
     (draw-axes view :padding padding :font font
@@ -394,7 +398,9 @@
           (g/plot-ring graph-view x1 y1 point-radius graph-color))
         (g/plot-ring graph-view x2 y2 point-radius graph-color))))
 
+  # TODO - draw legend in inner corners
+
   (when save-as
-    (save canvas save-as))
+    (g/save save-as canvas))
 
   canvas)

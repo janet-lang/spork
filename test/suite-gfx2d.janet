@@ -328,7 +328,7 @@
       :circle-points true
       :y-columns [:temperature-1 :temperature-2 :temperature-3 :temperature-4]))
 
-  (check-image img "complex-chart.png"))
+  (check-image img "complex_chart.png"))
 
 (test-temperature-chart)
 

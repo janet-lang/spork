@@ -335,7 +335,23 @@
       [path:cstring img:*Image ,;extra-params] -> *Image
       (def check:int (,(symbol 'stbi-write- ft) path img->width img->height img->channels img->data ,;extra-args))
       (if-not check (janet-panic "failed to write image"))
-      (return img))))
+      (return img)))
+  
+  (cfunction save
+    "Save an image to a file, auto-detecting the format"
+    [path:cstring img:*Image &opt quality:int=100] -> *Image
+    (def (c (const *char)) path)
+    (while *c (++ c)) # find end
+    (while (and (> c path) (not= ,(chr ".") *c) (-- c)))
+    (if (<= c path) (janet-panicf "no file extension for %s" path))
+    (cond
+      (not (strcmp c ".png")) (save-png path img)
+      (not (strcmp c ".jpg")) (save-jpg path img quality)
+      (not (strcmp c ".jpeg")) (save-jpg path img quality)
+      (not (strcmp c ".bmp")) (save-bmp path img)
+      (not (strcmp c ".tga")) (save-tga path img)
+      (janet-panicf "unknown file extension %s for %s" c path))
+    (return img)))
 
 (function image-get-pixel :static :inline
   "extract a pixel"
