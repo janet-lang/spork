@@ -64,11 +64,11 @@
 (defn bitset/set [mask pos]
   (def [byte bit] (bitset/pos pos))
   (put mask byte
-    (bor (mask byte) (blshift 1 bit))))
+       (bor (mask byte) (blshift 1 bit))))
 (defn bitset/clear [mask pos]
   (def [byte bit] (bitset/pos pos))
   (put mask byte
-    (band (mask byte) (bxor 0xFF (blshift 1 bit)))))
+       (band (mask byte) (bxor 0xFF (blshift 1 bit)))))
 (defn buffer->array [buf]
   (def a (array/new (length buf)))
   (each x buf
@@ -130,7 +130,7 @@
   (each {:start start :end end :mask mask :width width} entries
     (if mask
       (printf "{ %6d, %2d, 0x%02x%02x%02x%02x%02x%02x%02x%02xULL },"
-        start width ;(buffer->array mask))
+              start width ;(buffer->array mask))
       (printf "{ %6d, %2d, %18d    }," start width end))))
 
 (defn main [_ path-unicode-data path-width-data]

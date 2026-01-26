@@ -268,9 +268,9 @@
   (return 0))
 
 (abstract-type Image
-   :name "gfx2d/image"
-   :gcmark gc-mark
-   :gc gc-image)
+  :name "gfx2d/image"
+  :gcmark gc-mark
+  :gc gc-image)
 
 (comp-unless (dyn :shader-compile)
 

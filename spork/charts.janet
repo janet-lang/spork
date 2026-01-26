@@ -211,9 +211,9 @@
   (def outer-right-padding padding)
   (def outer-top-padding padding)
   (def outer-bottom-padding (+ padding 10))
-  (def left-padding   (+ outer-left-padding tick-height))
-  (def right-padding  outer-right-padding)
-  (def top-padding    outer-top-padding)
+  (def left-padding (+ outer-left-padding tick-height))
+  (def right-padding outer-right-padding)
+  (def top-padding outer-top-padding)
   (def bottom-padding (+ outer-bottom-padding tick-height))
 
   # Closure to convert metric space to pixel space
@@ -346,7 +346,3 @@
         (g/plot-ring graph-view x2 y2 point-radius graph-color))))
 
   canvas)
-
-
-
-

@@ -39,7 +39,6 @@
   (def prefix (string shader-name "/"))
   (def mname (string "shader-" shader-name))
   ~(upscope
-      (,shader-begin :module-name ,mname :shader-args ',args :prefix ,prefix)
-      ,;body
-      (,shader-end :cache true)))
-
+     (,shader-begin :module-name ,mname :shader-args ',args :prefix ,prefix)
+     ,;body
+     (,shader-end :cache true)))
