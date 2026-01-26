@@ -34,12 +34,14 @@
 
 (defn- color-hash
   "Given a value, generate a psuedo-random color for visualization"
-  [x]
-  (def rng (math/rng (hash x)))
-  (g/rgb (* 0.7 (math/rng-uniform rng)) (* 0.7 (math/rng-uniform rng)) (* 0.7 (math/rng-uniform rng))))
+  [x &opt color-seed]
+  (def rng (math/rng (hash [x color-seed])))
+  (g/rgb (* 0.7 (math/rng-uniform rng))
+         (* 0.7 (math/rng-uniform rng))
+         (* 0.7 (math/rng-uniform rng))))
 
 (defn- calculate-data-bounds
-  "Given a data frame, return [min-x max-x min-y max-y]. Use this information for calculating render transform."
+  "Given a data frame, return [min-x max-x min-y max-y]. Use this information for calculating render transform. Should handle non-existant columns."
   [data x-column y-columns
    override-min-x override-max-x
    override-min-y override-max-y]
@@ -48,15 +50,15 @@
   (def min-x (extreme < (get data x-column)))
   (def max-x (extreme > (get data x-column)))
   (each c y-columns
-    (set min-y (min min-y (extreme < (get data c))))
-    (set max-y (max max-y (extreme > (get data c)))))
+    (set min-y (min min-y (extreme < (get data c [math/inf]))))
+    (set max-y (max max-y (extreme > (get data c [math/-inf])))))
   [(or override-min-x min-x) (or override-max-x max-x)
    (or override-min-y min-y) (or override-max-y max-y)])
 
 (defn- guess-axis-ticks
   "Given a set of numeric values, generate a reasonable array of tick marks given a minimum spacing.
   Biases the tick spacing to a power of 10 (or by 5s) for nicer charts by default"
-  [minimum maximum pixel-span min-spacing font &opt no-retry]
+  [minimum maximum pixel-span min-spacing font &opt force-formatter no-retry]
   (var max-ticks (math/floor (/ pixel-span min-spacing)))
   (if (zero? max-ticks) (break @[]))
   (def result (array/new max-ticks))
@@ -81,10 +83,11 @@
 
   # Get a function that will format each tick mark for drawing based on their spacing
   (def formatter
-    (if (>= delta 1)
-      int-formatter
-      (let [fmt-string (string "%." (math/ceil (- (math/log10 delta))) "f")]
-            (fn :formatter [x] (string/format fmt-string x)))))
+    (or force-formatter
+        (if (>= delta 1)
+          int-formatter
+          (let [fmt-string (string "%." (math/ceil (- (math/log10 delta))) "f")]
+            (fn :formatter [x] (string/format fmt-string x))))))
 
   # Check maximum size of tick text
   (var max-text-width 0)
@@ -97,7 +100,7 @@
   # Retry if ticks are too close together
   (unless no-retry
     (if (> (+ 10 max-text-width) delta)
-      (break (guess-axis-ticks minimum maximum pixel-span (+ 10 max-text-width) font true))))
+      (break (guess-axis-ticks minimum maximum pixel-span (+ 10 max-text-width) font force-formatter true))))
 
   [result formatter max-text-width max-text-height])
 
@@ -117,17 +120,55 @@
 (defn draw-legend
   ```
   Draw a legend given a set of labels and colors
+
+  `canvas` can be either nil to skip drawing or a gfx2d/Image.
+
+  * :background-color - the color of the background of the legend
+  * :font - the font to use for legend text
+  * :padding - the number of pixels to leave around all drawn content
+  * :color-map - a map of labels to colors
+  * :labels - a list of labels to draw in the legend
+
+  Return [w h] of the area that was or would be drawn if the legend were to be drawn.
   ```
-  [canvas &named background-color font padding color-map labels]
-  (def {:width width :height height} (g/unpack canvas))
+  [canvas &named background-color font padding color-map labels horizontal frame color-seed]
+  (default font :default)
+  (default padding 8)
+  (default color-map {})
   (default background-color g/white)
   (def line-color (g/rgb 0.1 0.1 0.1))
-  (g/fill-rect canvas 0 0 width height background-color)
-  (draw-frame canvas 1 1 (- width 2) (- height 2) line-color 2) # 2 pixel solid frame
-  # TODO - measure first, then fill.
-  canvas)
+  (when canvas
+    (def {:width width :height height} (g/unpack canvas))
+    (when frame (g/fill-rect canvas 0 0 width height background-color)))
+  (def label-height (let [[_ h] (g/measure-simple-text "Mg" font)] h))
+  (def swatch-size (* 1 label-height))
+  (def spacing (math/ceil (* 1.5 label-height)))
+  (def padding (if frame (+ padding 2) padding)) # add frame border
+  (var y padding)
+  (var x padding)
+  (var max-width 0)
+  (each i labels
+    (def label (string i))
+    (def [text-width _] (g/measure-simple-text label font))
+    (when canvas
+      (def color (get color-map i (color-hash label color-seed)))
+      (g/fill-rect canvas x y (+ x swatch-size) (+ y swatch-size) color)
+      (g/draw-simple-text canvas (+ x swatch-size 3) y 1 1 label color font))
+    (def item-width (+ padding padding text-width swatch-size))
+    (set max-width (max max-width item-width))
+    (if horizontal
+      (+= x (+ spacing text-width padding))
+      (+= y spacing)))
+  (+= y padding)
+  (+= x padding)
+  (when (and canvas frame)
+    (def {:width width :height height} (g/unpack canvas))
+    (draw-frame canvas 1 1 (- width 2) (- height 2) line-color 2)) # 2 pixel solid frame
+  (if horizontal
+    [x (+ label-height y)]
+    [(+ padding max-width) (+ y label-height (- spacing))]))
 
-(defn draw-axis
+(defn draw-axes
   ```
   Draw the axis for the chart. Also return a function that can be used
   to convert a coordinate in the meric space to the screen space.
@@ -142,7 +183,7 @@
   * `(to-pixel-space metric-x metric-y)` converts metric space coordinates to pixel space for plotting on `view`.
   * `(to-metric-space pixel-x pixel-y)` converts pixel coordinates to the metric space.
   ```
-  [canvas &named padding font x-min x-max y-min y-max]
+  [canvas &named padding font x-min x-max y-min y-max grid format-x format-y]
 
   (default padding 10)
   (default font :default)
@@ -187,25 +228,25 @@
      (+ offset-y (* scale-y metric-y))])
 
   # Draw X axis
-  (def [xticks xformat _ xtextheight] (guess-axis-ticks x-min x-max (- width left-padding right-padding) 20 font))
+  (def [xticks xformat _ xtextheight] (guess-axis-ticks x-min x-max (- width left-padding right-padding) 20 font format-x))
   (each metric-x xticks
     (def [pixel-x _] (convert metric-x 0))
     (def rounded-pixel-x (math/round pixel-x))
     (def text (xformat metric-x))
     (def [text-width] (g/measure-simple-text text font))
     (g/draw-simple-text canvas (- rounded-pixel-x -1 (* text-width 0.5)) (- height outer-bottom-padding -3) 1 1 text line-color font)
-    (g/plot canvas rounded-pixel-x top-padding rounded-pixel-x (- height bottom-padding) grid-color)
+    (when grid (g/plot canvas rounded-pixel-x top-padding rounded-pixel-x (- height bottom-padding) grid-color))
     (g/plot canvas rounded-pixel-x (- height outer-bottom-padding) rounded-pixel-x (- height outer-bottom-padding tick-height) line-color))
 
   # Draw Y axis - unlike X axis, we always expect y axis to be numeric
-  (def [yticks yformat ytextwidth] (guess-axis-ticks y-min y-max (- height top-padding bottom-padding) 20 font))
+  (def [yticks yformat ytextwidth] (guess-axis-ticks y-min y-max (- height top-padding bottom-padding) 20 font format-y))
   (each metric-y yticks
     (def [_ pixel-y] (convert 0 metric-y))
     (def rounded-pixel-y (math/round pixel-y))
     (def text (yformat metric-y))
     (def [text-width] (g/measure-simple-text text font))
     (g/draw-simple-text canvas (- outer-left-padding text-width 3) (- rounded-pixel-y font-half-height) 1 1 text line-color font)
-    (g/plot canvas left-padding rounded-pixel-y (- width right-padding) rounded-pixel-y grid-color)
+    (when grid (g/plot canvas left-padding rounded-pixel-y (- width right-padding) rounded-pixel-y grid-color))
     (g/plot canvas outer-left-padding rounded-pixel-y (+ outer-left-padding tick-height) rounded-pixel-y line-color))
 
   # Draw frame
@@ -241,6 +282,9 @@
    x-min x-max y-min y-max
    padding title
    circle-points
+   scatter grid legend
+   format-x format-y
+   color-seed
    x-column y-columns]
 
   (assert x-column)
@@ -252,38 +296,51 @@
   (default color-map {})
   (default background-color g/white)
   (default font :tall)
-  (default circle-points true)
+  (default circle-points false)
+  (default grid false)
   (def canvas (g/blank width height 4))
   (g/fill-rect canvas 0 0 width height background-color)
 
+  # Render title section, and update view to cut out title
   (var title-padding 0)
   (when title
     (def [title-width title-height] (g/measure-simple-text title font))
     (set title-padding (* 2 title-height))
-    (g/draw-simple-text canvas (math/round (* 0.5 (- width title-width title-width))) (* 0.5 padding) 2 2 title g/black font))
+    (g/draw-simple-text canvas (math/round (* 0.5 (- width title-width title-width))) padding 2 2 title g/black font))
+
+  # Add legend if horizontal
+  (when (= legend :top)
+    (+= title-padding padding)
+    (def [lw lh] (draw-legend nil :font font :padding 4 :horizontal true :labels y-columns))
+    (def legend-view (g/viewport canvas (math/floor (* (- width lw) 0.5)) title-padding lw lh))
+    (+= title-padding lh)
+    (draw-legend legend-view :font font :padding 4 :horizontal true :labels y-columns :color-map color-map :color-seed color-seed))
 
   # Crop title section out of place where axis and charting will draw
   (def view (g/viewport canvas 0 title-padding width (- height title-padding)))
   (def [x-min x-max y-min y-max] (calculate-data-bounds data x-column y-columns x-min x-max y-min y-max))
   (def [graph-view to-pixel-space to-metric-space]
-    (draw-axis view :padding padding :font font
+    (draw-axes view :padding padding :font font
+               :grid grid
+               :format-x format-x :format-y format-y
                :x-min x-min :x-max x-max
                :y-min y-min :y-max y-max))
 
   # Draw graph
   (def xs (get data x-column))
   (each y-column y-columns
-    (def graph-color (get color-map y-column (color-hash y-column)))
+    (def graph-color (get color-map y-column (color-hash y-column color-seed)))
     (def ys (get data y-column))
     (for i 0 (dec (length xs))
       (def j (+ i 1))
       (def [x1 y1] (map math/round (to-pixel-space (get xs i) (get ys i))))
       (def [x2 y2] (map math/round (to-pixel-space (get xs j) (get ys j))))
-      #(g/stroke-path graph-view [x1 y1 x2 y2] graph-color 2)
-      (g/plot graph-view x1 y1 x2 y2 graph-color)
-      (g/plot graph-view x1 (dec y1) x2 (dec y2) graph-color)
-      (g/plot graph-view x1 (inc y1) x2 (inc y2) graph-color)
-      (when circle-points
+      (unless scatter
+        #(g/stroke-path graph-view [x1 y1 x2 y2] graph-color 2)
+        (g/plot graph-view x1 y1 x2 y2 graph-color)
+        (g/plot graph-view x1 (dec y1) x2 (dec y2) graph-color)
+        (g/plot graph-view x1 (inc y1) x2 (inc y2) graph-color))
+      (when (or scatter circle-points)
         (when (= 0 i)
           (g/plot-ring graph-view x1 y1 point-radius graph-color))
         (g/plot-ring graph-view x2 y2 point-radius graph-color))))

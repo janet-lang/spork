@@ -134,6 +134,16 @@
 
 (test-simple-text-4)
 
+(defn test-simple-text-cp437
+  []
+  (def text "£√÷a⌠⌡δ☻bc123")
+  (def [w h] (measure-simple-text text :olive))
+  (def canvas (blank w h 3))
+  (draw-simple-text canvas 0 0 1 1 text (rgb 0.7 0.7 0.7) :olive)
+  (check-image canvas "cp437.png"))
+
+(test-simple-text-cp437)
+
 (defn test-path-fill-1
   []
   (def canvas (blank 65 65 4))
@@ -313,7 +323,9 @@
       :data data
       :x-column :timestamp
       :padding 10
-      :font :tall
+      :font :olive
+      :grid true
+      :circle-points true
       :y-columns [:temperature-1 :temperature-2 :temperature-3 :temperature-4]))
 
   (check-image img "complex-chart.png"))
