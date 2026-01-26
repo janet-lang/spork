@@ -13,12 +13,19 @@
 ###  :temperature-2 [55.1 55.4 55.7 60.0 60.4 60.9]}
 ###
 
+(import ./path)
 (import spork/gfx2d :as g)
 
-(defn- int-formatter
-  "Round to integer and convert to string"
-  [x]
-  (string/format "%d" (math/round x)))
+(defn- save
+  "Save image to disk"
+  [img name]
+  (case (path/ext name)
+    ".png" (g/save-png name img)
+    ".jpeg" (g/save-jpg name img 100)
+    ".jpg" (g/save-jpg name img 100)
+    ".bmp" (g/save-bmp name img)
+    ".tga" (g/save-tga name img)
+    (errorf "unknown image format of %s" name)))
 
 (defn- floorn
   "Floor mod n"
@@ -58,7 +65,9 @@
 (defn- guess-axis-ticks
   "Given a set of numeric values, generate a reasonable array of tick marks given a minimum spacing.
   Biases the tick spacing to a power of 10 (or by 5s) for nicer charts by default"
-  [minimum maximum pixel-span min-spacing font &opt force-formatter no-retry]
+  [minimum maximum pixel-span min-spacing font prefix suffix &opt force-formatter no-retry]
+  (default suffix "")
+  (default prefix "")
   (var max-ticks (math/floor (/ pixel-span min-spacing)))
   (if (zero? max-ticks) (break @[]))
   (def result (array/new max-ticks))
@@ -85,9 +94,9 @@
   (def formatter
     (or force-formatter
         (if (>= delta 1)
-          int-formatter
-          (let [fmt-string (string "%." (math/ceil (- (math/log10 delta))) "f")]
-            (fn :formatter [x] (string/format fmt-string x))))))
+          (fn :formatter-int [x] (string/format "%s%d%s" prefix (math/round x) suffix))
+          (let [fmt-string (string "%s%." (math/ceil (- (math/log10 delta))) "f%s")]
+            (fn :formatter [x] (string/format fmt-string prefix x suffix))))))
 
   # Check maximum size of tick text
   (var max-text-width 0)
@@ -100,7 +109,7 @@
   # Retry if ticks are too close together
   (unless no-retry
     (if (> (+ 10 max-text-width) delta)
-      (break (guess-axis-ticks minimum maximum pixel-span (+ 10 max-text-width) font force-formatter true))))
+      (break (guess-axis-ticks minimum maximum pixel-span (+ 10 max-text-width) font prefix suffix force-formatter true))))
 
   [result formatter max-text-width max-text-height])
 
@@ -183,7 +192,7 @@
   * `(to-pixel-space metric-x metric-y)` converts metric space coordinates to pixel space for plotting on `view`.
   * `(to-metric-space pixel-x pixel-y)` converts pixel coordinates to the metric space.
   ```
-  [canvas &named padding font x-min x-max y-min y-max grid format-x format-y]
+  [canvas &named padding font x-min x-max y-min y-max grid format-x format-y x-suffix x-prefix y-suffix y-prefix]
 
   (default padding 10)
   (default font :default)
@@ -228,7 +237,7 @@
      (+ offset-y (* scale-y metric-y))])
 
   # Draw X axis
-  (def [xticks xformat _ xtextheight] (guess-axis-ticks x-min x-max (- width left-padding right-padding) 20 font format-x))
+  (def [xticks xformat _ xtextheight] (guess-axis-ticks x-min x-max (- width left-padding right-padding) 20 font x-prefix x-suffix format-x))
   (each metric-x xticks
     (def [pixel-x _] (convert metric-x 0))
     (def rounded-pixel-x (math/round pixel-x))
@@ -239,7 +248,7 @@
     (g/plot canvas rounded-pixel-x (- height outer-bottom-padding) rounded-pixel-x (- height outer-bottom-padding tick-height) line-color))
 
   # Draw Y axis - unlike X axis, we always expect y axis to be numeric
-  (def [yticks yformat ytextwidth] (guess-axis-ticks y-min y-max (- height top-padding bottom-padding) 20 font format-y))
+  (def [yticks yformat ytextwidth] (guess-axis-ticks y-min y-max (- height top-padding bottom-padding) 20 font y-prefix y-suffix format-y))
   (each metric-y yticks
     (def [_ pixel-y] (convert 0 metric-y))
     (def rounded-pixel-y (math/round pixel-y))
@@ -285,6 +294,8 @@
    scatter grid legend
    format-x format-y
    color-seed
+   save-as
+   x-suffix x-prefix y-suffix y-prefix
    x-column y-columns]
 
   (assert x-column)
@@ -323,6 +334,8 @@
     (draw-axes view :padding padding :font font
                :grid grid
                :format-x format-x :format-y format-y
+               :x-suffix x-suffix :x-prefix x-prefix
+               :y-suffix y-suffix :y-prefix y-prefix
                :x-min x-min :x-max x-max
                :y-min y-min :y-max y-max))
 
@@ -344,5 +357,8 @@
         (when (= 0 i)
           (g/plot-ring graph-view x1 y1 point-radius graph-color))
         (g/plot-ring graph-view x2 y2 point-radius graph-color))))
+
+  (when save-as
+    (save canvas save-as))
 
   canvas)
