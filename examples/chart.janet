@@ -6,11 +6,11 @@
 # Create a CJanet checkerboard pixel shader
 # defines checker/fill-path, checker/stroke-path, etc.
 (s/shader checker
-  [color1:uint32_t color2:uint32_t]
-  (function shader
-    "Called on every pixel to paint a checkerboard pattern based on screen x,y coordinates"
-    [x:int y:int color1:uint32_t color2:uint32_t] -> uint32_t
-    (return (? (band 1 (>> (bxor x y) 2)) color1 color2))))
+          [color1:uint32_t color2:uint32_t]
+          (function shader
+            "Called on every pixel to paint a checkerboard pattern based on screen x,y coordinates"
+            [x:int y:int color1:uint32_t color2:uint32_t] -> uint32_t
+            (return (? (band 1 (>> (bxor x y) 2)) color1 color2))))
 
 (defn line
   [img x1 y1 x2 y2 color]
@@ -68,3 +68,4 @@
 (save-png "tmp/chart.png" img)
 # (os/execute ["imv" "-u" "nearest_neighbour" "tmp/chart.png"] :px)
 # Use feh, explorer.exe, whatever to view images
+

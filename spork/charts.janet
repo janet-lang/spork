@@ -13,25 +13,43 @@
 ###  :temperature-2 [55.1 55.4 55.7 60.0 60.4 60.9]}
 ###
 
-(import ./path)
+### TODO
+### [ ] - fill below plot
+### [ ] - bar chart
+### [ ] - heat map
+### [ ] - more test charts
+### [ ] - pie chart
+### [ ] - error bars on line chart
+### [ ] - fill between chart
+### [ ] - handle nils in y-columns for sparse data
+### [ ] - easier custom chart annotations in the metric space (horizontal lines, vertical lines, etc.)
+
 (import spork/gfx2d :as g)
 
 # Defaults
-# TODO - use these
-(defdyn *default-font* "Default font for chart rendering")
-(defdyn *default-text-color* "Default font color for title and axis labels")
-(defdyn *default-background-color* "Default background color for chart rendering")
-(defdyn *default-grid-color* "Default color for grid lines")
+(defdyn *font* "Default font for chart rendering")
+(defdyn *text-color* "Default font color for title and axis labels")
+(defdyn *stroke-color* "Default color for drawn lines such as frame borders")
+(defdyn *background-color* "Default background color for chart rendering")
+(defdyn *grid-color* "Default color for grid lines")
 
-(def- text-color g/black)
-(def- paper-color g/white)
-(def- grid-color (g/rgb 0.8 0.8 0.8))
+(def- default-font :olive)
+(def- default-text-color g/black)
+(def- default-stroke-color g/black)
+(def- default-background-color g/white)
+(def- default-grid-color (g/rgb 0.8 0.8 0.8))
 
 (defn- floorn
   "Floor mod n"
   [n x]
   (def x (if (= 0 x) (math/abs x) x)) # no negative 0, messes up rendering!
   (/ (math/floor (* n x)) n))
+
+(defn- ceiln
+  "Ceil mod n"
+  [n x]
+  (def x (if (= 0 x) (math/abs x) x)) # no negative 0, messes up rendering!
+  (/ (math/ceil (* n x)) n))
 
 (defn- roundn
   "Round mod n"
@@ -41,7 +59,7 @@
 
 # TODO - bias light or dark depending on background
 (defn- color-hash
-  "Given a value, generate a psuedo-random color for visualization"
+  "Given a value, generate a pseudo-random color for visualization"
   [x &opt color-seed]
   (def rng (math/rng (hash [x color-seed])))
   (g/rgb (+ 0.2 (* 0.6 (math/rng-uniform rng)))
@@ -52,17 +70,47 @@
   "Given a data frame, return [min-x max-x min-y max-y].
   Use this information for calculating render transform. Should handle non-existant columns."
   [data x-column y-columns
+   &opt
+   width height min-spacing
    override-min-x override-max-x
    override-min-y override-max-y]
-  # TODO - expand bounds for nice axis ticks in the same way as `guess-axis-ticks`.
-  # e.g. [1-99] -> [0-100]
+
+  # Calculate precise bounds for all x and y values
   (var min-y math/inf)
   (var max-y math/-inf)
-  (def min-x (extreme < (get data x-column)))
-  (def max-x (extreme > (get data x-column)))
+  (var min-x (extreme < (get data x-column)))
+  (var max-x (extreme > (get data x-column)))
   (each c y-columns
     (set min-y (min min-y (extreme < (get data c [math/inf]))))
     (set max-y (max max-y (extreme > (get data c [math/-inf])))))
+
+  # Now possibly expand bounds for nice axis ticks in the same way as `guess-axis-ticks`.
+  # e.g. [1-99] -> [0-100]
+  # Guess delta - making some assumptions is ok since we don't know exact measurements until axes layout and this is just to auto-fit.
+  # Better to over-estimate deltas (metric tick spacing) than under-estimate here.
+  # Full control is still available to the library user via x-min, x-max, y-min, and y-max.
+  (def max-x-ticks (max 1 (math/floor (/ width min-spacing))))
+  (def max-y-ticks (max 1 (math/floor (/ height min-spacing))))
+  (def x-delta (/ (- max-x min-x) max-x-ticks))
+  (def y-delta (/ (- max-y min-y) max-y-ticks))
+  (def fudge-factor 1)
+
+  # If minimums are a little over a nice number, set them to the nice number
+  (def fudge-min-x (floorn (/ x-delta) min-x))
+  (def fudge-min-y (floorn (/ y-delta) min-y))
+  (if (< (- min-x fudge-min-x) (* fudge-factor x-delta))
+    (set min-x fudge-min-x))
+  (if (< (- min-y fudge-min-y) (* fudge-factor y-delta))
+    (set min-y fudge-min-y))
+
+  # If the maximums are a little under a nice number, set them to the nice number
+  (def fudge-max-x (ceiln (/ x-delta) max-x))
+  (def fudge-max-y (ceiln (/ y-delta) max-y))
+  (if (< (- fudge-max-x max-x) (* fudge-factor x-delta))
+    (set max-x fudge-max-x))
+  (if (< (- fudge-max-y max-y) (* fudge-factor y-delta))
+    (set max-y fudge-max-y))
+
   [(or override-min-x min-x) (or override-max-x max-x)
    (or override-min-y min-y) (or override-max-y max-y)])
 
@@ -134,6 +182,26 @@
 ### API
 ###
 
+(defn dark-mode
+  ```
+  Set dynamic color defaults to dark mode
+  ```
+  []
+  (setdyn *background-color* g/black)
+  (setdyn *grid-color* (g/rgb 0.2 0.2 0.2))
+  (setdyn *stroke-color* g/white)
+  (setdyn *text-color* g/white))
+
+(defn light-mode
+  ```
+  Set dynamic color defaults to light mode
+  ```
+  []
+  (setdyn *background-color* g/white)
+  (setdyn *grid-color* (g/rgb 0.8 0.8 0.8))
+  (setdyn *stroke-color* g/black)
+  (setdyn *text-color* g/black))
+
 (defn draw-legend
   ```
   Draw a legend given a set of labels and colors
@@ -155,8 +223,10 @@
   (default padding 8)
   (default color-map {})
   (default legend-map {})
-  (default background-color paper-color)
-  (def line-color text-color)
+  (default background-color (dyn *background-color* default-background-color))
+  # TODO pass in configured colors
+  (def line-color (dyn *stroke-color* default-stroke-color))
+  (def text-color (dyn *text-color* default-text-color))
   (when canvas
     (def {:width width :height height} (g/unpack canvas))
     (when frame (g/fill-rect canvas 0 0 width height background-color)))
@@ -173,7 +243,7 @@
     (when canvas
       (def color (get color-map i (color-hash i color-seed)))
       (g/fill-rect canvas x y (+ x swatch-size) (+ y swatch-size) color)
-      (g/draw-simple-text canvas (+ x swatch-size 3) y 1 1 label color font))
+      (g/draw-simple-text canvas (+ x swatch-size 3) y 1 1 label text-color font))
     (def item-width (+ padding padding text-width swatch-size))
     (set max-width (max max-width item-width))
     (if horizontal
@@ -191,7 +261,7 @@
 (defn draw-axes
   ```
   Draw the axis for the chart. Also return a function that can be used
-  to convert a coordinate in the meric space to the screen space. Most parameters
+  to convert a coordinate in the metric space to the screen space. Most parameters
   are optional with sane defaults, but canvas, x-min, x-max, y-min, y-max are all required.
 
   * :padding - the number of pixels to leave around all drawn content
@@ -227,7 +297,8 @@
   (assert y-max)
 
   (def {:width width :height height} (g/unpack canvas))
-  (def line-color text-color)
+  (def line-color (dyn *stroke-color* default-stroke-color))
+  (def grid-color (dyn *grid-color* default-grid-color))
 
   (def dx (- x-max x-min))
   (def dy (- y-max y-min))
@@ -313,11 +384,44 @@
   ```
   Render a line chart. Returns a gfx2d/Image which can be further manipulated with the spork/gfx2d module.
 
+  Basic Parameters
+  * :width - canvas width
+  * :height - canvas height
+  * :data - a data frame to use for data
+  * :title - an optional title to add to the rendered image
+  * :font - font used to draw text, including title, legend, and axes labels
+  * :save-as - save the generated image to file. Can be any format supported by the gfx2d module
+  * :x-column - the name of the data frame column to use for the x axis
+  * :y-columns - a list of column names to use for the chart
+  * :x-ticks - manually set the tick marks on the X axis instead of auto-detecting them
 
+  Axes Styling
+  * :grid - set to true to turn on drawing grid lines
+  * :x-suffix - add a string suffix to each tick label on the x-axis
+  * :y-suffix - add a string suffix to each tick label on the x-axis
+  * :x-prefix - add a string prefix to each tick label on the y-axis
+  * :y-prefix - add a string prefix to each tick label on the y-axis
+
+  Chart Styling
+  * :padding - the number of pixels of white space around various elements of the chart
+  * :background-color - color of background, defaults to white
+  * :text-color - color of text, defaults to black
+  * :color-map - a dictionary mapping columns to colors. By default will hash column name to pseudo-random colors
+  * :color-seed - an optional seed to change the default colors chosen by the color hash
+  * :scatter - set to true to disable lines connecting points
+  * :legend - set to true to add a legend to the top of the chart
+  * :legend-map - a dictionary mapping column names to pretty text for the chart
+  * :point-radius - radius of points when drawing a scatter plot
+
+  Axis Boundaries
+  * :x-min - minimum x coordinate on chart
+  * :x-max - maximum x coordinate on chart
+  * :y-min - minimum y coordinate on chart
+  * :y-max - maximum y coordinate on chart
   ```
   [&named
-   width height data x-spacing y-spacing
-   font background-color color-map
+   width height data
+   font background-color text-color color-map
    point-radius
    x-min x-max y-min y-max
    padding title
@@ -339,8 +443,9 @@
   (default padding 20)
   (default point-radius 3)
   (default color-map {})
-  (default background-color paper-color)
-  (default font :tall)
+  (default background-color (dyn *background-color* default-background-color))
+  (default text-color (dyn *text-color* default-text-color))
+  (default font (dyn *font* default-font))
   (default circle-points false)
   (default grid false)
 
@@ -359,7 +464,7 @@
   (when (or (= legend true) (= legend :top))
     (+= title-padding padding)
     (def [lw lh] (draw-legend nil :font font :padding 4 :horizontal true :labels y-columns :legend-map legend-map))
-    (def legend-view (g/viewport canvas (math/floor (* (- width lw) 0.5)) title-padding lw lh))
+    (def legend-view (g/viewport canvas (math/floor (* (- width lw) 0.5)) title-padding lw lh true))
     (+= title-padding lh)
     (-= title-padding (math/floor (* 0.5 padding))) # just looks a bit better
     (draw-legend legend-view :font font :padding 4 :horizontal true :labels y-columns :color-map color-map :color-seed color-seed :legend-map legend-map))
@@ -368,7 +473,11 @@
   (def view (g/viewport canvas 0 title-padding width (- height title-padding)))
 
   # Draw axes
-  (def [x-min x-max y-min y-max] (calculate-data-bounds data x-column y-columns x-min x-max y-min y-max))
+  (def [x-min x-max y-min y-max]
+    (let [{:width view-width :height view-height} (g/unpack view)]
+      (calculate-data-bounds data x-column y-columns
+                             view-width view-height 20
+                             x-min x-max y-min y-max)))
   (def [graph-view to-pixel-space to-metric-space]
     (draw-axes view :padding padding :font font
                :grid grid
@@ -392,6 +501,8 @@
         #(g/stroke-path graph-view [x1 y1 x2 y2] graph-color 2)
         (g/plot graph-view x1 y1 x2 y2 graph-color)
         (g/plot graph-view x1 (dec y1) x2 (dec y2) graph-color)
+        (g/plot graph-view (inc x1) y1 (inc x2) y2 graph-color)
+        (g/plot graph-view (dec x1) y1 (dec x2) y2 graph-color)
         (g/plot graph-view x1 (inc y1) x2 (inc y2) graph-color))
       (when (or scatter circle-points)
         (when (= 0 i)

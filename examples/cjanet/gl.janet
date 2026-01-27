@@ -5,7 +5,7 @@
 ### Direct port of tutorial from https://learnopengl.com/Getting-started/Hello-Window
 ###
 
-(use ../../spork/cjanet)
+(use spork/cjanet)
 
 (begin-jit
   :module-name "glexample"
@@ -15,20 +15,20 @@
 
 (function process-input
   "handle key presses"
-  [(window (* GLFWwindow))] -> void
+  [window:*GLFWwindow] -> void
   (when (== GLFW_PRESS (glfwGetKey window GLFW_KEY_ESCAPE))
     (glfwSetWindowShouldClose window 1)))
 
 (function render
   "drawing"
-  [(window (* GLFWwindow))] -> void
+  [window:*GLFWwindow] -> void
   (glClearColor 0.2 0.3 0.3 1.0)
   (glClear GL_COLOR_BUFFER_BIT))
 
 (function framebuffer-size-callback
-    "resize fb when user resizes window"
-    [(window (* GLFWwindow)) width:int height:int] -> void
-    (glViewport 0 0 width height))
+  "resize fb when user resizes window"
+  [window:*GLFWwindow width:int height:int] -> void
+  (glViewport 0 0 width height))
 
 (cfunction main-window
   "Create main window"

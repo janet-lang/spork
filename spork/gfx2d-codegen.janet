@@ -48,6 +48,7 @@
 ### [ ] - stippled lines
 ### [ ] - right-angle image rotation / flips
 ### [ ] - sRGB gamma correction/conversion
+### [ ] - rotated text
 
 ### Stretch TODO
 ### [ ] - vector font rendering
@@ -157,6 +158,42 @@
          ;(seq [b :in bindings]
             [~(= ,b ,sym) ~(do ,;body)]))
      (assert (and 0 "polymorph-cond case fallthrough"))))
+
+###
+### Math helpers
+###
+
+(function lerp :static :inline
+  [a:double b:double t:double] -> double
+  (return (+ (* (- 1 t) a) (* t b))))
+
+(function clamp :static :inline
+  [x:float min_x:float max_x:float] -> float
+  (if (< x min_x) (return min_x))
+  (if (> x max_x) (return max_x))
+  (return x))
+
+(function clip :static :inline
+  [xmin:int xmax:int ymin:int ymax:int
+   (x 'int) (y 'int)] -> void
+  (set 'x (clamp 'x xmin xmax))
+  (set 'y (clamp 'y ymin ymax)))
+
+(function max3z :static :inline [a:int b:int c:int] -> int
+  (return (? (> a b)
+             (? (> a c) a c)
+             (? (> b c) b c))))
+
+(function min3z :static :inline [a:int b:int c:int] -> int
+  (return (? (< a b)
+             (? (< a c) a c)
+             (? (< b c) b c))))
+
+(function max2z :static :inline [a:int b:int] -> int
+  (return (? (< a b) b a)))
+
+(function min2z :static :inline [a:int b:int] -> int
+  (return (? (< a b) a b)))
 
 ###
 ### 2D floating point vector abstraction
@@ -299,12 +336,19 @@
 
   (cfunction viewport
     "Create a new image that shares backing memory with another image. This allow parallel drawing in different threads."
-    [img:*Image x:int y:int width:int height:int] -> *Image
+    [img:*Image x:int y:int width:int height:int &opt allow-trimming:bool=0] -> *Image
     (def channel:int img->channels)
-    (if (or (<= width 0) (< x 0)) (janet-panic "viewport out of range"))
-    (if (or (<= height 0) (< y 0)) (janet-panic "viewport out of range"))
-    (if (> (+ x width) img->width) (janet-panic "viewport out of range"))
-    (if (> (+ y height) img->height) (janet-panic "viewport out of range"))
+    (if allow-trimming
+      (do # Clip the viewport if over the boundaries of the backing image
+        (set x (min2z img->width (max2z 0 x)))
+        (set y (min2z img->height (max2z 0 y)))
+        (set width (min2z width (- img->width x)))
+        (set height (min2z height (- img->height y))))
+      (do # do not allow viewport to extend beyond backing boundaries
+        (if (or (<= width 0) (< x 0)) (janet-panic "viewport out of range"))
+        (if (or (<= height 0) (< y 0)) (janet-panic "viewport out of range"))
+        (if (> (+ x width) img->width) (janet-panic "viewport out of range"))
+        (if (> (+ y height) img->height) (janet-panic "viewport out of range"))))
     (def data-window:*uint8_t (+ img->data (* y img->stride) (* x channel)))
     (return (create-image img width height channel img->stride data-window)))
 
@@ -336,7 +380,7 @@
       (def check:int (,(symbol 'stbi-write- ft) path img->width img->height img->channels img->data ,;extra-args))
       (if-not check (janet-panic "failed to write image"))
       (return img)))
-  
+
   (cfunction save
     "Save an image to a file, auto-detecting the format"
     [path:cstring img:*Image &opt quality:int=100] -> *Image
@@ -471,42 +515,6 @@
                        (cast int (* 255 g a))
                        (cast int (* 255 b a))
                        (cast int (* 255 a))))))
-
-###
-### Math helpers
-###
-
-(function lerp :static :inline
-  [a:double b:double t:double] -> double
-  (return (+ (* (- 1 t) a) (* t b))))
-
-(function clamp :static :inline
-  [x:float min_x:float max_x:float] -> float
-  (if (< x min_x) (return min_x))
-  (if (> x max_x) (return max_x))
-  (return x))
-
-(function clip :static :inline
-  [xmin:int xmax:int ymin:int ymax:int
-   (x 'int) (y 'int)] -> void
-  (set 'x (clamp 'x xmin xmax))
-  (set 'y (clamp 'y ymin ymax)))
-
-(function max3z :static :inline [a:int b:int c:int] -> int
-  (return (? (> a b)
-             (? (> a c) a c)
-             (? (> b c) b c))))
-
-(function min3z :static :inline [a:int b:int c:int] -> int
-  (return (? (< a b)
-             (? (< a c) a c)
-             (? (< b c) b c))))
-
-(function max2z :static :inline [a:int b:int] -> int
-  (return (? (< a b) b a)))
-
-(function min2z :static :inline [a:int b:int] -> int
-  (return (? (< a b) a b)))
 
 ###
 ### Blending modes
