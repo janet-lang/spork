@@ -12,17 +12,6 @@
 ## Make liberal use of `resize` to shrink images before calling `check-image` on them.
 ##
 
-(defn- save
-  "Save image to disk"
-  [img name]
-  (case (path/ext name)
-    ".png" (save-png name img)
-    ".jpeg" (save-jpg name img 100) # Testing against jpeg is risky - lossy format.
-    ".jpg" (save-jpg name img 100)
-    ".bmp" (save-bmp name img)
-    ".tga" (save-tga name img)
-    (errorf "unknown image format of %s" name)))
-
 (defn- freeze-image
   [img]
   (def {:width w :height h :channels c :data d :stride s} (unpack img))
@@ -34,12 +23,12 @@
   (def fullpath (path/join "test" "gold" file-name))
   (def tmppath (path/join "tmp" file-name))
   (os/mkdir "tmp")
-  (save img tmppath)
+  (save tmppath img)
   (when (or (os/getenv "GOLD")
           (os/getenv (string "GOLD_" (first (string/split "." file-name))))
           (not (os/stat fullpath :mode)))
     (print "Saving gold image " fullpath)
-    (save img fullpath)
+    (save fullpath img)
     (break))
   (def reference (load fullpath))
   (assert (deep= (freeze-image reference) (freeze-image img)) (string "reference not identical to test image " file-name)))
@@ -314,7 +303,7 @@
      :temperature-3 (seq [i :range [0 npoints]] (+ (* 0.79 (math/log (+ i 1))) (* 0.4 (math/rng-uniform rng))))
      :temperature-4 (seq [i :range [0 npoints]] (+ (* 0.45 (math/log (+ i 8))) (* 0.4 (math/rng-uniform rng))))
      })
-
+  (def columns [:temperature-1 :temperature-2 :temperature-3 :temperature-4])
   (def img
     (charts/line-chart
       :title "Data over Time"
@@ -326,7 +315,9 @@
       :font :olive
       :grid true
       :circle-points true
-      :y-columns [:temperature-1 :temperature-2 :temperature-3 :temperature-4]))
+      :legend :top
+      :legend-map (tabseq [c :in columns] c (string/replace "temperature-" "T" c))
+      :y-columns columns))
 
   (check-image img "complex_chart.png"))
 

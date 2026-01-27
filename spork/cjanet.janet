@@ -11,6 +11,10 @@
 ### subset of valid C 99, plus other features that enable C++ integration.
 ###
 
+### TODO
+### [ ] auto generate headers
+### [ ]
+
 (import ./cc)
 (import ./pm-config)
 

@@ -382,11 +382,11 @@
       (return img)))
 
   (cfunction save
-    "Save an image to a file, auto-detecting the format"
+    "Save an image to a file, auto-detecting the format. Supports PNG, BMP, TGA, and JPEG."
     [path:cstring img:*Image &opt quality:int=100] -> *Image
     (def (c (const *char)) path)
     (while *c (++ c)) # find end
-    (while (and (> c path) (not= ,(chr ".") *c) (-- c)))
+    (while (and (> c path) (not= ,(chr ".") *c)) (-- c))
     (if (<= c path) (janet-panicf "no file extension for %s" path))
     (cond
       (not (strcmp c ".png")) (save-png path img)
@@ -892,7 +892,7 @@
     [img:*Image x:int y:int xscale:int yscale:int text:cstring color:uint32_t &opt (font-name keyword (janet-ckeyword "default"))] -> *Image
     (if (< xscale 1) (janet-panic "xscale must be at least 1"))
     (if (< yscale 1) (janet-panic "yscale must be at least 1"))
-    (def (font (const 'BitmapFont)) (select-font font-name))
+    (def (font (const *BitmapFont)) (select-font font-name))
     # Hardcoded glyph widths for the built-in font.
     (def gw:int font->gw)
     (def gh:int font->gh)
@@ -900,13 +900,13 @@
     (def bytes-per-char:int (* bytes-per-row gh))
     (var xx:int x)
     (var yy:int y)
-    (var (c (const 'uint8_t)) (cast (const 'uint8_t) text))
-    (while 'c
+    (var (c (const *uint8_t)) (cast (const *uint8_t) text))
+    (while *c
       (def codepoint:int (utf8-read-codepoint &c))
       (if (= codepoint ,(chr "\n")) (do (set yy (+ yy (* yscale gh))) (set xx x) (continue)))
       (def cp437:int (unicode-to-cp437 codepoint))
       (for [(var row:int 0) (< row gh) (++ row)]
-        (def glyph-row:unsigned 0)
+        (var glyph-row:unsigned 0)
         # Collect glyph row into bits, up to 32 bit wide
         (for [(var index:int 0) (< index bytes-per-row) (++ index)]
           (set glyph-row (bor (<< glyph-row 8)
@@ -930,9 +930,9 @@
     [text:cstring &opt (font-name keyword (janet-ckeyword "default"))] -> JanetTuple
     (var w:int 0)
     (var xcursor:int 0)
-    (def (font (const 'BitmapFont)) (select-font font-name))
+    (def (font (const *BitmapFont)) (select-font font-name))
     (var h:int font->gh)
-    (var (c (const 'uint8_t)) (cast (const 'uint8_t) text))
+    (var (c (const *uint8_t)) (cast (const *uint8_t) text))
     (while 'c
       (def codepoint:int (utf8-read-codepoint &c))
       (if (= codepoint ,(chr "\n"))
@@ -962,8 +962,8 @@
     (if (band 1 points.len) (janet-panic "expected an even number of point coordinates"))
     (if (< points.len 6) (janet-panic "expected at least 3 points"))
     (def plen:int points.len)
-    (def (dpoints 'double) (janet-smalloc (* (sizeof double) (* 2 plen))))
-    (def (bpoints 'double) (+ dpoints plen)) # working buffer for calculating parametric points
+    (def dpoints:*double (janet-smalloc (* (sizeof double) (* 2 plen))))
+    (def bpoints:*double (+ dpoints plen)) # working buffer for calculating parametric points
     (for [(var i:int 0) (< i points.len) (+= i 2)]
       (def x:double (janet-getnumber points.items i))
       (def y:double (janet-getnumber points.items (+ i 1)))
@@ -972,7 +972,7 @@
 
     # Use De Casteljau's algorithm
     # TODO - join nearly collinear segments based on a concept of "flatness" to avoid explosion in number of segments.
-    (def (arr 'JanetArray) (janet-array 10))
+    (def arr:*JanetArray (janet-array 10))
     (for [(var t:double 0) (<= t (+ 1.0 (* step 0.5))) (+= t step)]
       (if (>= t (- 1 (/ step 2))) (set t 1))
       (memcpy bpoints dpoints (* (sizeof double) plen))
@@ -1064,7 +1064,7 @@
 ### Raster path fill reference version
 ###
 
-(function cross2 :static :inline
+(function cross2z :static :inline
   "2d cross product"
   [ax:int ay:int bx:int by:int] -> int
   (return (- (* ax by) (* ay bx))))
@@ -1090,10 +1090,10 @@
   (def r0s0x:int (- s0x r0x))
   (def r0s0y:int (- s0y r0y))
   # Crosses
-  (def a:int (cross2 s0r1x s0r1y s0s1x s0s1y))
-  (def b:int (cross2 s0r0x s0r0y s0s1x s0s1y))
-  (def c:int (cross2 r0s0x r0s0y r0r1x r0r1y))
-  (def d:int (cross2 r0s1x r0s1y r0r1x r0r1y))
+  (def a:int (cross2z s0r1x s0r1y s0s1x s0s1y))
+  (def b:int (cross2z s0r0x s0r0y s0s1x s0s1y))
+  (def c:int (cross2z r0s0x r0s0y r0r1x r0r1y))
+  (def d:int (cross2z r0s1x r0s1y r0r1x r0r1y))
   # Checks
   (return
     (and
