@@ -6,7 +6,7 @@
 ### by evaluating this file with `(dyn :shader-compile)` set, which disables a number of functions and allows
 ### passing in a pixel shader stub.
 ###
-### Leans on the underlying C compiler for optimization - recommended to be used with JANET_BUILD_TYPE=native
+### Leans on the underlying C compiler for optimization - recommended to be used with `JANET_BUILD_TYPE=native janet-pm install`
 ### to take advantage of the best available vectorization.
 ###
 ### Includes:
@@ -33,6 +33,7 @@
 ### [x] - stroke paths (w/ thickness)
 ### [x] - plotting (1 pixel wide lines, no aa)
 ### [x] - blending
+### [ ] - mirror, transpose, and right-angled rotations
 ### [ ] - sRGB correct blending
 ### [x] - image resizing
 ### [x] - bezier
@@ -49,6 +50,8 @@
 ### [ ] - right-angle image rotation / flips
 ### [ ] - sRGB gamma correction/conversion
 ### [ ] - rotated text
+### [ ] - color and otherwise anotated text w/ VT100 escape codes (allow for pretty printing w/ colors)
+### [ ] - remove prototype fill in default build (leave code for testing purposes)
 
 ### Stretch TODO
 ### [ ] - vector font rendering
@@ -889,7 +892,7 @@
 (comp-unless (dyn :shader-compile)
   (cfunction draw-simple-text
     "Draw text with a default, bitmap on an image. Font should be one of :default, :tall, or :olive."
-    [img:*Image x:int y:int xscale:int yscale:int text:cstring color:uint32_t &opt (font-name keyword (janet-ckeyword "default"))] -> *Image
+    [img:*Image x:int y:int text:cstring color:uint32_t &opt (font-name keyword (janet-ckeyword "default")) xscale:int=1 yscale:int=1 orientation:int=0] -> *Image
     (if (< xscale 1) (janet-panic "xscale must be at least 1"))
     (if (< yscale 1) (janet-panic "yscale must be at least 1"))
     (def (font (const *BitmapFont)) (select-font font-name))
@@ -898,8 +901,40 @@
     (def gh:int font->gh)
     (def bytes-per-row:int (/ (+ 7 gw) 8))
     (def bytes-per-char:int (* bytes-per-row gh))
-    (var xx:int x)
-    (var yy:int y)
+    (var xx:int 0)
+    (var yy:int 0)
+
+    # Inline 2x2 matrix to allow rotations
+    # Allowed mirrored?
+    # orientations:
+    #  0 - default
+    #  1 - rotate clockwise 90
+    #  2 - rotate clockwise 180
+    #  3 - rotate clockwise 270
+    (var x-by-x:int 1)
+    (var x-by-y:int 0)
+    (var y-by-y:int 1)
+    (var y-by-x:int 0)
+    (cond
+      (= 1 (% orientation 4))
+      (do
+        (set x-by-x 0)
+        (set y-by-y 0)
+        (set x-by-y -1)
+        (set y-by-x 1))
+      (= 2 (% orientation 4))
+      (do
+        (set x-by-x -1)
+        (set y-by-y -1)
+        (set x-by-y 0)
+        (set y-by-x 0))
+      (= 3 (% orientation 4))
+      (do
+        (set x-by-x 0)
+        (set y-by-y 0)
+        (set x-by-y 1)
+        (set y-by-x -1)))
+
     (var (c (const *uint8_t)) (cast (const *uint8_t) text))
     (while *c
       (def codepoint:int (utf8-read-codepoint &c))
@@ -916,8 +951,11 @@
           (if (band 1 glyph-row)
             (for [(var yoff:int 0) (< yoff yscale) (++ yoff)]
               (for [(var xoff:int 0) (< xoff xscale) (++ xoff)]
-                (def xxx:int (+ (* xscale col) xx xoff))
-                (def yyy:int (+ (* yscale row) yy yoff))
+                (def text-x:int (+ (* xscale col) xx xoff))
+                (def text-y:int (+ (* yscale row) yy yoff))
+                # Apply ad-hoc rotation matrix
+                (def xxx:int (+ x (* text-x x-by-x) (* text-y y-by-x)))
+                (def yyy:int (+ y (* text-y y-by-y) (* text-x x-by-y)))
                 (when (and (>= xxx 0) (>= yyy 0) (< xxx img->width) (< yyy img->height))
                   (image-set-pixel img xxx yyy color)))))
           (set glyph-row (>> glyph-row 1))))
@@ -927,7 +965,7 @@
 (comp-unless (dyn :shader-compile)
   (cfunction measure-simple-text
     "Return the height and width of text as a tuple. Font should be one of :default, :tall, or :olive."
-    [text:cstring &opt (font-name keyword (janet-ckeyword "default"))] -> JanetTuple
+    [text:cstring &opt (font-name keyword (janet-ckeyword "default")) xscale:int=1 yscale:int=1] -> JanetTuple
     (var w:int 0)
     (var xcursor:int 0)
     (def (font (const *BitmapFont)) (select-font font-name))
@@ -943,8 +981,8 @@
         (+= xcursor font->gw)))
     (set w (max2z xcursor w))
     (def (ret 'Janet) (janet-tuple-begin 2))
-    (set (aref ret 0) (janet-wrap-integer w))
-    (set (aref ret 1) (janet-wrap-integer h))
+    (set (aref ret 0) (janet-wrap-integer (* xscale w)))
+    (set (aref ret 1) (janet-wrap-integer (* yscale h)))
     (return (janet-tuple-end ret))))
 
 ###
@@ -994,9 +1032,10 @@
 
 (comp-unless (dyn :shader-compile)
 
-  (cfunction plot
-    "Draw a 1 pixel line from (x1, y1) to (x2, y2)"
-    [img:*Image x1:int y1:int x2:int y2:int color:uint32] -> *Image
+  (function plot-stipple
+    "Plot a stippled line segment and return the new stipple counter."
+    [img:*Image x1:int y1:int x2:int y2:int color:uint32_t
+     stipple-counter:int stipple-cycle:int stipple-on:int] -> int
     # Use Bresenham's algorithm to draw the line
     (def dx:int (cast int (abs (- x2 x1))))
     (def dy:int (- (cast int (abs (- y2 y1)))))
@@ -1005,34 +1044,60 @@
     (def err:int (+ dx dy))
     (var x:int x1)
     (var y:int y1)
-    (while 1
-      (when (and (>= x 0) (< x img->width) (>= y 0) (< y img->height))
-        (image-set-pixel img x y color))
-      (when (>= (* 2 err) dy)
-        (if (== x x2) (return img))
-        (+= err dy)
-        (+= x sx))
-      (when (<= (* 2 err) dx)
-        (if (== y y2) (return img))
-        (+= err dx)
-        (+= y sy)))
+    (if (<= stipple-cycle 0)
+      (while 1 # normal line, no stipple
+        (when (and (>= x 0) (< x img->width) (>= y 0) (< y img->height))
+          (image-set-pixel img x y color))
+        (when (>= (* 2 err) dy)
+          (if (== x x2) (return 0))
+          (+= err dy)
+          (+= x sx))
+        (when (<= (* 2 err) dx)
+          (if (== y y2) (return 0))
+          (+= err dx)
+          (+= y sy)))
+      (while 1 # stippled
+        (if (>= stipple-counter stipple-cycle) (-= stipple-counter stipple-cycle))
+        (when (and (< stipple-counter stipple-on) (>= x 0) (< x img->width) (>= y 0) (< y img->height))
+          (image-set-pixel img x y color))
+        (when (>= (* 2 err) dy)
+          (if (== x x2) (return stipple-counter))
+          (+= err dy)
+          (+= x sx))
+        (when (<= (* 2 err) dx)
+          (if (== y y2) (return stipple-counter))
+          (+= err dx)
+          (+= y sy))
+        (++ stipple-counter)))
+    (return stipple-counter))
+
+  (cfunction plot
+    "Draw a 1 pixel line from (x1, y1) to (x2, y2)"
+    [img:*Image x1:int y1:int x2:int y2:int color:uint32_t &opt stipple-cycle:int=0 stipple-on:int=0] -> *Image
+    (plot-stipple img x1 y1 x2 y2 color 0 stipple-cycle stipple-on)
     (return img))
 
   (cfunction plot-path
     "Plot 1 pixel lines over a path"
-    [img:*Image points:indexed color:uint32_t &opt join-end:bool=0] -> *Image
+    [img:*Image points:indexed color:uint32_t &opt stipple-cycle:int=0 stipple-on:int=0 join-end:bool=0] -> *Image
     (var npoints:int 0)
     (var (vs 'V2))
     (if join-end
       (set vs (indexed-to-vs-join-end points &npoints))
       (set vs (indexed-to-vs points &npoints)))
+    (var stipple-counter:int 0)
     (for [(var i:int 1) (< i npoints) (++ i)]
-      (plot img
-            (round (.x (aref vs (- i 1))))
-            (round (.y (aref vs (- i 1))))
-            (round (.x (aref vs i)))
-            (round (.y (aref vs i)))
-            color))
+      (set stipple-counter
+           (plot-stipple
+             img
+             (round (.x (aref vs (- i 1))))
+             (round (.y (aref vs (- i 1))))
+             (round (.x (aref vs i)))
+             (round (.y (aref vs i)))
+             color
+             stipple-counter
+             stipple-cycle
+             stipple-on)))
     (return img))
 
   (cfunction plot-ring
@@ -1064,91 +1129,94 @@
 ### Raster path fill reference version
 ###
 
-(function cross2z :static :inline
-  "2d cross product"
-  [ax:int ay:int bx:int by:int] -> int
-  (return (- (* ax by) (* ay bx))))
+# Enable when needing to test/compare fill-path!
+(comment
 
-(function seg-seg-intersect :static :inline
-  "Check if a line segment intersects another segment"
-  [s0x:int s0y:int s1x:int s1y:int r0x:int r0y:int r1x:int r1y:int] -> int
-  # One way, check if each segment bisects the other segment - check cross products have different signs
-  #   - S0R0xS0S1 differs in sign from S0R1xS0S1 and
-  #   - R0S0xR0R1 differs in sign from R0S1xR0R1
-  # If ray R intersects with S0, that is an intersection, but an intersection with point S1 is not.
-  # Components
-  (def s0s1x:int (- s1x s0x))
-  (def s0s1y:int (- s1y s0y))
-  (def r0r1x:int (- r1x r0x))
-  (def r0r1y:int (- r1y r0y))
-  (def s0r1x:int (- r1x s0x))
-  (def s0r1y:int (- r1y s0y))
-  (def s0r0x:int (- r0x s0x))
-  (def s0r0y:int (- r0y s0y))
-  (def r0s1x:int (- s1x r0x))
-  (def r0s1y:int (- s1y r0y))
-  (def r0s0x:int (- s0x r0x))
-  (def r0s0y:int (- s0y r0y))
-  # Crosses
-  (def a:int (cross2z s0r1x s0r1y s0s1x s0s1y))
-  (def b:int (cross2z s0r0x s0r0y s0s1x s0s1y))
-  (def c:int (cross2z r0s0x r0s0y r0r1x r0r1y))
-  (def d:int (cross2z r0s1x r0s1y r0r1x r0r1y))
-  # Checks
-  (return
-    (and
-      (not= (< a 0) (> 0 b))
-      (not= (< c 0) (> 0 d)))))
+  (function cross2z :static :inline
+    "2d cross product"
+    [ax:int ay:int bx:int by:int] -> int
+    (return (- (* ax by) (* ay bx))))
 
-(cfunction fill-path-prototype
-  "Fill a path with a solid color - very slow but straightforward implementation."
-  [img:*Image points:indexed ,;shader-args] -> *Image
-  # 1. Get bounds of the path and extract coordinates
-  (var xmin:int INT32-MAX)
-  (var ymin:int INT32-MAX)
-  (var xmax:int INT32-MIN)
-  (var ymax:int INT32-MIN)
-  (if (band 1 points.len) (janet-panic "expected an even number of point coordinates"))
-  (if (< points.len 6) (janet-panic "expected at least 3 points"))
-  (def plen:int (+ 2 points.len))
-  (def (ipoints 'int) (janet-smalloc (* (sizeof int) plen)))
-  (for [(var i:int 0) (< i points.len) (set i (+ i 2))]
-    (def x:int (round (janet-getnumber points.items i)))
-    (def y:int (round (janet-getnumber points.items (+ i 1))))
-    (set (aref ipoints i) x)
-    (set (aref ipoints (+ 1 i)) y)
-    (set xmin (? (> x xmin) xmin x))
-    (set ymin (? (> y ymin) ymin y))
-    (set xmax (? (> x xmax) x xmax))
-    (set ymax (? (> y ymax) y ymax)))
-  # Add first point to end
-  (set (aref ipoints points.len) (aref ipoints 0))
-  (set (aref ipoints (+ 1 points.len)) (aref ipoints 1))
-  # 2. Clipping
-  (def xmin1:int xmin) # clipping should not change how we trace rays
-  (clip 0 (- img->width 1) 0 (- img->height 1) &xmin &ymin)
-  (clip 0 (- img->width 1) 0 (- img->height 1) &xmax &ymax)
-  # 3. Fill the bounds of the path, running a ray crossing test for each pixel and color when we have an odd number of intersections
-  (polymorph img->channels [1 2 3 4]
-    (for [(var y:int ymin) (<= y ymax) (set y (+ y 1))]
-      (for [(var x:int xmin) (<= x xmax) (set x (+ x 1))]
-        (var intersection-count:int 0)
-        (for [(var i:int 2) (< i plen) (set i (+ i 2))]
-          (def intersect:int
-            (seg-seg-intersect
-              (aref ipoints (+ i 0))
-              (aref ipoints (+ i 1))
-              (aref ipoints (+ i -2))
-              (aref ipoints (+ i -1))
-              x y
-              (- xmin1 1) y))
-          (set intersection-count (+ intersection-count intersect)))
-        (when (band 1 intersection-count)
-          (def c1:uint32_t (shader x y ,;shader-params))
-          (image-set-pixel img x y c1)))))
-  # 4. Cleanup
-  (janet-sfree ipoints)
-  (return img))
+  (function seg-seg-intersect :static :inline
+    "Check if a line segment intersects another segment"
+    [s0x:int s0y:int s1x:int s1y:int r0x:int r0y:int r1x:int r1y:int] -> int
+    # One way, check if each segment bisects the other segment - check cross products have different signs
+    #   - S0R0xS0S1 differs in sign from S0R1xS0S1 and
+    #   - R0S0xR0R1 differs in sign from R0S1xR0R1
+    # If ray R intersects with S0, that is an intersection, but an intersection with point S1 is not.
+    # Components
+    (def s0s1x:int (- s1x s0x))
+    (def s0s1y:int (- s1y s0y))
+    (def r0r1x:int (- r1x r0x))
+    (def r0r1y:int (- r1y r0y))
+    (def s0r1x:int (- r1x s0x))
+    (def s0r1y:int (- r1y s0y))
+    (def s0r0x:int (- r0x s0x))
+    (def s0r0y:int (- r0y s0y))
+    (def r0s1x:int (- s1x r0x))
+    (def r0s1y:int (- s1y r0y))
+    (def r0s0x:int (- s0x r0x))
+    (def r0s0y:int (- s0y r0y))
+    # Crosses
+    (def a:int (cross2z s0r1x s0r1y s0s1x s0s1y))
+    (def b:int (cross2z s0r0x s0r0y s0s1x s0s1y))
+    (def c:int (cross2z r0s0x r0s0y r0r1x r0r1y))
+    (def d:int (cross2z r0s1x r0s1y r0r1x r0r1y))
+    # Checks
+    (return
+      (and
+        (not= (< a 0) (> 0 b))
+        (not= (< c 0) (> 0 d)))))
+
+  (cfunction fill-path-prototype
+    "Fill a path with a solid color - very slow but straightforward implementation."
+    [img:*Image points:indexed ,;shader-args] -> *Image
+    # 1. Get bounds of the path and extract coordinates
+    (var xmin:int INT32-MAX)
+    (var ymin:int INT32-MAX)
+    (var xmax:int INT32-MIN)
+    (var ymax:int INT32-MIN)
+    (if (band 1 points.len) (janet-panic "expected an even number of point coordinates"))
+    (if (< points.len 6) (janet-panic "expected at least 3 points"))
+    (def plen:int (+ 2 points.len))
+    (def (ipoints 'int) (janet-smalloc (* (sizeof int) plen)))
+    (for [(var i:int 0) (< i points.len) (set i (+ i 2))]
+      (def x:int (round (janet-getnumber points.items i)))
+      (def y:int (round (janet-getnumber points.items (+ i 1))))
+      (set (aref ipoints i) x)
+      (set (aref ipoints (+ 1 i)) y)
+      (set xmin (? (> x xmin) xmin x))
+      (set ymin (? (> y ymin) ymin y))
+      (set xmax (? (> x xmax) x xmax))
+      (set ymax (? (> y ymax) y ymax)))
+    # Add first point to end
+    (set (aref ipoints points.len) (aref ipoints 0))
+    (set (aref ipoints (+ 1 points.len)) (aref ipoints 1))
+    # 2. Clipping
+    (def xmin1:int xmin) # clipping should not change how we trace rays
+    (clip 0 (- img->width 1) 0 (- img->height 1) &xmin &ymin)
+    (clip 0 (- img->width 1) 0 (- img->height 1) &xmax &ymax)
+    # 3. Fill the bounds of the path, running a ray crossing test for each pixel and color when we have an odd number of intersections
+    (polymorph img->channels [1 2 3 4]
+      (for [(var y:int ymin) (<= y ymax) (set y (+ y 1))]
+        (for [(var x:int xmin) (<= x xmax) (set x (+ x 1))]
+          (var intersection-count:int 0)
+          (for [(var i:int 2) (< i plen) (set i (+ i 2))]
+            (def intersect:int
+              (seg-seg-intersect
+                (aref ipoints (+ i 0))
+                (aref ipoints (+ i 1))
+                (aref ipoints (+ i -2))
+                (aref ipoints (+ i -1))
+                x y
+                (- xmin1 1) y))
+            (set intersection-count (+ intersection-count intersect)))
+          (when (band 1 intersection-count)
+            (def c1:uint32_t (shader x y ,;shader-params))
+            (image-set-pixel img x y c1)))))
+    # 4. Cleanup
+    (janet-sfree ipoints)
+    (return img)))
 
 ###
 ### Better, Faster fill path
@@ -1308,8 +1376,8 @@
     (def (ps (array V2)) @[p1 p2 p3 p4 p1])
     (fill-path-impl img ps 5 ,;shader-params))
   (each-i 0 npoints
-    (def P:V2 (aref vs i))
-    (circle img P.x P.y thickness ,;shader-params))
+   (def P:V2 (aref vs i))
+   (circle img P.x P.y thickness ,;shader-params))
   (janet-sfree vs:*V2) # self-test for mangling of type-grafted symbols
   (return img))
 

@@ -36,11 +36,11 @@
 (plot img 12 12 12 1012 white)
 (plot img 12 1012 1012 1012 white)
 (loop [x :range [112 1013 100]]
-  (draw-simple-text img (- x 36) 995 1 1 (string (- x 12)) white :default)
+  (draw-simple-text img (- x 36) 995 (string (- x 12)) white :default)
   (plot img x 1012 x (- 1012 30) white))
 (loop [y :range [12 1011 100]]
   (def yy (- 1012 y))
-  (draw-simple-text img 48 (- y 4) 1 1 (string yy) white :default)
+  (draw-simple-text img 48 (- y 4) (string yy) white :default)
   (plot img 12 y (+ 12 30) y white))
 
 # For line graph
@@ -51,10 +51,10 @@
   (default text (string/format "Y(%d)=%.2f" x (get ys x)))
   (def y (- 1012 (math/round (get ys x))))
   (plot img (+ x 12) y (+ x 22) (- y 135) white)
-  (draw-simple-text img (+ x 30) (- y 150) 2 2 text white :olive))
+  (draw-simple-text img (+ x 30) (- y 150) text white :olive 2 2))
 
 # Draw title
-(draw-simple-text img 300 24 3 3 "Y = Log(X) + Noise" red :tall)
+(draw-simple-text img 300 24 "Y = Log(X) + Noise" red :tall 3 3)
 
 # Annotate the chart
 #(annotate 300 "Y(300)")

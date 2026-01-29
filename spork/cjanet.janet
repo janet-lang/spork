@@ -12,8 +12,8 @@
 ###
 
 ### TODO
-### [ ] auto generate headers
-### [ ]
+### [ ] auto generate headers for each typedef and function declaration (optionally)
+### [ ] reserve special forms (do, if, while, etc.) to prevent accidentally trying to call them in function contexts
 
 (import ./cc)
 (import ./pm-config)

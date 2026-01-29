@@ -93,7 +93,7 @@
 (defn test-simple-text
   []
   (def canvas (blank 128 16 3))
-  (draw-simple-text canvas 2 2 1 1 "Hello, world!" white)
+  (draw-simple-text canvas 2 2 "Hello, world!" white)
   (check-image canvas "hello_text.png"))
 
 (test-simple-text)
@@ -101,7 +101,7 @@
 (defn test-simple-text-2
   []
   (def canvas (blank 128 16 3))
-  (draw-simple-text canvas 2 2 1 1 "Hello, world!" white :tall)
+  (draw-simple-text canvas 2 2 "Hello, world!" white :tall)
   (check-image canvas "hello_text_tall.png"))
 
 (test-simple-text-2)
@@ -109,7 +109,7 @@
 (defn test-simple-text-3
   []
   (def canvas (blank 128 16 3))
-  (draw-simple-text canvas 2 2 1 1 "Hello, world!" white :olive)
+  (draw-simple-text canvas 2 2 "Hello, world!" white :olive)
   (check-image canvas "hello_text_olive.png"))
 
 (test-simple-text-3)
@@ -118,7 +118,7 @@
   []
   (def [w h] (measure-simple-text "Hello, world!" :olive))
   (def canvas (blank w h 3))
-  (draw-simple-text canvas 0 0 1 1 "Hello, world!" white :olive)
+  (draw-simple-text canvas 0 0 "Hello, world!" white :olive)
   (check-image canvas "hello_text_center.png"))
 
 (test-simple-text-4)
@@ -126,9 +126,9 @@
 (defn test-simple-text-cp437
   []
   (def text "£√÷a⌠⌡δ☻bc123")
-  (def [w h] (measure-simple-text text :olive))
+  (def [w h] (measure-simple-text text :olive 2 2))
   (def canvas (blank w h 3))
-  (draw-simple-text canvas 0 0 1 1 text (rgb 0.7 0.7 0.7) :olive)
+  (draw-simple-text canvas 0 0 text (rgb 0.7 0.7 0.7) :olive 2 2)
   (check-image canvas "cp437.png"))
 
 (test-simple-text-cp437)
