@@ -198,6 +198,9 @@
 (function min2z :static :inline [a:int b:int] -> int
   (return (? (< a b) a b)))
 
+(function absz :static :inline [a:int] -> int
+  (return (? (< a 0) (- a) a)))
+
 ###
 ### 2D floating point vector abstraction
 ###
@@ -892,7 +895,7 @@
 (comp-unless (dyn :shader-compile)
   (cfunction draw-simple-text
     "Draw text with a default, bitmap on an image. Font should be one of :default, :tall, or :olive."
-    [img:*Image x:int y:int text:cstring color:uint32_t &opt (font-name keyword (janet-ckeyword "default")) xscale:int=1 yscale:int=1 orientation:int=0] -> *Image
+    [img:*Image x:double y:double text:cstring color:uint32_t &opt (font-name keyword (janet-ckeyword "default")) xscale:int=1 yscale:int=1 orientation:int=0] -> *Image
     (if (< xscale 1) (janet-panic "xscale must be at least 1"))
     (if (< yscale 1) (janet-panic "yscale must be at least 1"))
     (def (font (const *BitmapFont)) (select-font font-name))
@@ -901,6 +904,8 @@
     (def gh:int font->gh)
     (def bytes-per-row:int (/ (+ 7 gw) 8))
     (def bytes-per-char:int (* bytes-per-row gh))
+    (def xint:int (cast int (+ 0.5 x)))
+    (def yint:int (cast int (+ 0.5 y)))
     (var xx:int 0)
     (var yy:int 0)
 
@@ -954,8 +959,8 @@
                 (def text-x:int (+ (* xscale col) xx xoff))
                 (def text-y:int (+ (* yscale row) yy yoff))
                 # Apply ad-hoc rotation matrix
-                (def xxx:int (+ x (* text-x x-by-x) (* text-y y-by-x)))
-                (def yyy:int (+ y (* text-y y-by-y) (* text-x x-by-y)))
+                (def xxx:int (+ xint (* text-x x-by-x) (* text-y y-by-x)))
+                (def yyy:int (+ yint (* text-y y-by-y) (* text-x x-by-y)))
                 (when (and (>= xxx 0) (>= yyy 0) (< xxx img->width) (< yyy img->height))
                   (image-set-pixel img xxx yyy color)))))
           (set glyph-row (>> glyph-row 1))))
@@ -1032,13 +1037,13 @@
 
 (comp-unless (dyn :shader-compile)
 
-  (function plot-stipple
+  (function plot-stipple :static
     "Plot a stippled line segment and return the new stipple counter."
     [img:*Image x1:int y1:int x2:int y2:int color:uint32_t
      stipple-counter:int stipple-cycle:int stipple-on:int] -> int
     # Use Bresenham's algorithm to draw the line
-    (def dx:int (cast int (abs (- x2 x1))))
-    (def dy:int (- (cast int (abs (- y2 y1)))))
+    (def dx:int (absz (- x2 x1)))
+    (def dy:int (- (absz (- y2 y1))))
     (def sx:int (? (< x1 x2) 1 -1))
     (def sy:int (? (< y1 y2) 1 -1))
     (def err:int (+ dx dy))
@@ -1073,8 +1078,13 @@
 
   (cfunction plot
     "Draw a 1 pixel line from (x1, y1) to (x2, y2)"
-    [img:*Image x1:int y1:int x2:int y2:int color:uint32_t &opt stipple-cycle:int=0 stipple-on:int=0] -> *Image
-    (plot-stipple img x1 y1 x2 y2 color 0 stipple-cycle stipple-on)
+    [img:*Image x1:double y1:double x2:double y2:double color:uint32_t &opt stipple-cycle:int=0 stipple-on:int=0] -> *Image
+    (plot-stipple img 
+                  (cast int (+ 0.5 x1))
+                  (cast int (+ 0.5 y1))
+                  (cast int (+ 0.5 x2))
+                  (cast int (+ 0.5 y2))
+                  color 0 stipple-cycle stipple-on)
     (return img))
 
   (cfunction plot-path
@@ -1287,10 +1297,10 @@
         (var intersect:Intersection)
         (def did-intersect:int
           (scanline-test
-            (cast int (round pb.x))
-            (cast int (round pb.y))
-            (cast int (round pa.x))
-            (cast int (round pa.y))
+            (cast int (+ 0.5 pb.x))
+            (cast int (+ 0.5 pb.y))
+            (cast int (+ 0.5 pa.x))
+            (cast int (+ 0.5 pa.y))
             y &intersect))
         (when did-intersect
           (for [(var j:int 0) (< j intersection-count) (++ j)]

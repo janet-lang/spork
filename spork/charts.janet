@@ -35,12 +35,14 @@
 (defdyn *stroke-color* "Default color for drawn lines such as frame borders")
 (defdyn *background-color* "Default background color for chart rendering")
 (defdyn *grid-color* "Default color for grid lines")
+(defdyn *padding* "Default padding for charts")
 
 (def- default-font :olive)
 (def- default-text-color g/black)
 (def- default-stroke-color g/black)
 (def- default-background-color g/white)
 (def- default-grid-color (g/rgb 0.8 0.8 0.8))
+(def- default-padding 16)
 
 (defn- floorn
   "Floor mod n"
@@ -222,8 +224,8 @@
   [canvas &named
    background-color font padding color-map labels
    horizontal frame color-seed legend-map line-color text-color]
-  (default font :default)
-  (default padding 16)
+  (default font (dyn *font* default-font))
+  (default padding (dyn *padding* default-padding))
   (default color-map {})
   (default legend-map {})
   (default background-color (dyn *background-color* default-background-color))
@@ -297,8 +299,9 @@
    x-suffix x-prefix y-suffix y-prefix
    x-ticks x-minor-ticks y-minor-ticks]
 
-  (default padding 8)
-  (default font :default)
+  (default padding (dyn *padding* default-padding))
+  (default font (dyn *font* default-font))
+  (default grid :none)
   (assert canvas)
   (assert x-min)
   (assert x-max)
@@ -339,6 +342,7 @@
   # Calculate left and right padding once y-axis is guessed
   (def outer-left-padding (+ padding y-axis-tick-label-width (if y-label (+ padding font-height) 0)))
   (def outer-right-padding outer-left-padding) # make it symetrical, looks much nicer
+  #(def outer-right-padding (+ 2 padding)) # fills the space better - add centering option?
   (def left-padding (+ outer-left-padding tick-height))
   (def right-padding outer-right-padding)
 
@@ -507,7 +511,7 @@
   (assert y-columns)
   (default width 1280)
   (default height 720)
-  (default padding 16)
+  (default padding (dyn *padding* default-padding))
   (default point-radius 3)
   (default color-map {})
   (default background-color (dyn *background-color* default-background-color))
