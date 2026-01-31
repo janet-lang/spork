@@ -1,7 +1,3 @@
-###
-### Use Janet + Spork for visualization test
-###
-
 (import spork/charts)
 (import spork/http)
 (import spork/json)
@@ -83,8 +79,6 @@
   (g-signal-connect-data app "activate" cb on-active nil 1)
   (g-application-run app 0 nil))
 
-###
-### Main
 ###
 ### Run as script or compile with quickbin
 ### janet-pm quickbin examples/gtk-show-chart.janet weather

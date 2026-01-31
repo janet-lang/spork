@@ -255,7 +255,7 @@
       (set x padding))
     (when canvas
       (def color (get color-map i (color-hash i color-seed)))
-      (g/fill-rect canvas x y (+ x swatch-size) (+ y swatch-size) color)
+      (g/fill-rect canvas x y swatch-size swatch-size color)
       (g/draw-simple-text canvas (+ x swatch-size padding) (+ small-spacing y) label text-color font))
     (+= x (+ item-width padding))
     (set max-x (max max-x x)))

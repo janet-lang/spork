@@ -36,8 +36,8 @@
 (defn test-image-1
   []
   (def img (blank 128 128 3))
-  (fill-rect img 16 16 112 112 red)
-  (fill-rect img 32 32 96 96 blue)
+  (fill-rect img 16 16 96 96 red)
+  (fill-rect img 32 32 64 64 blue)
   (circle img 64 64 30.5 yellow)
   (check-image img "target1.png")
   (check-image img "target1.bmp")
@@ -48,8 +48,8 @@
 (defn test-stamp
   []
   (def img (blank 128 128 3))
-  (fill-rect img 16 16 112 112 red)
-  (fill-rect img 32 32 96 96 blue)
+  (fill-rect img 16 16 96 96 red)
+  (fill-rect img 32 32 64 64 blue)
   (circle img 64 64 30.5 yellow)
   (def dest (blank 1024 1024 3))
   # Don't crash for oob
@@ -78,9 +78,9 @@
 (defn test-copy
   []
   (def img (blank 154 113 3))
-  (fill-rect img 16 16 112 112 red)
+  (fill-rect img 16 16 96 96 red)
   (circle img 16 16 1000 cyan) # oob circle
-  (fill-rect img 32 32 96 96 blue)
+  (fill-rect img 32 32 64 64 blue)
   (def cop (copy img))
   (assert (deep= (freeze-image cop) (freeze-image img)))
   (def empty1 (diff cop img))
@@ -278,7 +278,7 @@
   (def img (blank 128 128 4))
   (fill-rect img 0 0 128 128 black)
   (loop [col :range [0 128 8]]
-    (fill-rect img col 0 (+ col 8) 128
+    (fill-rect img col 0 8 128
                (if (even? (div col 8))
                  (rgb 0.9 0.9 0.8)
                  (rgb 0.1 0.1 0.1))))

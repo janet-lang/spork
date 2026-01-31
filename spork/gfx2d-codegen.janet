@@ -1375,13 +1375,15 @@
 
 (cfunction fill-rect
   "Fill a rectangle"
-  [img:*Image x1:double y1:double x2:double y2:double ,;shader-args] -> *Image
+  [img:*Image x:double y:double width:double height:double ,;shader-args] -> *Image
+  (def x2:double (+ x width))
+  (def y2:double (+ y height))
   (def (vs (array V2))
     (array
-      (v/make x1 y1)
-      (v/make x1 y2)
+      (v/make x y)
+      (v/make x y2)
       (v/make x2 y2)
-      (v/make x2 y1)))
+      (v/make x2 y)))
   (fill-path-impl img vs 4 ,;shader-params)
   (return img))
 
