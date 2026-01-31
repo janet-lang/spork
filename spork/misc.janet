@@ -257,7 +257,7 @@
   "Returns new table with selected `keyz` from dictionary `data`."
   [data keyz]
   (def res @{})
-  (loop [k :in keyz :when (data k)]
+  (loop [k :in keyz :when (not= nil (data k))]
     (put res k (data k)))
   res)
 
