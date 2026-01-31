@@ -460,6 +460,86 @@
 
   [view view-convert view-unconvert])
 
+(defn plot-line-graph
+  ```
+  Plot a line graph or scatter graph on a canvas. This function does not add a set of axis, title, or chart legend, it will only plot the graph lines and points from data.
+
+  * :canvas - a gfx2d/Image to draw on
+  * :to-pixel-space - optional function (f x y) -> [pixel-x pixel-y]. Used to convert the metric space to pixel space when plotting points.
+  * :data - a data frame to use for x and y data
+  * :x-column - the name of the data frame column to use for the x axis
+  * :y-column - a single column name or list of column names to use for the y coordinates and connected lines
+  * :color-map - a dictionary mapping columns to colors. By default will hash column name to pseudo-random colors
+  * :color-seed - an optional seed to change the default colors chosen by the color hash
+  * :line-type - how to actually draw lines. Can be one of :stroke, :plot, :none, or :stipple. Default is :plot.
+  * :circle-points - add circles around each point
+  * :point-radius - how large to make the circles around each point in pixels
+  ```
+  [&named
+   canvas
+   data
+   to-pixel-space
+   line-style
+   x-column
+   y-column
+   color-seed
+   circle-points
+   point-radius
+   color-map]
+
+  (default to-pixel-space (fn :convert [x y] [x y]))
+  (default color-map {})
+  (default line-style :plot)
+
+  # Allow single or multiple y-columns shorthand - draw first column on top
+  (def y-columns (if (indexed? y-column) (reverse y-column) [y-column]))
+
+  # Draw graph
+  (def xs (get data x-column))
+  (each y-column y-columns
+    (def graph-color (get color-map y-column (color-hash y-column color-seed)))
+    (def ys (get data y-column))
+
+    # Collect points - handle missing ys
+    (def pts @[])
+    (for i 0 (length xs)
+      (def x (get xs i))
+      (when x
+        (def y (get ys i))
+        (when y
+          (def [x1 y1] (to-pixel-space x y))
+          (array/push pts (math/round x1) (math/round y1)))))
+
+    # TODO - more configurable stroke style
+    (def line-style2 (if (dictionary? line-style) (get line-style y-column :plot) line-style))
+    (case line-style2
+      :stipple
+      (do
+        (def up-pts (array/slice pts))
+        (loop [i :range [1 (length pts) 2]]
+          (+= (up-pts i) 1))
+        (g/plot-path canvas up-pts graph-color 8 5)
+        (g/plot-path canvas pts graph-color 8 5))
+      :plot
+      (do
+        (def up-pts (array/slice pts))
+        (loop [i :range [1 (length pts) 2]]
+          (+= (up-pts i) 1))
+        (g/plot-path canvas pts graph-color)
+        (g/plot-path canvas up-pts graph-color))
+      :stroke
+      (do
+        (g/stroke-path canvas pts graph-color 1)))
+
+    (when circle-points
+      (default point-radius 3)
+      (loop [i :range [0 (length pts) 2]]
+        (def x (get pts i))
+        (def y (get pts (+ 1 i)))
+        (g/plot-ring canvas x y point-radius graph-color))))
+
+  canvas)
+
 (defn line-chart
   ```
   Render a line chart. Returns a gfx2d/Image which can be further manipulated with the spork/gfx2d module.
@@ -585,50 +665,20 @@
                :y-minor-ticks y-minor-ticks
                :x-labels-vertical x-labels-vertical))
 
-  # Draw graph
-  (def xs (get data x-column))
-  (each y-column (reverse y-columns) # draw first listed on top
-    (def graph-color (get color-map y-column (color-hash y-column color-seed)))
-    (def ys (get data y-column))
+  # Render graph lines
+  (plot-line-graph
+    :canvas  graph-view
+    :to-pixel-space to-pixel-space
+    :data data
+    :x-column x-column
+    :y-column y-columns
+    :color-map color-map
+    :color-seed color-seed
+    :line-style line-style
+    :circle-points (or circle-points scatter)
+    :point-radius point-radius)
 
-    # Collect points - handle missing ys
-    (def pts @[])
-    (for i 0 (length xs)
-      (def x (get xs i))
-      (when x
-        (def y (get ys i))
-        (when y
-          (def [x1 y1] (to-pixel-space x y))
-          (array/push pts (math/round x1) (math/round y1)))))
-
-    # TODO - more configurable stroke style
-    (def line-style2 (if (dictionary? line-style) (get line-style y-column :plot) line-style))
-    (case line-style2
-      :stipple
-      (do
-        (def up-pts (array/slice pts))
-        (loop [i :range [1 (length pts) 2]]
-          (+= (up-pts i) 1))
-        (g/plot-path graph-view up-pts graph-color 8 5)
-        (g/plot-path graph-view pts graph-color 8 5))
-      :plot
-      (do
-        (def up-pts (array/slice pts))
-        (loop [i :range [1 (length pts) 2]]
-          (+= (up-pts i) 1))
-        (g/plot-path graph-view pts graph-color)
-        (g/plot-path graph-view up-pts graph-color))
-      :stroke
-      (do
-        (g/stroke-path graph-view pts graph-color 1)))
-
-    (when (or scatter circle-points)
-      (loop [i :range [0 (length pts) 2]]
-        (def x (get pts i))
-        (def y (get pts (+ 1 i)))
-        (g/plot-ring graph-view x y point-radius graph-color))))
-
-  # TODO - draw legend in inner corners
+  # Draw internal legend if selected
   (when (index-of legend [:top-left :top-right :bottom-left :bottom-right])
     (def [lw lh] (draw-legend nil :font font :padding 4 :labels y-columns :legend-map legend-map :frame false))
     (def {:width gw :height gh} (g/unpack graph-view))
@@ -642,6 +692,7 @@
     (draw-legend legend-view :font font :padding 4 :labels y-columns :view-width 0
                  :color-map color-map :color-seed color-seed :legend-map legend-map :frame true))
 
+  # Save to file
   (when save-as
     (g/save save-as canvas))
 
