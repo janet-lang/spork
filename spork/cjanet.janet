@@ -106,9 +106,9 @@
   (name type) or name:type as a shorthand. If no type is found, default to dflt-type. dflt-type
   itself defaults to (dyn *default-ctype* 'CJANET_DEFAULT_TYPE')"
   [x &opt dflt-type]
-  (default dflt-type (dyn *default-ctype* "CJANET_DEFAULT_TYPE"))
   # This needs to be defined based on c compiler - "auto" for msvc and c23+, and __auto_type for clang and GCC on older standards
   # Perhaps we should error if unset?
+  (default dflt-type (dyn *default-ctype* "CJANET_DEFAULT_TYPE"))
   (case (type x)
     :tuple [(get x 0) (normalize-type (get x 1))]
     :symbol
@@ -511,8 +511,7 @@
   (prin "while (")
   (emit-expression condition true)
   (prin ") ")
-  (emit-blocks [stm ;body] true)
-  (print))
+  (emit-blocks [stm ;body] true))
 
 (defn- case-literal? [x] (or (symbol? x) (and (number? x) (= x (math/floor x)))))
 

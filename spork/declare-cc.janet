@@ -191,6 +191,7 @@
       (when (> 64000 (length buf)) # Don't run out of memory
         (file/write out buf)
         (buffer/clear buf)))
+    (file/write out buf) # flush
     (file/write out "};\n\n"
                 "const unsigned char * const " name "_embed = bytes;\n"
                 "const size_t " name "_embed_size = sizeof(bytes);\n")))
@@ -628,7 +629,7 @@ int main(int argc, const char **argv) {
     ```
     (if no-core
       ```
-    /* Get core env */
+    /* Get a smaller core env with just needed c functions. */
     JanetTable *env = janet_table(8);
     JanetTable *lookup = janet_core_lookup_table(NULL);
     JanetTable *temptab;
@@ -653,7 +654,7 @@ int main(int argc, const char **argv) {
 
     /* Verify the marshalled object is a function */
     if (!janet_checktype(marsh_out, JANET_FUNCTION)) {
-        fprintf(stderr, "invalid bytecode image - expected function.");
+        janet_dynprintf("", stderr, "invalid bytecode image - expected function, got %v\n", marsh_out);
         return 1;
     }
     JanetFunction *jfunc = janet_unwrap_function(marsh_out);
@@ -747,8 +748,9 @@ int main(int argc, const char **argv) {
         (put env *module-make-env* (fn :module-make-env [&opt e] (default e env) (make-env e)))
         (put env *module-cache* module-cache)
         (put env :build bd) # expose build directory to executable main (see test-bundle for example)
-        (dofile entry :env env)
+        (ev/gather (dofile entry :env env))
         (def main (module/value env 'main))
+        (assert (function? main) "binding `main` is missing or not a function, cannot marshal to image!")
         (def dep-lflags @[])
         (def dep-libs @[])
 
@@ -910,6 +912,7 @@ int main(int argc, const char **argv) {
               *build-root* "_quickbin"]
     (defer (sh/rm "_quickbin")
       (declare-project :name "fake-project")
+      # Option for :no-core true?
       (def target (declare-executable :entry entry :name output))
       (build-rules/build-run rules "build")
       (print "copying " target " to " output)

@@ -15,8 +15,9 @@
 ###
 
 ### TODO
+### [ ] - horizontal legend should still be able to wrap vertically if too wide.
 ### [x] - LABEL YOUR AXES!
-### [ ] - wrap colors, padding, font, etc. into some kind of styling table to pass around consistently
+### [x] - wrap colors, padding, font, etc. into some kind of styling table to pass around consistently
 ### [x] - stippled grid lines
 ### [ ] - bar chart
 ### [ ] - heat map
@@ -37,6 +38,7 @@
 (defdyn *grid-color* "Default color for grid lines")
 (defdyn *padding* "Default padding for charts")
 
+# Default defaults
 (def- default-font :olive)
 (def- default-text-color g/black)
 (def- default-stroke-color g/black)
@@ -222,12 +224,13 @@
   Return [w h] of the area that was or would be drawn if the legend were to be drawn.
   ```
   [canvas &named
-   background-color font padding color-map labels
-   horizontal frame color-seed legend-map line-color text-color]
+   background-color font padding color-map labels view-width
+   frame color-seed legend-map line-color text-color]
   (default font (dyn *font* default-font))
   (default padding (dyn *padding* default-padding))
   (default color-map {})
   (default legend-map {})
+  (default view-width 0)
   (default background-color (dyn *background-color* default-background-color))
   # TODO pass in configured colors
   (default line-color (dyn *grid-color* default-grid-color))
@@ -239,30 +242,28 @@
   (def swatch-size label-height)
   (def spacing (+ label-height padding 1))
   (def small-spacing (math/round (* 0.125 label-height)))
-  (def padding (if frame (+ padding 2) padding)) # add frame border
+  # (def padding (if frame (+ padding 4) padding)) # add frame border
   (var y padding)
   (var x padding)
-  (var max-width 0)
+  (var max-x 0)
   (each i labels
     (def label (string (get legend-map i i)))
     (def [text-width _] (g/measure-simple-text label font))
+    (def item-width (+ padding padding padding text-width swatch-size))
+    (when (> (+ x item-width) view-width)
+      (unless (= i (first labels)) (+= y spacing)) # don't skip first line
+      (set x padding))
     (when canvas
       (def color (get color-map i (color-hash i color-seed)))
       (g/fill-rect canvas x y (+ x swatch-size) (+ y swatch-size) color)
       (g/draw-simple-text canvas (+ x swatch-size padding) (+ small-spacing y) label text-color font))
-    (def item-width (+ padding padding padding text-width swatch-size))
-    (set max-width (max max-width item-width))
-    (if horizontal
-      (+= x (+ item-width padding))
-      (+= y spacing)))
+    (+= x (+ item-width padding))
+    (set max-x (max max-x x)))
   (+= y (+ 1 padding))
-  (+= x padding)
   (when (and canvas frame)
     (def {:width width :height height} (g/unpack canvas))
     (draw-frame canvas 1 1 (- width 2) (- height 2) line-color 2)) # 2 pixel solid frame
-  (if horizontal
-    [x (+ label-height y)]
-    [(+ padding max-width) (+ y label-height (- spacing))]))
+  [max-x (+ label-height y)])
 
 (defn draw-axes
   ```
@@ -285,6 +286,7 @@
   * :x-ticks - Allow setting specific tick marks to be used marking the x axis rather than making a guess.
   * :x-minor-ticks - How many minor tick marks, if any, to place between major tick marks on the x axis
   * :y-minor-ticks - How many minor tick marks, if any, to place between major tick marks on the y axis
+  * :x-labels-vertical - Turn x labels vertical so more can fit on the axis
 
   Returns a tuple [view:gfx2d/Image to-pixel-space:fn to-metric-space:fn]
 
@@ -297,7 +299,7 @@
    grid format-x format-y
    x-label y-label
    x-suffix x-prefix y-suffix y-prefix
-   x-ticks x-minor-ticks y-minor-ticks]
+   x-ticks x-minor-ticks y-minor-ticks x-labels-vertical]
 
   (default padding (dyn *padding* default-padding))
   (default font (dyn *font* default-font))
@@ -323,9 +325,21 @@
   (def stipple-cycle (if (= grid :stipple) 8 0))
   (def stipple-on 4)
 
+  # Initial guess for x label width
+  (def [_xticks _xformat _max-width x-labels-height]
+    (if x-ticks
+      (do
+        (def fmt (if format-x format-x string))
+        (var maxh 0)
+        (each xt x-ticks
+          (def [w h] (g/measure-simple-text (fmt xt) font))
+          (set maxh (max maxh (if x-labels-vertical w h))))
+        [nil nil nil maxh])
+      (guess-axis-ticks x-min x-max width 20 x-labels-vertical font x-prefix x-suffix format-x)))
+
   # Calculate top and bottom padding
   (def outer-top-padding padding)
-  (def outer-bottom-padding (+ padding font-height (if x-label (+ padding font-height) 0)))
+  (def outer-bottom-padding (+ padding font-height (if x-label (+ padding x-labels-height) 0)))
   (def top-padding outer-top-padding)
   (def bottom-padding (+ outer-bottom-padding tick-height))
 
@@ -375,13 +389,15 @@
   # Draw X axis - allow manual override for x tick marks
   (def [xticks xformat]
     (if x-ticks [x-ticks (if format-x format-x string)]
-      (guess-axis-ticks x-min x-max (- width left-padding right-padding) 20 false font x-prefix x-suffix format-x)))
+      (guess-axis-ticks x-min x-max (- width left-padding right-padding) 20 x-labels-vertical font x-prefix x-suffix format-x)))
   (each metric-x xticks
     (def [pixel-x _] (convert metric-x 0))
     (def rounded-pixel-x (math/round pixel-x))
     (def text (xformat metric-x))
-    (def [text-width] (g/measure-simple-text text font))
-    (g/draw-simple-text canvas (- rounded-pixel-x -1 (* text-width 0.5)) (- height outer-bottom-padding -3) text line-color font)
+    (def [text-width text-height] (g/measure-simple-text text font))
+    (if x-labels-vertical
+      (g/draw-simple-text canvas (- rounded-pixel-x -1 (* text-height 0.5)) (- height outer-bottom-padding -3 (- text-width)) text line-color font 1 1 1)
+      (g/draw-simple-text canvas (- rounded-pixel-x -1 (* text-width 0.5)) (- height outer-bottom-padding -3) text line-color font))
     (if has-grid
       (g/plot canvas rounded-pixel-x top-padding rounded-pixel-x (- height bottom-padding) grid-color stipple-cycle stipple-on)
       (g/plot canvas rounded-pixel-x (- height outer-bottom-padding) rounded-pixel-x (- height outer-bottom-padding tick-height) grid-color)))
@@ -469,6 +485,7 @@
   * :y-prefix - add a string prefix to each tick label on the y-axis
   * :x-minor-ticks - how many, if any, small ticks to add between each large tick mark on the x axis
   * :y-minor-ticks - how many, if any, small ticks to add between each large tick mark on the y axis
+  * :x-labels-vertical - Turn x labels vertical so more can fit on the axis
 
   Chart Styling
   * :padding - the number of pixels of white space around various elements of the chart
@@ -504,7 +521,8 @@
    x-label y-label
    x-suffix x-prefix y-suffix y-prefix
    x-column y-columns
-   x-ticks x-minor-ticks y-minor-ticks]
+   x-ticks x-minor-ticks y-minor-ticks
+   x-labels-vertical]
 
   # Check parameters and set defaults.
   (assert x-column)
@@ -535,12 +553,13 @@
   # Add legend if legend = :top. This makes a horizontal legend just below the title with no extra framing
   (when (or (= legend true) (= legend :top))
     (+= title-padding (div padding 2))
-    (def [lw lh] (draw-legend nil :font font :padding 4 :horizontal true :labels y-columns :legend-map legend-map))
+    (def view-width (- width padding padding))
+    (def [lw lh] (draw-legend nil :font font :padding 4 :labels y-columns :legend-map legend-map :view-width view-width))
     (def legend-view (g/viewport canvas (math/floor (* (- width lw) 0.5)) title-padding lw lh true))
     (+= title-padding lh)
     (-= title-padding (math/floor (* 0.5 padding))) # just looks a bit better
-    (draw-legend legend-view :font font :padding 4 :horizontal true :labels y-columns :color-map
-                 color-map :color-seed color-seed :legend-map legend-map :text-color text-color))
+    (draw-legend legend-view :font font :padding 4 :labels y-columns :color-map color-map
+                 :color-seed color-seed :legend-map legend-map :text-color text-color :view-width view-width))
 
   # Crop title section out of place where axis and charting will draw
   (def view (g/viewport canvas 0 title-padding width (- height title-padding)))
@@ -563,7 +582,8 @@
                :x-ticks x-ticks
                :x-label x-label :y-label y-label
                :x-minor-ticks x-minor-ticks
-               :y-minor-ticks y-minor-ticks))
+               :y-minor-ticks y-minor-ticks
+               :x-labels-vertical x-labels-vertical))
 
   # Draw graph
   (def xs (get data x-column))
@@ -610,7 +630,7 @@
 
   # TODO - draw legend in inner corners
   (when (index-of legend [:top-left :top-right :bottom-left :bottom-right])
-    (def [lw lh] (draw-legend nil :font font :padding 4 :labels y-columns :legend-map legend-map :frame true))
+    (def [lw lh] (draw-legend nil :font font :padding 4 :labels y-columns :legend-map legend-map :frame false))
     (def {:width gw :height gh} (g/unpack graph-view))
     (def legend-view
       (case legend
@@ -619,10 +639,86 @@
         :bottom-left (g/viewport graph-view padding (- gh lh padding) lw lh true)
         :bottom-right (g/viewport graph-view (- gw lw padding) (- gh lh padding) lw lh true)))
     (g/fill-rect legend-view 0 0 lw lh background-color)
-    (draw-legend legend-view :font font :padding 4 :labels y-columns
+    (draw-legend legend-view :font font :padding 4 :labels y-columns :view-width 0
                  :color-map color-map :color-seed color-seed :legend-map legend-map :frame true))
 
   (when save-as
     (g/save save-as canvas))
 
   canvas)
+
+###
+### Data Frame Utilities
+###
+
+(defn- visit [c seen ordered]
+  (if (get seen c) nil (array/push ordered c))
+  (put seen c true))
+
+(defn pivot
+  ```
+  Convert a data frame by "pivoting" it.
+  Maps each row of a data frame with the data:
+
+  [row-col:X col-col:Y value-col:Z]
+
+  to a new data frame where:
+
+  [row-col:X Y1:Z1 Y2:Z2 Y3:Z3 ...]
+
+  where there are columns `row-col`, and Y1...YN for all distinct Y values seen in the table (in visitation order).
+
+  Reducer is an optional function to combine the value of Z when there are
+  rows that share both X and Y. For each Znew found, use Z = (reducer Zold Znew)
+  ```
+  [data-frame row-col col-col value-col &opt reducer reduce-init]
+  (default reducer (fn [old new] new))
+  (def colmap @{})
+  (def rowkeys (get data-frame row-col))
+  (def colcols (get data-frame col-col))
+  (def vals (get data-frame value-col))
+  (assert rowkeys "bad row-col argument")
+  (assert colcols "bad col-col argument")
+  (assert vals "bad value-col argument")
+  (def found-cols @{})
+  (def columns @[])
+  (def found-rows @{})
+  (def ordered-rows @[])
+  (for i 0 (length colcols)
+    (def name (get colcols i))
+    (when name
+      (visit name found-cols columns)
+      (def score (get vals i))
+      (def mapping (get colmap name @{}))
+      (def rowkeyi (get rowkeys i))
+      (visit rowkeyi found-rows ordered-rows)
+      (def new-score (reducer (get mapping rowkeyi reduce-init) score))
+      (put mapping rowkeyi new-score)
+      (put colmap name mapping)))
+  (def new-data-frame @{row-col ordered-rows})
+  (each col columns
+    (def vals (get colmap col @{}))
+    (def data-column (map vals ordered-rows))
+    (put new-data-frame col data-column))
+  new-data-frame)
+
+(defn column-combine
+  ```
+  Combine multiple columns together. Calls `(combine-row input-values)` for each row
+  where input-values is an array of the values from each of the input-columns.
+  ```
+  [data-frame out-column input-columns combine-row &opt drop-input-columns]
+  (def arglen (length input-columns))
+  (def datalen (length (get data-frame (get input-columns 0) [])))
+  (def new-column-data (array/new datalen))
+  (for i 0 datalen
+    (def args (array/new arglen))
+    (each c input-columns
+      (def cdata (in data-frame c))
+      (array/push args (in cdata i)))
+    (array/push new-column-data (combine-row args)))
+  (put data-frame out-column new-column-data)
+  (when drop-input-columns
+    (each c input-columns
+      (put data-frame c nil)))
+  data-frame)

@@ -289,6 +289,7 @@
 (typedef Image
   (named-struct Image
     parent (* (named-struct Image))
+    owns-memory int
     width int
     height int
     channels int
@@ -299,7 +300,7 @@
   [p:*void s:size_t] -> int
   (unused s)
   (def image:*Image p)
-  (unless image->parent
+  (when image->owns-memory
     (janet-free image->data))
   (return 0))
 
@@ -307,7 +308,8 @@
   [p:*void s:size_t] -> int
   (unused s)
   (def image:*Image p)
-  (when image->parent (janet-mark (janet-wrap-abstract image->parent)))
+  (when image->parent
+    (janet-mark (janet-wrap-abstract image->parent)))
   (return 0))
 
 (abstract-type Image
@@ -319,8 +321,9 @@
 
   (function create-image :static
     "Make an abstract image object"
-    [parent:*Image width:int height:int channel:int stride:int data:*uint8_t] -> *Image
+    [parent:*Image owns-memory:int width:int height:int channel:int stride:int data:*uint8_t] -> *Image
     (def image:*Image (janet-abstract-threaded Image-ATP (sizeof Image)))
+    (set image->owns-memory owns-memory)
     (set image->parent parent)
     (set image->width width)
     (set image->height height)
@@ -328,6 +331,20 @@
     (set image->stride stride)
     (set image->data data)
     (return image))
+
+  (cfunction image-from-pointer
+    ```
+    Create a new image from a pointer to foreign memory.
+    It is up to the user to correctly size, allocate, and free the backing memory.
+    ```
+    [memory:*void width:int height:int &opt channel:int=4 stride:int=0] -> *Image
+    (if (> 1 width) (janet-panic "width must be positive"))
+    (if (> 1 height) (janet-panic "height must be positive"))
+    (if (> 1 channel) (janet-panic "channel must be between 1 and 4 inclusive"))
+    (if (< 4 channel) (janet-panic "channel must be between 1 and 4 inclusive"))
+    (if (= 0 stride)
+      (set stride (* width channel)))
+    (return (create-image NULL 0 width height channel stride memory)))
 
   (cfunction blank
     "Create a new blank image"
@@ -338,7 +355,7 @@
     (if (< 4 channel) (janet-panic "channel must be between 1 and 4 inclusive"))
     (def data:*uint8_t (janet-malloc (* width height channel)))
     (memset data 0 (* width height channel))
-    (return (create-image NULL width height channel (* width channel) data)))
+    (return (create-image NULL 1 width height channel (* width channel) data)))
 
   (cfunction viewport
     "Create a new image that shares backing memory with another image. This allow parallel drawing in different threads."
@@ -356,7 +373,7 @@
         (if (> (+ x width) img->width) (janet-panic "viewport out of range"))
         (if (> (+ y height) img->height) (janet-panic "viewport out of range"))))
     (def data-window:*uint8_t (+ img->data (* y img->stride) (* x channel)))
-    (return (create-image img width height channel img->stride data-window)))
+    (return (create-image img 0 width height channel img->stride data-window)))
 
   (cfunction load
     "Load an image from disk into a buffer"
@@ -366,7 +383,7 @@
     (def c:int 0)
     (def (img 'uint8_t) (stbi-load path &width &height &c 0))
     (unless img (janet-panic "failed to load image"))
-    (return (create-image NULL width height c (* width c) img)))
+    (return (create-image NULL 1 width height c (* width c) img)))
 
   # Generate image-writing for each image type
   # TODO - hdr
@@ -970,7 +987,7 @@
 (comp-unless (dyn :shader-compile)
   (cfunction measure-simple-text
     "Return the height and width of text as a tuple. Font should be one of :default, :tall, or :olive."
-    [text:cstring &opt (font-name keyword (janet-ckeyword "default")) xscale:int=1 yscale:int=1] -> JanetTuple
+    [text:cstring &opt (font-name keyword (janet-ckeyword "default")) xscale:int=1 yscale:int=1 orientation:int=0] -> JanetTuple
     (var w:int 0)
     (var xcursor:int 0)
     (def (font (const *BitmapFont)) (select-font font-name))
@@ -985,9 +1002,11 @@
           (+= h font->gh))
         (+= xcursor font->gw)))
     (set w (max2z xcursor w))
+    (def xindex:int (? (band orientation 1) 1 0))
+    (def yindex:int (? (band orientation 1) 0 1))
     (def (ret 'Janet) (janet-tuple-begin 2))
-    (set (aref ret 0) (janet-wrap-integer (* xscale w)))
-    (set (aref ret 1) (janet-wrap-integer (* yscale h)))
+    (set (aref ret xindex) (janet-wrap-integer (* xscale w)))
+    (set (aref ret yindex) (janet-wrap-integer (* yscale h)))
     (return (janet-tuple-end ret))))
 
 ###
@@ -1079,7 +1098,7 @@
   (cfunction plot
     "Draw a 1 pixel line from (x1, y1) to (x2, y2)"
     [img:*Image x1:double y1:double x2:double y2:double color:uint32_t &opt stipple-cycle:int=0 stipple-on:int=0] -> *Image
-    (plot-stipple img 
+    (plot-stipple img
                   (cast int (+ 0.5 x1))
                   (cast int (+ 0.5 y1))
                   (cast int (+ 0.5 x2))
@@ -1386,8 +1405,8 @@
     (def (ps (array V2)) @[p1 p2 p3 p4 p1])
     (fill-path-impl img ps 5 ,;shader-params))
   (each-i 0 npoints
-   (def P:V2 (aref vs i))
-   (circle img P.x P.y thickness ,;shader-params))
+    (def P:V2 (aref vs i))
+    (circle img P.x P.y thickness ,;shader-params))
   (janet-sfree vs:*V2) # self-test for mangling of type-grafted symbols
   (return img))
 
