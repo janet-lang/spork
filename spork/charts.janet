@@ -53,19 +53,13 @@
   "Floor mod n"
   [n x]
   (def x (if (= 0 x) (math/abs x) x)) # no negative 0, messes up rendering!
-  (/ (math/floor (* n x)) n))
+  (* (math/floor (/ x n)) n))
 
 (defn- ceiln
   "Ceil mod n"
   [n x]
   (def x (if (= 0 x) (math/abs x) x)) # no negative 0, messes up rendering!
-  (/ (math/ceil (* n x)) n))
-
-(defn- roundn
-  "Round mod n"
-  [n x]
-  (def x (if (= 0 x) (math/abs x) x)) # no negative 0, messes up rendering!
-  (/ (math/round (* n x)) n))
+  (* (math/ceil (/ x n)) n))
 
 # TODO - bias light or dark depending on background
 (defn- color-hash
@@ -107,16 +101,16 @@
   (def fudge-factor 1)
 
   # If minimums are a little over a nice number, set them to the nice number
-  (def fudge-min-x (floorn (/ x-delta) min-x))
-  (def fudge-min-y (floorn (/ y-delta) min-y))
+  (def fudge-min-x (floorn x-delta min-x))
+  (def fudge-min-y (floorn y-delta min-y))
   (if (< (- min-x fudge-min-x) (* fudge-factor x-delta))
     (set min-x fudge-min-x))
   (if (< (- min-y fudge-min-y) (* fudge-factor y-delta))
     (set min-y fudge-min-y))
 
   # If the maximums are a little under a nice number, set them to the nice number
-  (def fudge-max-x (ceiln (/ x-delta) max-x))
-  (def fudge-max-y (ceiln (/ y-delta) max-y))
+  (def fudge-max-x (ceiln x-delta max-x))
+  (def fudge-max-y (ceiln y-delta max-y))
   (if (< (- fudge-max-x max-x) (* fudge-factor x-delta))
     (set max-x fudge-max-x))
   (if (< (- fudge-max-y max-y) (* fudge-factor y-delta))
@@ -148,7 +142,7 @@
   (def epsilon (* delta 0.001))
 
   # Get tick metrics
-  (set metric (floorn (/ delta) metric))
+  (set metric (floorn delta metric))
   (while (< metric (- minimum epsilon))
     (+= metric delta))
   (while (<= metric (+ epsilon maximum))
