@@ -355,7 +355,7 @@
   (def lock (-> lock-src slurp parse))
   (each d lock
     (def {:pm pm :name name} d)
-    (pm-install pm true true)
+    (pm-install pm :force-update true :no-deps true)
     (assert (bundle/installed? name))))
 
 (set bundle-install-recursive pm-install)
