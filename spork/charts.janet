@@ -472,7 +472,7 @@
   * :x-column - the name of the data frame column to use for the x axis
   * :y-column - a single column name or list of column names to use for the y coordinates and connected lines
   * :color-map - a dictionary mapping columns to colors. By default will hash column name to pseudo-random colors
-  * :line-type - how to actually draw lines. Can be one of :stroke, :plot, :none, or :stipple. Default is :plot.
+  * :line-type - how to actually draw lines. Can be one of :stroke, :plot, :none, :bar, or :stipple. Default is :plot.
   * :circle-points - add circles around each point
   * :point-radius - how large to make the circles around each point in pixels
   ```
@@ -511,9 +511,9 @@
           (def [x1 y1] (to-pixel-space x y))
           (array/push pts (math/round x1) (math/round y1)))))
 
-    # TODO - more configurable stroke style
     (def line-style2 (if (dictionary? line-style) (get line-style y-column :plot) line-style))
     (case line-style2
+
       :stipple
       (do
         (def up-pts (array/slice pts))
@@ -521,6 +521,7 @@
           (+= (up-pts i) 1))
         (g/plot-path canvas up-pts graph-color 8 5)
         (g/plot-path canvas pts graph-color 8 5))
+
       :plot
       (do
         (def up-pts (array/slice pts))
@@ -528,23 +529,33 @@
           (+= (up-pts i) 1))
         (g/plot-path canvas pts graph-color)
         (g/plot-path canvas up-pts graph-color))
+
       :stroke
       (do
         (g/stroke-path canvas pts graph-color 1))
+
       :bar
       (do
         (def {:width canvas-width} (g/unpack canvas))
         (def bar-padding 4)
-        (def [_base-x base-y] (to-pixel-space 0 0))
+        (def [base-x base-y] (to-pixel-space 0 0))
+        (var last-right nil)
         (loop [i :range [0 (length pts) 2]]
+          (def is-first (= 0 i))
+          (def is-last (= i (- (length pts) 2)))
           (def x (get pts i))
           (def y (get pts (+ 1 i)))
-          (def x-next (if (= i (- (length pts) 2)) canvas-width (get pts (+ i 2))))
-          (def x-prev (if (zero? i) 0 (get pts (- i 2))))
-          (def x-left (math/round (mean [x x-prev])))
-          (def x-right (math/round (mean [x x-next])))
-          (def width (- x-right x-left))
-          (g/fill-rect canvas (- x (div width 2)) base-y width (- y base-y) graph-color))))
+          (def x-next (if-not is-last (get pts (+ i 2))))
+          (def x-prev (if-not is-first (get pts (- i 2))))
+          # First and last bars extrapolate bar width
+          (def x-next1 (if is-last (+ x x (- x-prev)) x-next))
+          (def x-prev1 (if is-first (+ x x (- x-next)) x-prev))
+          # Prefer to use `last-right` to keep pixel padding consistent. Otherwise, the bars look a little off due to rounding errors.
+          (def x-left (if last-right (+ last-right bar-padding) (math/ceil (mean [x x-prev1]))))
+          (def x-right (math/floor (mean [x x-next1])))
+          (def width (- x-right x-left bar-padding))
+          (set last-right (+ x-left width))
+          (g/fill-rect canvas x-left base-y width (- y base-y) graph-color))))
 
     (when circle-points
       (default point-radius 3)

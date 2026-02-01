@@ -1376,15 +1376,19 @@
 (cfunction fill-rect
   "Fill a rectangle"
   [img:*Image x:double y:double width:double height:double ,;shader-args] -> *Image
-  (def x2:double (+ x width))
-  (def y2:double (+ y height))
-  (def (vs (array V2))
-    (array
-      (v/make x y)
-      (v/make x y2)
-      (v/make x2 y2)
-      (v/make x2 y)))
-  (fill-path-impl img vs 4 ,;shader-params)
+  (var x1:int (cast int (floor x)))
+  (var y1:int (cast int (floor y)))
+  (var x2:int (cast int (floor (+ x width))))
+  (var y2:int (cast int (floor (+ y height))))
+  (clip 0 (- img->width 1) 0 (- img->height 1) &x1 &y1)
+  (clip 0 (- img->width 1) 0 (- img->height 1) &x2 &y2)
+  (if (< x2 x1) (swap x1 x2 int))
+  (if (< y2 y1) (swap y1 y2 int))
+  (polymorph img->channels [1 2 3 4]
+    (for [(var yy:int y1) (<= yy y2) (++ yy)]
+      (for [(var xx:int x1) (<= xx x2) (++ xx)]
+        (def c1:uint32_t (shader xx yy ,;shader-params))
+        (image-set-pixel img xx yy c1))))
   (return img))
 
 (cfunction stroke-path

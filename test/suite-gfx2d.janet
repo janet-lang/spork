@@ -1,6 +1,9 @@
 (use ../spork/test)
 (import ../spork/path)
+
 (use spork/gfx2d)
+
+# Test charting as well
 (import spork/charts :as charts)
 
 (start-suite)
@@ -322,5 +325,49 @@
   (check-image img "complex_chart.png"))
 
 (test-temperature-chart)
+
+(defn test-bar-chart
+  []
+  (with-dyns []
+    (charts/dark-mode)
+
+    # Get axes
+    (def canvas (blank 1920 1080))
+    (fill-rect canvas 0 0 2000 2000 black)
+    (def [view convert]
+      (charts/draw-axes
+        canvas
+        :padding 4
+        :format-y |(string/format "$%.2f" $)
+        :x-label "Units"
+        :y-label "Dollars"
+        :y-min 0
+        :x-ticks (range 0 11)
+        :x-labels-vertical true
+        :x-min -0.5
+        :x-max 10.5
+        :y-max 100))
+
+    # Bar chart
+    (charts/plot-line-graph
+      :canvas view
+      :to-pixel-space convert
+      :x-column :x
+      :y-column :y
+      :data {:x (range 0 11) :y (seq [x :range [0 11]] (+ 50 (* 40 (math/sin (* 1 x)))))}
+      :line-style :bar)
+
+    # Lets add a legend in the top right corner
+    (def legend-args [:labels ["Thing 1" "Thing 2"] :frame true :padding 4])
+    (def [lw lh] (charts/draw-legend nil ;legend-args))
+    (def {:width vw :height vh} (unpack view))
+    (def legend-view (viewport view (- vw lw 10) 10 lw lh true))
+    (charts/draw-legend legend-view ;legend-args)
+
+    # Check final image
+    # (check-image canvas "big-bar-chart.png")
+    (check-image (resize canvas 192 108) "bar-chart.png")))
+
+(test-bar-chart)
 
 (end-suite)
