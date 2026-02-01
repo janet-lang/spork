@@ -473,7 +473,7 @@
   (default msvc-libs @[])
   (default deps @[])
   (def toolchain (get-toolchain))
-  
+
   # Headers is an alias for deps functionaly, but legacy from jpm. Also signifies intent.
   (def deps [;deps ;(or headers [])])
 

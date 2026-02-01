@@ -47,6 +47,8 @@
 (def- default-grid-color (g/rgb 0.8 0.8 0.8))
 (def- default-padding 16)
 
+(def- font-scale 1)
+
 (defn- floorn
   "Floor mod n"
   [n x]
@@ -164,15 +166,16 @@
   # Check maximum size of tick text
   (var max-text-width 0)
   (var max-text-height 0)
+  (def padding10 (* font-scale 10))
   (each metric result
-    (def [x y] (g/measure-simple-text (formatter metric) font))
+    (def [x y] (g/measure-simple-text (formatter metric) font font-scale font-scale))
     (set max-text-width (max max-text-width x))
     (set max-text-height (max max-text-height y)))
-  (def min-spacing (+ 10 (if vertical max-text-height max-text-width)))
+  (def min-spacing (+ padding10 (if vertical max-text-height max-text-width)))
 
   # Retry if ticks are too close together
   (unless no-retry
-    (if (> (+ 10 min-spacing) delta)
+    (if (> (+ padding10 min-spacing) delta)
       (break (guess-axis-ticks minimum maximum pixel-span min-spacing vertical font prefix suffix force-formatter true))))
 
   # TODO - use text boundaries to set padding
@@ -240,7 +243,7 @@
   (when canvas
     (def {:width width :height height} (g/unpack canvas))
     (when frame (g/fill-rect canvas 0 0 width height background-color)))
-  (def label-height (let [[_ h] (g/measure-simple-text "Mg" font)] h))
+  (def label-height (let [[_ h] (g/measure-simple-text "Mg" font font-scale font-scale)] h))
   (def swatch-size label-height)
   (def spacing (+ label-height padding 1))
   (def small-spacing (math/round (* 0.125 label-height)))
@@ -250,7 +253,7 @@
   (var max-x 0)
   (each i labels
     (def label (string (get legend-map i i)))
-    (def [text-width _] (g/measure-simple-text label font))
+    (def [text-width _] (g/measure-simple-text label font font-scale font-scale))
     (def item-width (+ padding padding padding text-width swatch-size))
     (when (> (+ x item-width) view-width)
       (unless (= i (first labels)) (+= y spacing)) # don't skip first line
@@ -258,7 +261,7 @@
     (when canvas
       (def color (get color-map i (color-hash i)))
       (g/fill-rect canvas x y swatch-size swatch-size color)
-      (g/draw-simple-text canvas (+ x swatch-size padding) (+ small-spacing y) label text-color font))
+      (g/draw-simple-text canvas (+ x swatch-size padding) (+ small-spacing y) label text-color font font-scale font-scale))
     (+= x (+ item-width padding))
     (set max-x (max max-x x)))
   (+= y (+ 1 padding))
@@ -320,7 +323,7 @@
   (def dy (- y-max y-min))
   (assert (pos? dx))
   (assert (pos? dy))
-  (def font-height (let [[_ h] (g/measure-simple-text "Mg" font)] h))
+  (def font-height (let [[_ h] (g/measure-simple-text "Mg" font font-scale font-scale)] h))
   (def font-half-height (div font-height 2))
   (def tick-height 8)
   (def has-grid (not= grid :none))
@@ -334,26 +337,26 @@
         (def fmt (if format-x format-x string))
         (var maxh 0)
         (each xt x-ticks
-          (def [w h] (g/measure-simple-text (fmt xt) font))
+          (def [w h] (g/measure-simple-text (fmt xt) font font-scale font-scale))
           (set maxh (max maxh (if x-labels-vertical w h))))
         [nil nil nil maxh])
-      (guess-axis-ticks x-min x-max width 20 x-labels-vertical font x-prefix x-suffix format-x)))
+      (guess-axis-ticks x-min x-max width (* font-scale 20) x-labels-vertical font x-prefix x-suffix format-x)))
 
   # Calculate top and bottom padding
-  (def outer-top-padding padding)
+  (def outer-top-padding (max padding font-half-height))
   (def outer-bottom-padding (+ padding font-height (if x-label (+ padding x-labels-height) 0)))
   (def top-padding outer-top-padding)
   (def bottom-padding (+ outer-bottom-padding tick-height))
 
   # Draw X Label
   (when x-label
-    (def [w _h] (g/measure-simple-text x-label))
+    (def [w _h] (g/measure-simple-text x-label font font-scale font-scale))
     (def yy (- height padding font-height))
-    (g/draw-simple-text canvas (div (- width w) 2) yy x-label line-color font))
+    (g/draw-simple-text canvas (div (- width w) 2) yy x-label line-color font font-scale font-scale))
 
   # Guess y axis ticks - used to calculate left and right padding
   (def [yticks yformat y-axis-tick-label-width]
-    (guess-axis-ticks y-min y-max (- height top-padding bottom-padding) 20 true font y-prefix y-suffix format-y))
+    (guess-axis-ticks y-min y-max (- height top-padding bottom-padding) (* font-scale 20) true font y-prefix y-suffix format-y))
 
   # Calculate left and right padding once y-axis is guessed
   (def outer-left-padding (+ padding y-axis-tick-label-width (if y-label (+ padding font-height) 0)))
@@ -364,8 +367,8 @@
 
   # Draw Y Label
   (when y-label
-    (def [w _h] (g/measure-simple-text y-label))
-    (g/draw-simple-text canvas padding (div (+ height w top-padding (- bottom-padding)) 2) y-label line-color font 1 1 1))
+    (def [w _h] (g/measure-simple-text y-label font font-scale font-scale))
+    (g/draw-simple-text canvas padding (div (+ height w top-padding (- bottom-padding)) 2) y-label line-color font font-scale font-scale 1))
 
   # Closure to convert metric space to pixel space - only can be done after full padding calculations
   (def scale-x (/ (- width left-padding right-padding tick-height tick-height) dx))
@@ -382,8 +385,8 @@
     (def [_ pixel-y] (convert 0 metric-y))
     (def rounded-pixel-y (math/round pixel-y))
     (def text (yformat metric-y))
-    (def [text-width] (g/measure-simple-text text font))
-    (g/draw-simple-text canvas (- outer-left-padding text-width 3) (- rounded-pixel-y font-half-height) text line-color font)
+    (def [text-width] (g/measure-simple-text text font font-scale font-scale))
+    (g/draw-simple-text canvas (- outer-left-padding text-width 3) (- rounded-pixel-y font-half-height) text line-color font font-scale font-scale)
     (if has-grid
       (g/plot canvas left-padding rounded-pixel-y (- width right-padding) rounded-pixel-y grid-color stipple-cycle stipple-on)
       (g/plot canvas outer-left-padding rounded-pixel-y (+ outer-left-padding tick-height) rounded-pixel-y grid-color)))
@@ -396,10 +399,10 @@
     (def [pixel-x _] (convert metric-x 0))
     (def rounded-pixel-x (math/round pixel-x))
     (def text (xformat metric-x))
-    (def [text-width text-height] (g/measure-simple-text text font))
+    (def [text-width text-height] (g/measure-simple-text text font font-scale font-scale))
     (if x-labels-vertical
-      (g/draw-simple-text canvas (- rounded-pixel-x -1 (* text-height 0.5)) (- height outer-bottom-padding -3 (- text-width)) text line-color font 1 1 1)
-      (g/draw-simple-text canvas (- rounded-pixel-x -1 (* text-width 0.5)) (- height outer-bottom-padding -3) text line-color font))
+      (g/draw-simple-text canvas (- rounded-pixel-x -1 (* text-height 0.5)) (- height outer-bottom-padding -3 (- text-width)) text line-color font font-scale font-scale 1)
+      (g/draw-simple-text canvas (- rounded-pixel-x -1 (* text-width 0.5)) (- height outer-bottom-padding -3) text line-color font font-scale font-scale))
     (if has-grid
       (g/plot canvas rounded-pixel-x top-padding rounded-pixel-x (- height bottom-padding) grid-color stipple-cycle stipple-on)
       (g/plot canvas rounded-pixel-x (- height outer-bottom-padding) rounded-pixel-x (- height outer-bottom-padding tick-height) grid-color)))
@@ -475,6 +478,7 @@
   * :line-type - how to actually draw lines. Can be one of :stroke, :plot, :none, :bar, or :stipple. Default is :plot.
   * :circle-points - add circles around each point
   * :point-radius - how large to make the circles around each point in pixels
+  * :x-colors - for bar and scatter plots, optionally set per-point/per-bar colors with an function (f x y index) called on each point.
   ```
   [&named
    canvas
@@ -485,6 +489,7 @@
    y-column
    circle-points
    point-radius
+   x-colors
    color-map]
 
   (default to-pixel-space (fn :convert [x y] [x y]))
@@ -499,6 +504,7 @@
   (assert (indexed? xs))
   (each y-column y-columns
     (def graph-color (get color-map y-column (color-hash y-column)))
+    (default x-colors (fn :default-x-colors [&] graph-color))
     (def ys (get data y-column))
 
     # Collect points - handle missing ys
@@ -541,10 +547,12 @@
         (def [base-x base-y] (to-pixel-space 0 0))
         (var last-right nil)
         (loop [i :range [0 (length pts) 2]]
+          (def j (div i 2))
           (def is-first (= 0 i))
           (def is-last (= i (- (length pts) 2)))
           (def x (get pts i))
           (def y (get pts (+ 1 i)))
+          (def color (x-colors (get xs j) (get ys j) j))
           (def x-next (if-not is-last (get pts (+ i 2))))
           (def x-prev (if-not is-first (get pts (- i 2))))
           # First and last bars extrapolate bar width
@@ -555,14 +563,16 @@
           (def x-right (math/floor (mean [x x-next1])))
           (def width (- x-right x-left bar-padding))
           (set last-right (+ x-left width))
-          (g/fill-rect canvas x-left base-y width (- y base-y) graph-color))))
+          (g/fill-rect canvas x-left base-y width (- y base-y) color))))
 
     (when circle-points
       (default point-radius 3)
       (loop [i :range [0 (length pts) 2]]
         (def x (get pts i))
         (def y (get pts (+ 1 i)))
-        (g/plot-ring canvas x y point-radius graph-color))))
+        (def j (div i 2))
+        (def color (x-colors (get xs j) (get ys j) j))
+        (g/plot-ring canvas x y point-radius color))))
 
   canvas)
 
@@ -650,9 +660,10 @@
   # Render title section, and update view to cut out title
   (var title-padding 0)
   (when title
-    (def [title-width title-height] (g/measure-simple-text title font 2 2))
+    (def title-scale (* 2 font-scale))
+    (def [title-width title-height] (g/measure-simple-text title font title-scale title-scale))
     (set title-padding (+ padding title-height))
-    (g/draw-simple-text canvas (math/round (* 0.5 (- width title-width))) padding title text-color font 2 2))
+    (g/draw-simple-text canvas (math/round (* 0.5 (- width title-width))) padding title text-color font title-scale title-scale))
 
   # Add legend if legend = :top. This makes a horizontal legend just below the title with no extra framing
   (when (or (= legend true) (= legend :top))
@@ -691,7 +702,7 @@
 
   # Render graph lines
   (plot-line-graph
-    :canvas  graph-view
+    :canvas graph-view
     :to-pixel-space to-pixel-space
     :data data
     :x-column x-column
