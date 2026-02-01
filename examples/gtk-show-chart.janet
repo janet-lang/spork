@@ -126,6 +126,7 @@
       :data data-frame
       :x-column :time
       :y-columns y-columns
+      :grid :stipple
       :color-map {:temperature_2m 0xFF0000FF
                   :wind_speed_10m 0xFFFF0000
                   :relative_humidity_2m 0xFF96AF00}

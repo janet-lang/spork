@@ -262,10 +262,11 @@
   - list-rules
   - rule-tree
   ```
-  [&named name description url version repo tag dependencies]
+  [&named name description url version repo tag dependencies
+   author license]
   (assert name)
   (default dependencies @[])
-  repo version description url tag dependencies # unused
+  repo version description url tag dependencies author # unused
   (def br (build-root))
   (def bd (build-dir))
   (def rules (get-rules))
@@ -456,7 +457,7 @@
   dynamically by a janet runtime. This also builds a static libary that
   can be used to bundle janet code and native into a single executable."
   [&named name source embedded lflags libs cflags
-   c++flags defines nostatic static-libs deps
+   c++flags defines nostatic static-libs deps headers
    use-rpath use-rdynamic pkg-config-flags dynamic-libs msvc-libs
    ldflags # alias for libs
    pkg-config-libs smart-libs c-std c++-std target-os]
@@ -472,6 +473,9 @@
   (default msvc-libs @[])
   (default deps @[])
   (def toolchain (get-toolchain))
+  
+  # Headers is an alias for deps functionaly, but legacy from jpm. Also signifies intent.
+  (def deps [;deps ;(or headers [])])
 
   (def msvc-libs @[;msvc-libs])
   (if (= :msvc toolchain)

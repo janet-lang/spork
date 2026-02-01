@@ -49,12 +49,6 @@
 (def x-ticks (seq [[i x] :pairs timestamps :when (string/has-suffix? "T00:00" x)] i))
 (defn format-x [x] (slice (first (string/split "T" (get timestamps (math/round x) ""))) 5))
 
-# Make sure chart can handle missing data
-# (put data-frame :precipitation_probability (slice (get data-frame :precipitation_probability) 0 200))
-# TODO - decide if we should interpolate or remove missing data
-#(for i 100 200
-#  (set ((data-frame :precipitation_probability) i) nil))
-
 # So fetch!
 #(charts/dark-mode)
 

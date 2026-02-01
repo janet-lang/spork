@@ -15,7 +15,7 @@
 ###
 
 ### TODO
-### [ ] - horizontal legend should still be able to wrap vertically if too wide.
+### [x] - horizontal legend should still be able to wrap vertically if too wide.
 ### [x] - LABEL YOUR AXES!
 ### [x] - wrap colors, padding, font, etc. into some kind of styling table to pass around consistently
 ### [x] - stippled grid lines
@@ -37,6 +37,7 @@
 (defdyn *background-color* "Default background color for chart rendering")
 (defdyn *grid-color* "Default color for grid lines")
 (defdyn *padding* "Default padding for charts")
+(defdyn *color-seed* "Random seed to use when picking psuedo-random colors for charts")
 
 # Default defaults
 (def- default-font :olive)
@@ -68,6 +69,7 @@
 (defn- color-hash
   "Given a value, generate a pseudo-random color for visualization"
   [x &opt color-seed]
+  (default color-seed (dyn *color-seed*))
   (def rng (math/rng (hash [x color-seed])))
   (g/rgb (+ 0.2 (* 0.6 (math/rng-uniform rng)))
          (+ 0.2 (* 0.6 (math/rng-uniform rng)))
@@ -254,7 +256,7 @@
       (unless (= i (first labels)) (+= y spacing)) # don't skip first line
       (set x padding))
     (when canvas
-      (def color (get color-map i (color-hash i color-seed)))
+      (def color (get color-map i (color-hash i)))
       (g/fill-rect canvas x y swatch-size swatch-size color)
       (g/draw-simple-text canvas (+ x swatch-size padding) (+ small-spacing y) label text-color font))
     (+= x (+ item-width padding))
@@ -470,7 +472,6 @@
   * :x-column - the name of the data frame column to use for the x axis
   * :y-column - a single column name or list of column names to use for the y coordinates and connected lines
   * :color-map - a dictionary mapping columns to colors. By default will hash column name to pseudo-random colors
-  * :color-seed - an optional seed to change the default colors chosen by the color hash
   * :line-type - how to actually draw lines. Can be one of :stroke, :plot, :none, or :stipple. Default is :plot.
   * :circle-points - add circles around each point
   * :point-radius - how large to make the circles around each point in pixels
@@ -482,7 +483,6 @@
    line-style
    x-column
    y-column
-   color-seed
    circle-points
    point-radius
    color-map]
@@ -496,8 +496,9 @@
 
   # Draw graph
   (def xs (get data x-column))
+  (assert (indexed? xs))
   (each y-column y-columns
-    (def graph-color (get color-map y-column (color-hash y-column color-seed)))
+    (def graph-color (get color-map y-column (color-hash y-column)))
     (def ys (get data y-column))
 
     # Collect points - handle missing ys
@@ -529,7 +530,21 @@
         (g/plot-path canvas up-pts graph-color))
       :stroke
       (do
-        (g/stroke-path canvas pts graph-color 1)))
+        (g/stroke-path canvas pts graph-color 1))
+      :bar
+      (do
+        (def {:width canvas-width} (g/unpack canvas))
+        (def bar-padding 4)
+        (def [_base-x base-y] (to-pixel-space 0 0))
+        (loop [i :range [0 (length pts) 2]]
+          (def x (get pts i))
+          (def y (get pts (+ 1 i)))
+          (def x-next (if (= i (- (length pts) 2)) canvas-width (get pts (+ i 2))))
+          (def x-prev (if (zero? i) 0 (get pts (- i 2))))
+          (def x-left (math/round (mean [x x-prev])))
+          (def x-right (math/round (mean [x x-next])))
+          (def width (- x-right x-left))
+          (g/fill-rect canvas (- x (div width 2)) base-y width (- y base-y) graph-color))))
 
     (when circle-points
       (default point-radius 3)
@@ -572,7 +587,6 @@
   * :background-color - color of background, defaults to white
   * :text-color - color of text, defaults to black
   * :color-map - a dictionary mapping columns to colors. By default will hash column name to pseudo-random colors
-  * :color-seed - an optional seed to change the default colors chosen by the color hash
   * :scatter - set to true to disable lines connecting points
   * :legend - set to true to add a legend to the top of the chart
   * :legend-map - a dictionary mapping column names to pretty text for the chart
@@ -594,7 +608,6 @@
    circle-points
    scatter grid legend
    format-x format-y
-   color-seed
    save-as
    legend-map
    line-style
@@ -639,7 +652,7 @@
     (+= title-padding lh)
     (-= title-padding (math/floor (* 0.5 padding))) # just looks a bit better
     (draw-legend legend-view :font font :padding 4 :labels y-columns :color-map color-map
-                 :color-seed color-seed :legend-map legend-map :text-color text-color :view-width view-width))
+                 :legend-map legend-map :text-color text-color :view-width view-width))
 
   # Crop title section out of place where axis and charting will draw
   (def view (g/viewport canvas 0 title-padding width (- height title-padding)))
@@ -673,7 +686,6 @@
     :x-column x-column
     :y-column y-columns
     :color-map color-map
-    :color-seed color-seed
     :line-style line-style
     :circle-points (or circle-points scatter)
     :point-radius point-radius)
@@ -690,86 +702,10 @@
         :bottom-right (g/viewport graph-view (- gw lw padding) (- gh lh padding) lw lh true)))
     (g/fill-rect legend-view 0 0 lw lh background-color)
     (draw-legend legend-view :font font :padding 4 :labels y-columns :view-width 0
-                 :color-map color-map :color-seed color-seed :legend-map legend-map :frame true))
+                 :color-map color-map :legend-map legend-map :frame true))
 
   # Save to file
   (when save-as
     (g/save save-as canvas))
 
   canvas)
-
-###
-### Data Frame Utilities
-###
-
-(defn- visit [c seen ordered]
-  (if (get seen c) nil (array/push ordered c))
-  (put seen c true))
-
-(defn pivot
-  ```
-  Convert a data frame by "pivoting" it.
-  Maps each row of a data frame with the data:
-
-  [row-col:X col-col:Y value-col:Z]
-
-  to a new data frame where:
-
-  [row-col:X Y1:Z1 Y2:Z2 Y3:Z3 ...]
-
-  where there are columns `row-col`, and Y1...YN for all distinct Y values seen in the table (in visitation order).
-
-  Reducer is an optional function to combine the value of Z when there are
-  rows that share both X and Y. For each Znew found, use Z = (reducer Zold Znew)
-  ```
-  [data-frame row-col col-col value-col &opt reducer reduce-init]
-  (default reducer (fn [old new] new))
-  (def colmap @{})
-  (def rowkeys (get data-frame row-col))
-  (def colcols (get data-frame col-col))
-  (def vals (get data-frame value-col))
-  (assert rowkeys "bad row-col argument")
-  (assert colcols "bad col-col argument")
-  (assert vals "bad value-col argument")
-  (def found-cols @{})
-  (def columns @[])
-  (def found-rows @{})
-  (def ordered-rows @[])
-  (for i 0 (length colcols)
-    (def name (get colcols i))
-    (when name
-      (visit name found-cols columns)
-      (def score (get vals i))
-      (def mapping (get colmap name @{}))
-      (def rowkeyi (get rowkeys i))
-      (visit rowkeyi found-rows ordered-rows)
-      (def new-score (reducer (get mapping rowkeyi reduce-init) score))
-      (put mapping rowkeyi new-score)
-      (put colmap name mapping)))
-  (def new-data-frame @{row-col ordered-rows})
-  (each col columns
-    (def vals (get colmap col @{}))
-    (def data-column (map vals ordered-rows))
-    (put new-data-frame col data-column))
-  new-data-frame)
-
-(defn column-combine
-  ```
-  Combine multiple columns together. Calls `(combine-row input-values)` for each row
-  where input-values is an array of the values from each of the input-columns.
-  ```
-  [data-frame out-column input-columns combine-row &opt drop-input-columns]
-  (def arglen (length input-columns))
-  (def datalen (length (get data-frame (get input-columns 0) [])))
-  (def new-column-data (array/new datalen))
-  (for i 0 datalen
-    (def args (array/new arglen))
-    (each c input-columns
-      (def cdata (in data-frame c))
-      (array/push args (in cdata i)))
-    (array/push new-column-data (combine-row args)))
-  (put data-frame out-column new-column-data)
-  (when drop-input-columns
-    (each c input-columns
-      (put data-frame c nil)))
-  data-frame)

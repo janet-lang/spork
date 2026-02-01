@@ -562,3 +562,79 @@
     (string/format
       (comptime (string/repeat "%.2X" id-bytes))
       ;bytes)))
+
+###
+### Data Frame Utilities
+###
+
+(defn- visit [c seen ordered]
+  (if (get seen c) nil (array/push ordered c))
+  (put seen c true))
+
+(defn pivot
+  ```
+  Convert a data frame by "pivoting" it.
+  Maps each row of a data frame with the data:
+
+  [row-col:X col-col:Y value-col:Z]
+
+  to a new data frame where:
+
+  [row-col:X Y1:Z1 Y2:Z2 Y3:Z3 ...]
+
+  where there are columns `row-col`, and Y1...YN for all distinct Y values seen in the table (in visitation order).
+
+  Reducer is an optional function to combine the value of Z when there are
+  rows that share both X and Y. For each Znew found, use Z = (reducer Zold Znew)
+  ```
+  [data-frame row-col col-col value-col &opt reducer reduce-init]
+  (default reducer (fn [old new] new))
+  (def colmap @{})
+  (def rowkeys (get data-frame row-col))
+  (def colcols (get data-frame col-col))
+  (def vals (get data-frame value-col))
+  (assert rowkeys "bad row-col argument")
+  (assert colcols "bad col-col argument")
+  (assert vals "bad value-col argument")
+  (def found-cols @{})
+  (def columns @[])
+  (def found-rows @{})
+  (def ordered-rows @[])
+  (for i 0 (length colcols)
+    (def name (get colcols i))
+    (when name
+      (visit name found-cols columns)
+      (def score (get vals i))
+      (def mapping (get colmap name @{}))
+      (def rowkeyi (get rowkeys i))
+      (visit rowkeyi found-rows ordered-rows)
+      (def new-score (reducer (get mapping rowkeyi reduce-init) score))
+      (put mapping rowkeyi new-score)
+      (put colmap name mapping)))
+  (def new-data-frame @{row-col ordered-rows})
+  (each col columns
+    (def vals (get colmap col @{}))
+    (def data-column (map vals ordered-rows))
+    (put new-data-frame col data-column))
+  new-data-frame)
+
+(defn column-combine
+  ```
+  Combine multiple columns together. Calls `(combine-row input-values)` for each row
+  where input-values is an array of the values from each of the input-columns.
+  ```
+  [data-frame out-column input-columns combine-row &opt drop-input-columns]
+  (def arglen (length input-columns))
+  (def datalen (length (get data-frame (get input-columns 0) [])))
+  (def new-column-data (array/new datalen))
+  (for i 0 datalen
+    (def args (array/new arglen))
+    (each c input-columns
+      (def cdata (in data-frame c))
+      (array/push args (in cdata i)))
+    (array/push new-column-data (combine-row args)))
+  (put data-frame out-column new-column-data)
+  (when drop-input-columns
+    (each c input-columns
+      (put data-frame c nil)))
+  data-frame)
