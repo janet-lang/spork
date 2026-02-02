@@ -5,6 +5,7 @@
 (import spork/charts)
 (import spork/json)
 (import spork/http)
+(import spork/test)
 
 # Parameters of request
 (def output "tmp/weather.png")
@@ -56,25 +57,26 @@
 (charts/line-chart
   :title (string "What is the forecast in " (get location :name) "?")
   :x-label "Hourly Measurements"
-  :color-seed 4
   :width 960
   :height 540
   :data data-frame
   :x-column :time
   :y-columns y-columns
-  :color-map {:temperature_2m 0xFF0000FF
-              :wind_speed_10m 0xFFFF0000
+  :color-map {:temperature_2m 0xFF0000dd
+              :wind_speed_10m 0xFFdd0000
               :relative_humidity_2m 0xFF96AF00}
   :y-label "°F / kmph / %"
   :legend-map {:temperature_2m "Temperature (°F)"
                :wind_speed_10m "Wind Speed (km/h)"
                :relative_humidity_2m "Humidity (%)"
                :precipitation_probability "Precipitation Probability (%)"}
-  :line-style :stipple #{:temperature_2m :stroke}
+  :line-style :stroke #{:temperature_2m :stroke}
   :x-ticks x-ticks
   :format-x format-x
   :font :olive
-  #:grid :solid
+  :super-sample 4
+  :stroke-thickness 1
+  :grid :solid
   :legend :top
   #:font :default
   #:x-minor-ticks 12

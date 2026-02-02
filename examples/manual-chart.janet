@@ -11,7 +11,8 @@
 
 # Get axes
 (def canvas
-  (test/timeit # how long to render the bitmap (not including interpreter startup and saving image)?
+  (test/timeit
+    # how long to render the bitmap (not including interpreter startup and saving image)?
     (do
       (def canvas (gfx2d/blank 1024 1024))
       (gfx2d/fill-rect canvas 0 0 1024 1024 gfx2d/black)

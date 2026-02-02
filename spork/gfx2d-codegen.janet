@@ -9,6 +9,10 @@
 ### Leans on the underlying C compiler for optimization - recommended to be used with `JANET_BUILD_TYPE=native janet-pm install`
 ### to take advantage of the best available vectorization.
 ###
+### This module doesn't presume any color-space, with the exception of when saving images to formats like PNG, which
+### guarantees the sRGB color space. Most operations do not do blending - those that do also specify the color space
+### in the blending modes.
+###
 ### Includes:
 ### * Saving and loading to and from several common image file formats.
 ### * Image blitting
@@ -526,18 +530,18 @@
   (cfunction rgb
     "Make an RGB color constant from components. Each component is a number from 0 to 1."
     [r:double g:double b:double &opt a:double=1.0] -> uint32_t
-    (return (colorjoin (cast int (* 255 r))
-                       (cast int (* 255 g))
-                       (cast int (* 255 b))
-                       (cast int (* 255 a)))))
+    (return (colorjoin (cast int (* 0xFF r))
+                       (cast int (* 0xFF g))
+                       (cast int (* 0xFF b))
+                       (cast int (* 0xFF a)))))
 
   (cfunction rgb-pre-mul
     "Make an RRB color constants from components and premultiply the alpha"
     [r:double g:double b:double &opt a:double=1.0] -> uint32_t
-    (return (colorjoin (cast int (* 255 r a))
-                       (cast int (* 255 g a))
-                       (cast int (* 255 b a))
-                       (cast int (* 255 a))))))
+    (return (colorjoin (cast int (* 0xFF r a))
+                       (cast int (* 0xFF g a))
+                       (cast int (* 0xFF b a))
+                       (cast int (* 0xFF a))))))
 
 ###
 ### Blending modes
@@ -550,6 +554,8 @@
 
 (comp-unless (dyn :shader-compile)
 
+  # TODO - be less conservative with clampz
+
   (function blend-over :static :inline
     ```
     Blend over (normal alpha compositing, like a painter)
@@ -560,13 +566,13 @@
     (def d:Color (colorsplit dest))
     (def s:Color (colorsplit src))
     # TODO - use floating point for blending (if faster)
-    (def ainv:int (- 255 s.a))
-    (def aa:int (+ (* 255 s.a) (* d.a ainv)))
+    (def ainv:int (- 0xFF s.a))
+    (def aa:int (+ (* 0xFF s.a) (* d.a ainv)))
     (when aa
-      (def a:int (/ aa 255))
-      (def r:int (/ (+ (* s.a s.r 255) (* d.r d.a ainv)) aa))
-      (def g:int (/ (+ (* s.a s.g 255) (* d.g d.a ainv)) aa))
-      (def b:int (/ (+ (* s.a s.b 255) (* d.b d.a ainv)) aa))
+      (def a:int (/ aa 0xFF))
+      (def r:int (/ (+ (* s.a s.r 0xFF) (* d.r d.a ainv)) aa))
+      (def g:int (/ (+ (* s.a s.g 0xFF) (* d.g d.a ainv)) aa))
+      (def b:int (/ (+ (* s.a s.b 0xFF) (* d.b d.a ainv)) aa))
       (return (colorjoin r g b a)))
     (return dest))
 
@@ -589,12 +595,28 @@
     (def d:Color (colorsplit dest))
     (def s:Color (colorsplit src))
     # TODO - use floating point for blending (if faster)
-    (def ainv:int (- 255 s.a))
-    (def a:int (/ (+ (* s.a 255) (* d.a ainv)) 255))
-    (def r:int (/ (+ (* s.r 255) (* d.r ainv)) 255))
-    (def g:int (/ (+ (* s.g 255) (* d.g ainv)) 255))
-    (def b:int (/ (+ (* s.b 255) (* d.b ainv)) 255))
+    (def ainv:int (- 0xFF s.a))
+    (def a:int (clampz (/ (+ (* s.a 0xFF) (* d.a ainv)) 0xFF) 0 0xFF))
+    (def r:int (clampz (/ (+ (* s.r 0xFF) (* d.r ainv)) 0xFF) 0 0xFF))
+    (def g:int (clampz (/ (+ (* s.g 0xFF) (* d.g ainv)) 0xFF) 0 0xFF))
+    (def b:int (clampz (/ (+ (* s.b 0xFF) (* d.b ainv)) 0xFF) 0 0xFF))
     (return (colorjoin r g b a)))
+
+  (function blend-premul-ignore-dest :static :inline
+    ```
+    Blend over with premultiplied alpha (normal alpha compositing, like a painter)
+    but ignore the destination alpha (assume 1)
+    final.A   = 1
+    final.RGB = src.RGB + (dest.RGB * (1 - src.A))
+    ```
+    [dest:uint32_t src:uint32_t] -> uint32_t
+    (def d:Color (colorsplit dest))
+    (def s:Color (colorsplit src))
+    (def ainv:int (- 0xFF s.a))
+    (def r:int (clampz (/ (+ (* s.r 0xFF) (* d.r ainv)) 0xFF) 0 0xFF))
+    (def g:int (clampz (/ (+ (* s.g 0xFF) (* d.g ainv)) 0xFF) 0 0xFF))
+    (def b:int (clampz (/ (+ (* s.b 0xFF) (* d.b ainv)) 0xFF) 0 0xFF))
+    (return (colorjoin r g b 0xFF)))
 
   # Blend operators
   (each [name op] [['add '+] ['sub '-] ['lighten 'max2z] ['darken 'min2z]]
@@ -683,6 +705,7 @@
       (janet-keyeq x "over") (return blend-over)
       (janet-keyeq x "under") (return blend-under)
       (janet-keyeq x "premul") (return blend-premul)
+      (janet-keyeq x "premul-ignore-dest-alpha") (return blend-premul-ignore-dest)
       (janet-keyeq x "add") (return blend-add)
       (janet-keyeq x "sub") (return blend-sub)
       #(janet-keyeq x "mul") (return blend-mul)
@@ -693,7 +716,7 @@
   (cfunction stamp-blend
     "Copy on image onto another with blending"
     [dest:*Image src:*Image blend-mode:Janet &opt dx:int=0 dy:int=0] -> *Image
-    (if (not= src->channels dest->channels) (janet-panic "image channels don't match"))
+    (if (not= src->channels dest->channels) (janet-panic "image channels do not match"))
     (if (= src->data dest->data) (janet-panic "cannot stamp self"))
     (def blender:BlendFunc (get-blend-func blend-mode))
     (def xmin:int (? (< dx 0) (- dx) 0))
@@ -704,7 +727,7 @@
     (def ymax:int (? (< yoverflow 0) src->height (- src->height yoverflow)))
     (polymorph src->channels [1 2 3 4]
       # TODO - automatically add all blend modes here if we add more
-      (polymorph-cond blender [blend-add blend-sub blend-over blend-under blend-premul blend-lighten blend-darken]
+      (polymorph-cond blender [blend-add blend-sub blend-over blend-under blend-premul blend-premul-ignore-dest blend-lighten blend-darken]
         (for [(var y:int ymin) (< y ymax) (++ y)]
           (for [(var x:int xmin) (< x xmax) (++ x)]
             (def src-color:uint32_t (image-get-pixel src x y))
@@ -713,20 +736,30 @@
             (image-set-pixel-bc dest (+ dx x) (+ dy y) final-color)))))
     (return dest))
 
-  (cfunction resize
-    "Resize an image, resampling as needed"
-    [in:*Image new-width:int new-height:int] -> *Image
-    (def out:*Image (blank new-width new-height in->channels))
+  (cfunction resize-into
+    "Resize an image into another image, resampling as needed"
+    [out:*Image in:*Image &opt linear:bool=0] -> *Image
+    (if (not= out->channels in->channels) (janet-panic "image channels do not match"))
     (def layout:stbir_pixel_layout
       (cond-expression
         (= in->channels 1) STBIR-1CHANNEL
         (= in->channels 2) STBIR-2CHANNEL
         (= in->channels 3) STBIR-RGB
         STBIR-4CHANNEL))
-    (stbir-resize-uint8-srgb in->data in->width in->height in->stride
-                             out->data out->width out->height out->stride
-                             layout)
-    (return out)))
+    (if linear
+      (stbir-resize-uint8-linear in->data in->width in->height in->stride
+                                 out->data out->width out->height out->stride
+                                 layout)
+      (stbir-resize-uint8-srgb in->data in->width in->height in->stride
+                               out->data out->width out->height out->stride
+                               layout))
+    (return out))
+
+  (cfunction resize
+    "Resize an image, resampling as needed"
+    [in:*Image new-width:int new-height:int &opt linear:bool=0] -> *Image
+    (def out:*Image (blank new-width new-height in->channels))
+    (return (resize-into out in linear))))
 
 ###
 ### Shader!
@@ -1412,7 +1445,7 @@
     (fill-path-impl img ps 5 ,;shader-params))
   (each-i 0 npoints
     (def P:V2 (aref vs i))
-    (circle img P.x P.y thickness ,;shader-params))
+    (circle img P.x P.y (+ 0.25 thickness) ,;shader-params))
   (janet-sfree vs:*V2) # self-test for mangling of type-grafted symbols
   (return img))
 

@@ -86,58 +86,47 @@
 
 (defn main [&]
 
-  (def location
-    {:name "Austin, TX"
-     :latitude 30.27
-     :longitude -97.74})
+  (charts/dark-mode)
 
-  (def past-days 5)
-  (def y-columns [:temperature_2m :wind_speed_10m :relative_humidity_2m :precipitation_probability])
-
-  # Get weather data
-  (def url
-    (string
-      "http://api.open-meteo.com/v1/forecast?"
-      "latitude=" (string/format "%.3f" (get location :latitude))
-      "&longitude=" (string/format "%.3f" (get location :longitude))
-      "&past_days=" past-days
-      "&hourly=" (string/join y-columns ",")
-      "&temperature_unit=fahrenheit"))
-  (print "Getting weather data from " url " ...")
-  (def raw-data (get (http/request "GET" url) :body))
-  (print "Got weather data!")
-  (def structured (json/decode raw-data true))
-  (def data-frame (get structured :hourly))
-
-  # Special handling for time series (x coordinates are time stamps)
-  (def timestamps (get data-frame :time))
-  (put data-frame :time (range (length timestamps)))
-  (def x-ticks (seq [[i x] :pairs timestamps :when (string/has-suffix? "T00:00" x)] i))
-  (defn format-x [x] (slice (first (string/split "T" (get timestamps (math/round x) ""))) 5))
-
-  # Render a nice chart
-  (def weather-chart
-    (charts/line-chart
-      :title (string "What is the forecast in " (get location :name) "?")
-      :x-label "Hourly Measurements"
-      :color-seed 4
-      :width 960
-      :height 540
-      :data data-frame
-      :x-column :time
-      :y-columns y-columns
+  (def canvas (gfx2d/blank (* 1 1024) (* 1 1024)))
+  (gfx2d/fill-rect canvas 0 0 10000 10000 gfx2d/black)
+  (def [view convert]
+    (charts/draw-axes
+      canvas
+      :padding 4
+      :format-y |(string/format "$%.2f" $)
+      :x-label "Units"
+      :y-label "Dollars"
+      :y-min 0
       :grid :stipple
-      :color-map {:temperature_2m 0xFF0000FF
-                  :wind_speed_10m 0xFFFF0000
-                  :relative_humidity_2m 0xFF96AF00}
-      :y-label "°F / kmph / %"
-      :legend-map {:temperature_2m "Temperature (°F)"
-                   :wind_speed_10m "Wind Speed (km/h)"
-                   :relative_humidity_2m "Humidity (%)"
-                   :precipitation_probability "Precipitation Probability (%)"}
-      :x-ticks x-ticks
-      :format-x format-x
-      :font :olive
-      :legend :top))
+      :x-ticks (range 0 11)
+      :x-min 0
+      :x-max 10
+      :y-max 100))
 
-  (show-gtk-image weather-chart))
+  (charts/plot-line-graph
+    :canvas view
+    :to-pixel-space convert
+    :x-column :x
+    :y-column [:y :z]
+    :x-colors (fn [_ y index] (gfx2d/rgb (* y 0.01) 0.2 0.2))
+    :data {:x (range 0 10.1 0.1)
+           :y (seq [x :range [0 10.1 0.1]] (+ 50 (* 40 (math/sin (* 1 x)))))
+           :z (seq [x :range [0 10.1 0.1]] (+ 50 (* 40 (math/cos (* 1 x)))))}
+    :super-sample 4
+    :line-style :stroke)
+
+  # Now draw. Add whatever you need here, it will be clipped inside the axis
+  #(loop [i :range [0 1000 5]] # plot 200 lines for a cool pattern
+  #  (gfx2d/plot view ;(convert -30 -10) ;(convert 110 i) gfx2d/red))
+  #(gfx2d/draw-simple-text view ;(convert 2 99) "Hello from up here" gfx2d/cyan)
+  #(gfx2d/draw-simple-text view ;(convert 50 2) "Hello from down here" gfx2d/cyan)
+
+  # Lets add a legend in the top right corner
+  (def legend-args [:labels [:y :z] :legend-map {:y "Thing 1" :z "Thing 2"} :frame true :padding 14])
+  (def [lw lh] (charts/draw-legend nil ;legend-args))
+  (def {:width vw :height vh} (gfx2d/unpack view))
+  (def legend-view (gfx2d/viewport view (- vw lw 10) 10 lw lh true))
+  (charts/draw-legend legend-view ;legend-args)
+
+  (show-gtk-image canvas))

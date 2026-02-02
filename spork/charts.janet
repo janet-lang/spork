@@ -194,7 +194,7 @@
   ```
   []
   (setdyn *background-color* g/black)
-  (setdyn *grid-color* (g/rgb 0.2 0.2 0.2))
+  (setdyn *grid-color* (g/rgb 0.3 0.3 0.3))
   (setdyn *stroke-color* g/white)
   (setdyn *text-color* g/white))
 
@@ -472,6 +472,9 @@
   * :line-type - how to actually draw lines. Can be one of :stroke, :plot, :none, :bar, or :stipple. Default is :plot.
   * :circle-points - add circles around each point
   * :point-radius - how large to make the circles around each point in pixels
+  * :super-sample - use super sampling to draw a larger image and then scale it down for anti-aliasing.
+  * :bar-padding - space between bars in bar-charts
+  * :stroke-thickness - thickness in pixels of the stroke of the graph when :line-type = :stroke 
   * :x-colors - for bar and scatter plots, optionally set per-point/per-bar colors with an function (f x y index) called on each point.
   ```
   [&named
@@ -484,11 +487,41 @@
    circle-points
    point-radius
    x-colors
+   bar-padding
+   stroke-thickness
+   super-sample
    color-map]
 
+  (def {:width canvas-width :height canvas-height} (g/unpack canvas))
   (default to-pixel-space (fn :convert [x y] [x y]))
   (default color-map {})
   (default line-style :plot)
+  (default bar-padding 4)
+  (default point-radius 3)
+  (default stroke-thickness 1.5)
+  (default super-sample 1)
+
+  # Super sampling!
+  (when (> super-sample 1)
+    (def new-canvas (g/blank (* super-sample canvas-width) (* super-sample canvas-height)))
+    (def temp-canvas (g/blank canvas-width canvas-height))
+    (plot-line-graph :canvas new-canvas
+                     :to-pixel-space (fn [x y] (def [x1 y1] (to-pixel-space x y)) [(* super-sample x1) (* super-sample y1)])
+                     :data data
+                     :x-column x-column
+                     :y-column y-column
+                     :circle-points circle-points
+                     :bar-padding (* super-sample bar-padding)
+                     :color-map color-map
+                     :super-sample nil
+                     :stroke-thickness (* super-sample stroke-thickness)
+                     :point-radius (* super-sample point-radius)
+                     :line-style line-style)
+    # The resize + blend must match, as well as the destination pixels!
+    # Assuming premultiplied alpha would be nice, but the destination might not do this.
+    (g/resize-into temp-canvas new-canvas false)
+    (g/stamp-blend canvas temp-canvas :premul)
+    (break canvas))
 
   # Allow single or multiple y-columns shorthand - draw first column on top
   (def y-columns (if (indexed? y-column) (reverse y-column) [y-column]))
@@ -532,12 +565,10 @@
 
       :stroke
       (do
-        (g/stroke-path canvas pts graph-color 1))
+        (g/stroke-path canvas pts graph-color stroke-thickness))
 
       :bar
       (do
-        (def {:width canvas-width} (g/unpack canvas))
-        (def bar-padding 4)
         (def [base-x base-y] (to-pixel-space 0 0))
         (var last-right nil)
         (loop [i :range [0 (length pts) 2]]
@@ -560,7 +591,6 @@
           (g/fill-rect canvas x-left base-y width (- y base-y) color))))
 
     (when circle-points
-      (default point-radius 3)
       (loop [i :range [0 (length pts) 2]]
         (def x (get pts i))
         (def y (get pts (+ 1 i)))
@@ -606,7 +636,9 @@
   * :legend - set to true to add a legend to the top of the chart
   * :legend-map - a dictionary mapping column names to pretty text for the chart
   * :point-radius - radius of points when drawing a scatter plot
-  * :line-stype - how to actually draw lines. Can be one of :stroke, :plot, or :stipple. Default is :plot.
+  * :line-type - how to actually draw lines. Can be one of :stroke, :plot, or :stipple. Default is :plot.
+  * :super-sample - Super Sample anti-aliasing for chart lines. Is a bit slow, but makes smooth plots. Works best with :stroke and :bar
+  * :stroke-thickness - thickness in pixels of the stroke of the graph when :line-type = :stroke 
 
   Axis Boundaries
   * :x-min - minimum x coordinate on chart
@@ -621,7 +653,7 @@
    x-min x-max y-min y-max
    padding title
    circle-points
-   scatter grid legend
+   scatter grid legend super-sample stroke-thickness
    format-x format-y
    save-as
    legend-map
@@ -703,7 +735,9 @@
     :y-column y-columns
     :color-map color-map
     :line-style line-style
+    :super-sample super-sample
     :circle-points (or circle-points scatter)
+    :stroke-thickness stroke-thickness
     :point-radius point-radius)
 
   # Draw internal legend if selected
