@@ -602,22 +602,6 @@
     (def b:int (clampz (/ (+ (* s.b 0xFF) (* d.b ainv)) 0xFF) 0 0xFF))
     (return (colorjoin r g b a)))
 
-  (function blend-premul-ignore-dest :static :inline
-    ```
-    Blend over with premultiplied alpha (normal alpha compositing, like a painter)
-    but ignore the destination alpha (assume 1)
-    final.A   = 1
-    final.RGB = src.RGB + (dest.RGB * (1 - src.A))
-    ```
-    [dest:uint32_t src:uint32_t] -> uint32_t
-    (def d:Color (colorsplit dest))
-    (def s:Color (colorsplit src))
-    (def ainv:int (- 0xFF s.a))
-    (def r:int (clampz (/ (+ (* s.r 0xFF) (* d.r ainv)) 0xFF) 0 0xFF))
-    (def g:int (clampz (/ (+ (* s.g 0xFF) (* d.g ainv)) 0xFF) 0 0xFF))
-    (def b:int (clampz (/ (+ (* s.b 0xFF) (* d.b ainv)) 0xFF) 0 0xFF))
-    (return (colorjoin r g b 0xFF)))
-
   # Blend operators
   (each [name op] [['add '+] ['sub '-] ['lighten 'max2z] ['darken 'min2z]]
     (function ,(symbol 'blend- name) :static :inline
@@ -705,7 +689,6 @@
       (janet-keyeq x "over") (return blend-over)
       (janet-keyeq x "under") (return blend-under)
       (janet-keyeq x "premul") (return blend-premul)
-      (janet-keyeq x "premul-ignore-dest-alpha") (return blend-premul-ignore-dest)
       (janet-keyeq x "add") (return blend-add)
       (janet-keyeq x "sub") (return blend-sub)
       #(janet-keyeq x "mul") (return blend-mul)
@@ -727,7 +710,7 @@
     (def ymax:int (? (< yoverflow 0) src->height (- src->height yoverflow)))
     (polymorph src->channels [1 2 3 4]
       # TODO - automatically add all blend modes here if we add more
-      (polymorph-cond blender [blend-add blend-sub blend-over blend-under blend-premul blend-premul-ignore-dest blend-lighten blend-darken]
+      (polymorph-cond blender [blend-add blend-sub blend-over blend-under blend-premul blend-lighten blend-darken]
         (for [(var y:int ymin) (< y ymax) (++ y)]
           (for [(var x:int xmin) (< x xmax) (++ x)]
             (def src-color:uint32_t (image-get-pixel src x y))

@@ -19,14 +19,14 @@
 ### [x] - LABEL YOUR AXES!
 ### [x] - wrap colors, padding, font, etc. into some kind of styling table to pass around consistently
 ### [x] - stippled grid lines
-### [ ] - bar chart
+### [x] - bar chart
 ### [ ] - heat map
 ### [ ] - more test charts
 ### [ ] - pie chart
 ### [ ] - error bars on line chart
 ### [ ] - fill between chart
-### [ ] - handle nils in y-columns for sparse data
-### [ ] - easier custom chart annotations in the metric space (horizontal lines, vertical lines, etc.)
+### [x] - handle nils in y-columns for sparse data
+### [x] - easier custom chart annotations in the metric space (horizontal lines, vertical lines, etc.)
 
 (import spork/gfx2d :as g)
 
@@ -80,11 +80,15 @@
    override-min-x override-max-x
    override-min-y override-max-y]
 
+  # Just skip all the guesswork
+  (when (and override-min-x override-max-x override-min-y override-max-y)
+    (break [override-min-x override-max-x override-min-y override-max-y]))
+
   # Calculate precise bounds for all x and y values
   (var min-y math/inf)
   (var max-y math/-inf)
-  (var min-x (extreme < (filter identity (get data x-column))))
-  (var max-x (extreme > (filter identity (get data x-column))))
+  (var min-x (or (extreme < (filter identity (get data x-column))) 0))
+  (var max-x (or (extreme > (filter identity (get data x-column))) 1))
   (each c y-columns
     (set min-y (min min-y (extreme < (filter identity (get data c [math/inf])))))
     (set max-y (max max-y (extreme > (filter identity (get data c [math/-inf]))))))
@@ -239,7 +243,7 @@
     (when frame (g/fill-rect canvas 0 0 width height background-color)))
   (def label-height (let [[_ h] (g/measure-simple-text "Mg" font font-scale font-scale)] h))
   (def swatch-size label-height)
-  (def spacing (+ label-height padding 1))
+  (def spacing (+ label-height padding font-scale))
   (def small-spacing (math/round (* 0.125 label-height)))
   # (def padding (if frame (+ padding 4) padding)) # add frame border
   (var y padding)
@@ -258,7 +262,7 @@
       (g/draw-simple-text canvas (+ x swatch-size padding) (+ small-spacing y) label text-color font font-scale font-scale))
     (+= x (+ item-width padding))
     (set max-x (max max-x x)))
-  (+= y (+ 1 padding))
+  (+= y (+ font-scale padding))
   (when (and canvas frame)
     (def {:width width :height height} (g/unpack canvas))
     (draw-frame canvas 1 1 (- width 2) (- height 2) line-color 2)) # 2 pixel solid frame
@@ -319,13 +323,13 @@
   (assert (pos? dy))
   (def font-height (let [[_ h] (g/measure-simple-text "Mg" font font-scale font-scale)] h))
   (def font-half-height (div font-height 2))
-  (def tick-height 8)
+  (def tick-height (* font-scale 8))
   (def has-grid (not= grid :none))
   (def stipple-cycle (if (= grid :stipple) 8 0))
   (def stipple-on 4)
 
   # Initial guess for x label width
-  (def [_xticks _xformat _max-width x-labels-height]
+  (def [_xticks _xformat x-labels-width x-labels-height]
     (if x-ticks
       (do
         (def fmt (if format-x format-x string))
@@ -338,7 +342,7 @@
 
   # Calculate top and bottom padding
   (def outer-top-padding (max padding font-half-height))
-  (def outer-bottom-padding (+ padding font-height (if x-label (+ padding x-labels-height) 0)))
+  (def outer-bottom-padding (+ padding font-height (if x-label (+ padding (if x-labels-vertical x-labels-width x-labels-height)) 0)))
   (def top-padding outer-top-padding)
   (def bottom-padding (+ outer-bottom-padding tick-height))
 
@@ -709,7 +713,7 @@
   (def [x-min x-max y-min y-max]
     (let [{:width view-width :height view-height} (g/unpack view)]
       (calculate-data-bounds data x-column y-columns
-                             view-width view-height 20
+                             view-width view-height (* font-scale 20)
                              x-min x-max y-min y-max)))
   (def [graph-view to-pixel-space _to-metric-space]
     (draw-axes view
