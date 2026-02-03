@@ -506,6 +506,8 @@
   (default super-sample 1)
 
   # Super sampling!
+  # Super sampling does not work well with pixel-based line styles, like :plot, :stipple
+  # Intended for use with :stroke and :bar.
   (when (> super-sample 1)
     (def new-canvas (g/blank (* super-sample canvas-width) (* super-sample canvas-height)))
     (def temp-canvas (g/blank canvas-width canvas-height))
@@ -522,7 +524,7 @@
                      :point-radius (* super-sample point-radius)
                      :line-style line-style)
     # The resize + blend must match, as well as the destination pixels!
-    # Assuming premultiplied alpha would be nice, but the destination might not do this.
+    # After resize, alpha is premultiplied
     (g/resize-into temp-canvas new-canvas false)
     (g/stamp-blend canvas temp-canvas :premul)
     (break canvas))
@@ -548,6 +550,7 @@
           (def [x1 y1] (to-pixel-space x y))
           (array/push pts (math/round x1) (math/round y1)))))
 
+    # Plot lines between points
     (def line-style2 (if (dictionary? line-style) (get line-style y-column :plot) line-style))
     (case line-style2
 
@@ -594,6 +597,7 @@
           (set last-right (+ x-left width))
           (g/fill-rect canvas x-left base-y width (- y base-y) color))))
 
+    # Plot points
     (when circle-points
       (loop [i :range [0 (length pts) 2]]
         (def x (get pts i))
@@ -616,7 +620,7 @@
   * :font - font used to draw text, including title, legend, and axes labels
   * :save-as - save the generated image to file. Can be any format supported by the gfx2d module
   * :x-column - the name of the data frame column to use for the x axis
-  * :y-columns - a list of column names to use for the chart
+  * :y-column - a single column or array of column names to use for the chart
   * :x-ticks - manually set the tick marks on the X axis instead of auto-detecting them
 
   Axes Styling
@@ -664,13 +668,13 @@
    line-style
    x-label y-label
    x-suffix x-prefix y-suffix y-prefix
-   x-column y-columns
+   x-column y-column
    x-ticks x-minor-ticks y-minor-ticks
    x-labels-vertical]
 
   # Check parameters and set defaults.
   (assert x-column)
-  (assert y-columns)
+  (assert y-column)
   (default width 1280)
   (default height 720)
   (default padding (dyn *padding* default-padding))
@@ -682,6 +686,9 @@
   (default circle-points false)
   (default grid :none)
   (default line-style :plot)
+
+  # Allow variadic shorthand
+  (def y-columns (if (indexed? y-column) y-column [y-column]))
 
   # Get canvas
   (def canvas (g/blank width height 4))

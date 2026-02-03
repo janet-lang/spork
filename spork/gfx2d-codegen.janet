@@ -1,17 +1,21 @@
 ###
 ### gfx2d-codegen.janet
 ###
-### Various simple CPU-based 2d graphics tools suitable for demos, visulizations, and charting.
-### The module generates C code which then is further compiled. It can also be used to generate "shaders"
-### by evaluating this file with `(dyn :shader-compile)` set, which disables a number of functions and allows
-### passing in a pixel shader stub.
+### Various simple CPU-based 2d graphics tools suitable for demos,
+### visulizations, and charting. The module generates C code which then is
+### further compiled. It can also be used to generate "shaders" by evaluating
+### this file with `(dyn :shader-compile)` set, which disables a number of
+### functions and allows passing in a pixel shader stub.
 ###
-### Leans on the underlying C compiler for optimization - recommended to be used with `JANET_BUILD_TYPE=native janet-pm install`
-### to take advantage of the best available vectorization.
+### Leans on the underlying C compiler for optimization - recommended to be
+### used with `JANET_BUILD_TYPE=native janet-pm install` to take advantage of
+### the best available vectorization.
 ###
-### This module doesn't presume any color-space, with the exception of when saving images to formats like PNG, which
-### guarantees the sRGB color space. Most operations do not do blending - those that do also specify the color space
-### in the blending modes.
+### This module doesn't presume any color-space, with the exception of when
+### saving images to formats like PNG, which guarantees the sRGB color space.
+### Most operations do not do blending - those that do also specify the color
+### space in the blending modes. Unless otherwise specified, blending is done
+### in a "linear" color space.
 ###
 ### Includes:
 ### * Saving and loading to and from several common image file formats.
@@ -38,7 +42,6 @@
 ### [x] - plotting (1 pixel wide lines, no aa)
 ### [x] - blending
 ### [ ] - mirror, transpose, and right-angled rotations
-### [ ] - sRGB correct blending
 ### [x] - image resizing
 ### [x] - bezier
 ### [ ] - splines
@@ -50,18 +53,18 @@
 ### [x] - Better 2D point abstraction
 ### [ ] - Affine transforms
 ### [x] - float coordinate primitives (paths, rect, line, etc)
-### [ ] - stippled lines
+### [x] - stippled lines
 ### [ ] - right-angle image rotation / flips
-### [ ] - sRGB gamma correction/conversion
-### [ ] - rotated text
+### [ ] - sRGB gamma correction/conversion and blending
+### [x] - right-angle rotated text
 ### [ ] - color and otherwise anotated text w/ VT100 escape codes (allow for pretty printing w/ colors)
-### [ ] - remove prototype fill in default build (leave code for testing purposes)
+### [x] - remove prototype fill in default build (leave code for testing purposes)
 
 ### Stretch TODO
-### [ ] - vector font rendering
+### [ ] - vector font rendering and arbitrarily rotated text
 ### [ ] - anti-aliasing w/ mutli-sampling and/or analysis
 ### [x] - shaders using cjanet-jit - "fill" and "stroke" shaders
-### [ ] - multithreading
+### [x] - multithreading
 ### [ ] - Image analysis and statistics (RMSE, histogram, k-means, etc.)
 
 (use ../spork/cjanet)
@@ -811,9 +814,10 @@
 ###
 ### Built-in simple text rendering with CP437 BIOS fonts
 ###
-### By default, it is nice to be able to render text without loading any fonts. Very limited, but should work
-### well for simple use cases. The built-in font is an 8x8 monospace bitmap fron that contains all the characters
-### of the 437 code page from IBM compatible computers.
+### By default, it is nice to be able to render text without loading any fonts.
+### Very limited, but should work well for simple use cases. The built-in font
+### is an 8x8 monospace bitmap fron that contains all the characters of the 437
+### code page from IBM compatible computers.
 ###
 
 (typedef BitmapFont
@@ -1029,8 +1033,10 @@
 ### Path operations
 ###
 
-# TODO - disambiguate open vs. closed paths. Currently, we are auto-closing paths when needed, but if we want
-# to make a more general path abstraction, we should probably encode that in the path abstraction itself.
+# TODO - disambiguate open vs. closed paths. Currently, we are auto-closing
+# paths when needed with a 'join-end` parameter, but if we want to make a more
+# general path abstraction, we should probably encode that in the path
+# abstraction itself.
 
 # TODO - instead of `step`, have a `flatness` parameter.
 (comp-unless (dyn :shader-compile)
@@ -1067,7 +1073,7 @@
     (return arr)))
 
 ###
-### Plotting (1-pixel lines)
+### Plotting (1-pixel lines, no anti-aliasing)
 ###
 
 (comp-unless (dyn :shader-compile)
