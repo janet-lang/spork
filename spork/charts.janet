@@ -604,7 +604,13 @@
         (def y (get pts (+ 1 i)))
         (def j (div i 2))
         (def color (x-colors (get xs j) (get ys j) j))
-        (g/plot-ring canvas x y point-radius color))))
+        (case line-style2
+          :plot
+          (g/plot-ring canvas x y point-radius color)
+          :stipple
+          (g/plot-ring canvas x y point-radius color)
+          (g/ring canvas x y (- point-radius stroke-thickness) point-radius color)))))
+
 
   canvas)
 

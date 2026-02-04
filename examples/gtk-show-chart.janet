@@ -114,13 +114,9 @@
            :y (seq [x :range [0 10.1 0.1]] (+ 50 (* 40 (math/sin (* 1 x)))))
            :z (seq [x :range [0 10.1 0.1]] (+ 50 (* 40 (math/cos (* 1 x)))))}
     :super-sample 4
+    :circle-points true
+    :point-radius 10
     :line-style :stroke)
-
-  # Now draw. Add whatever you need here, it will be clipped inside the axis
-  #(loop [i :range [0 1000 5]] # plot 200 lines for a cool pattern
-  #  (gfx2d/plot view ;(convert -30 -10) ;(convert 110 i) gfx2d/red))
-  #(gfx2d/draw-simple-text view ;(convert 2 99) "Hello from up here" gfx2d/cyan)
-  #(gfx2d/draw-simple-text view ;(convert 50 2) "Hello from down here" gfx2d/cyan)
 
   # Lets add a legend in the top right corner
   (def legend-args [:labels [:y :z] :legend-map {:y "Thing 1" :z "Thing 2"} :frame true :padding 14])
