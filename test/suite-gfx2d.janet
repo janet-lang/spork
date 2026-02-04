@@ -316,11 +316,11 @@
       :x-column :timestamp
       :padding 10
       :font :olive
-      :grid true
+      :grid :solid
       :circle-points true
       :legend :top
       :legend-map (tabseq [c :in columns] c (string/replace "temperature-" "T" c))
-      :y-columns columns))
+      :y-column columns))
 
   (check-image img "complex_chart.png"))
 

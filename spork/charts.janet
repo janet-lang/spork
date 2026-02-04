@@ -337,7 +337,7 @@
         (each xt x-ticks
           (def [w h] (g/measure-simple-text (fmt xt) font font-scale font-scale))
           (set maxh (max maxh (if x-labels-vertical w h))))
-        [nil nil nil maxh])
+        [nil nil maxh maxh])
       (guess-axis-ticks x-min x-max width (* font-scale 20) x-labels-vertical font x-prefix x-suffix format-x)))
 
   # Calculate top and bottom padding
