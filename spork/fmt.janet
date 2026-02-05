@@ -9,7 +9,11 @@
   [tag]
   (fn [x] [tag x]))
 
-(def- parse-peg
+(defn- pnode2
+  [tag]
+  (fn [x y] [tag y x]))
+
+(def- parse-peg :flycheck
   "Peg to parse Janet with extra information, namely comments."
   (peg/compile
     ~{:ws (+ (set " \t\r\f\0\v") '"\n")
@@ -30,9 +34,9 @@
       :long-bytes '{:delim (some "`")
                     :open (capture :delim :n)
                     :close (cmt (* (not (> -1 "`")) (-> :n) ':delim) ,=)
-                    :main (drop (* :open (any (if-not :close 1)) :close))}
-      :long-string (/ :long-bytes ,(pnode :string))
-      :long-buffer (/ (* "@" :long-bytes) ,(pnode :buffer))
+                    :main (* (> 0 "`") (column) (drop (* :open (any (if-not :close 1)) :close)))}
+      :long-string (/ :long-bytes ,(pnode2 :string))
+      :long-buffer (/ (* "@" :long-bytes) ,(pnode2 :buffer))
       :ptuple (/ (group (* "(" (any :input) (+ ")" (error)))) ,(pnode :ptuple))
       :btuple (/ (group (* "[" (any :input) (+ "]" (error)))) ,(pnode :btuple))
       :struct (/ (group (* "{" (any :input) (+ "}" (error)))) ,(pnode :struct))
@@ -87,7 +91,7 @@
 
 (defn- user-indent-2-forms [] (invert (or (dyn *user-indent-2-forms*) [])))
 
-(def- indent-2-forms
+(def- indent-2-forms :flycheck
   "A list of forms that are control forms and should be indented two spaces."
   (invert ["fn" "match" "with" "with-dyns" "def" "def-" "var" "var-" "defn" "defn-"
            "varfn" "defmacro" "defmacro-" "defer" "edefer" "loop" "seq" "tabseq" "catseq" "generate" "coro"
@@ -113,6 +117,8 @@
       (in indent-2-forms body) true
       (peg/match indent-2-peg body) true
       (in (user-indent-2-forms) body) true)))
+
+(def- delim-peg :flycheck (peg/compile ~'(some "`")))
 
 (defn- fmt
   "Emit formatted."
@@ -164,6 +170,19 @@
     (def parts (interpose "\n" (string/split "\n" x)))
     (each p parts (if (= p "\n") (do (newline) (dropwhite)) (emit p))))
 
+  (defn emit-long-string
+    [x prefix column]
+    (def padding (string/repeat " " (- column 1)))
+    (def new-padding (string/repeat " " (+ (length prefix) col)))
+    # Use built-in parser to dedent the string and then re-emit.
+    (def reparsed (parse (string padding x)))
+    (def delim (first (peg/match delim-peg x)))
+    (def long-delim (> (length delim) 2))
+    (def first-nl (if (or long-delim (string/has-prefix? "\n" reparsed) (string/has-prefix? "\r\n" reparsed)) "\n"))
+    (def last-nl (if (or long-delim (= (chr "\n") (last reparsed))) "\n"))
+    (def y (string/replace-all "\n" (string "\n" new-padding) (string prefix delim first-nl reparsed last-nl delim)))
+    (emit-string y))
+
   (defn emit-rmform
     [rm nfs form]
     (emit rm)
@@ -180,6 +199,8 @@
       [:comment x] (do (emit "#" x) (newline))
       [:comment-last x] (do (emit "#" x) (newline) (flushwhite))
       [:span x] (do (emit x) (addwhite))
+      [:string x column] (do (emit-long-string x "" column) (addwhite))
+      [:buffer x column] (do (emit-long-string x "@" column) (addwhite))
       [:string x] (do (emit-string x) (addwhite))
       [:buffer x] (do (emit "@") (emit-string x) (addwhite))
       [:array xs] (emit-body "@[" xs "]")
