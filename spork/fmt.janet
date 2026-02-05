@@ -103,10 +103,12 @@
 
 (defn- check-indent-2
   "Check if a tuple needs a 2 space indent or not"
-  [items]
-  (if-let [[tag body] (get items 0)]
+  [items &opt offset]
+  (default offset 0)
+  (if-let [[tag body] (get items offset)]
     (cond
-      (= "\n" (get items 1)) true
+      (= tag :comment) (break (check-indent-2 (+ 1 offset)))
+      (= "\n" (get items (+ 1 offset))) true
       (not= tag :span) nil
       (in indent-2-forms body) true
       (peg/match indent-2-peg body) true

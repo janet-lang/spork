@@ -159,11 +159,13 @@
   (if (= :windows (os/which))
     (let [end (last (path/posix/parts src))
           isdir (= (os/stat src :mode) :directory)]
-      (os/shell (string/join
-                  ["C:\\Windows\\System32\\xcopy.exe"
-                   (path/win32/join ;(path/posix/parts src))
-                   (path/win32/join ;(if isdir [;(path/posix/parts dest) end] (path/posix/parts dest)))
-                   "/y /s /e /i > nul"] " ")))
+      # xcopy copies important extra file attributes that a normal copy seems not to.
+      (with [nul (devnull)]
+        (os/execute
+          ["C:\\Windows\\System32\\xcopy.exe"
+           (path/win32/join ;(path/posix/parts src))
+           (path/win32/join ;(if isdir [;(path/posix/parts dest) end] (path/posix/parts dest)))
+           "/y" "/s" "/e" "/i"] :px {:out nul})))
     (os/execute ["cp" "-rf" src dest] :px)))
 
 (def- shlex-grammar :flycheck
