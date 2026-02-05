@@ -123,9 +123,7 @@
 
   (defn handle-map [name handler]
     (when-let [value (get res name)
-               map-func (handler :map)
-               is-func (or (function? map-func)
-                           (cfunction? map-func))]
+               map-func (handler :map)]
       (put res name (map-func value))))
 
   # Handle an option

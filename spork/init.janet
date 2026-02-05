@@ -31,6 +31,7 @@
 (import ./schema :export true)
 (import ./services :export true)
 (import ./sh :export true)
+(import ./sh-dsl :export true)
 (import ./stream :export true)
 (import ./tasker :export true)
 (import ./temple :export true)

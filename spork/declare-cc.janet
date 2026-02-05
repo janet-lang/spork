@@ -68,12 +68,14 @@
     "c++"))
 
 (defn- install-rule
-  [src dest &opt chmod-mode thunk]
+  [src dest &opt chmod-mode thunk is-exe]
   (def rules (get-rules))
   (build-rules/build-rule
     rules :install [src]
     (def manifest (assert (dyn *install-manifest*)))
-    (put manifest :has-bin-script true)
+    (when is-exe
+      (put manifest :has-bin-script true) # remove eventually
+      (put manifest :has-exe true))
     (when thunk (thunk))
     (bundle/add manifest src dest chmod-mode))
   dest)
@@ -85,7 +87,8 @@
   (build-rules/build-rule
     rules :install []
     (def manifest (assert (dyn *install-manifest*)))
-    (put manifest :has-bin-script true)
+    (put manifest :has-bin-script true) # remove eventually
+    (put manifest :has-exe true)
     (def files (get manifest :files @[]))
     (put manifest :files files)
     (def absdest (path/join (dyn *syspath*) dest))
@@ -144,8 +147,8 @@
 
 (defn install-file-rule
   "Add install and uninstall rule for moving file from src into destdir."
-  [src dest]
-  (install-rule src dest))
+  [src dest &opt chmod-mode thunk is-exe]
+  (install-rule src dest chmod-mode thunk is-exe))
 
 ###
 ### Misc. utilities
@@ -177,7 +180,6 @@
   ``Inline raw byte file as a c file. The header file will contain two exported symbols, `(string name "_emded")`, a
     pointer of an array of unsigned char, and `(string name "_embed_size")`, a size_t of the number bytes.``
   [bytes dest name]
-  (def chunks (seq [b :in bytes] (string b)))
   (def lasti (- (length bytes) 1))
   (with [out (file/open dest :wn)]
     (file/write out "#include <stddef.h>\n\nstatic const unsigned char bytes[] = {")
@@ -262,6 +264,7 @@
   [&named name description url version repo tag dependencies]
   (assert name)
   (default dependencies @[])
+  repo version description url tag dependencies # unused
   (def br (build-root))
   (def bd (build-dir))
   (def rules (get-rules))
@@ -307,7 +310,7 @@
   (defn- postclean
     []
     (build-rules/build-run e "post-clean" (dyn :workers)))
-  (defn build [&opt man target]
+  (defn build [&opt _man target]
     (prebuild)
     (default target "build")
     (build-rules/build-run e target (dyn :workers))
@@ -362,7 +365,7 @@
     (rule :pre-install []
           (def manifest (assert (dyn *install-manifest*)))
           (bundle/add-directory manifest prefix)))
-  (each s source
+  (each s sources
     (install-rule s (dest s))))
 
 (defn declare-headers
@@ -381,7 +384,7 @@
 (defn declare-bin
   "Declare a generic file to be installed as an executable."
   [&named main]
-  (install-rule main "bin" 8r755 (mkbin)))
+  (install-rule main "bin" 8r755 (mkbin) true))
 
 (defn declare-binscript
   ``Declare a janet file to be installed as an executable script. Creates
@@ -413,7 +416,6 @@
   (when (is-win-or-mingw)
     (def absdest (path/join (dyn *syspath*) dest))
     (def bat (string "@echo off\r\ngoto #_undefined_# 2>NUL || title %COMSPEC% & janet \"" absdest "\" %*"))
-    (def newname (string main ".bat"))
     (install-buffer bat (string dest ".bat") nil (mkbin)))
   dest)
 
@@ -453,7 +455,7 @@
   dynamically by a janet runtime. This also builds a static libary that
   can be used to bundle janet code and native into a single executable."
   [&named name source embedded lflags libs cflags
-   c++flags defines install nostatic static-libs
+   c++flags defines nostatic static-libs
    use-rpath use-rdynamic pkg-config-flags dynamic-libs msvc-libs
    ldflags # alias for libs
    pkg-config-libs smart-libs c-std c++-std target-os]
@@ -728,7 +730,7 @@ int main(int argc, const char **argv) {
   (def bd (build-dir))
   (def dest (path/join bd name))
   (def cimage-dest (string dest ".c"))
-  (when install (install-rule dest (path/join "bin" name) nil (mkbin)))
+  (when install (install-rule dest (path/join "bin" name) nil (mkbin) true))
   (def target (if no-compile cimage-dest dest))
   (rule :build [target])
   (rule target [entry ;headers ;deps]
@@ -761,8 +763,7 @@ int main(int argc, const char **argv) {
 
         # Load all native modules
         (def prefixes @{})
-        (def static-libs @[])
-        (loop [[name m] :pairs module-cache
+        (loop [[_name m] :pairs module-cache
                :let [n (m :native)]
                :when n
                :let [prefix (gensym)]]
@@ -863,10 +864,11 @@ int main(int argc, const char **argv) {
                     cc/*cflags* [;other-cflags ;cflags]
                     cc/*c++flags* (distinct [;other-cflags ;c++flags])
                     cc/*static-libs* (distinct [;dep-libs ;static-libs])
+                    cc/*dynamic-libs* (distinct [;dynamic-libs])
                     cc/*smart-libs* smart-libs
                     cc/*use-rdynamic* use-rdynamic
                     cc/*use-rpath* use-rpath
-                    cc/*pkg-config-flags* pkg-config-flags
+                    cc/*pkg-config-flags* [;pkg-config-flags ;(if static ["--static"] [])]
                     cc/*c-std* c-std
                     cc/*c++-std* c++-std
                     cc/*cc* (toolchain-to-cc toolchain)

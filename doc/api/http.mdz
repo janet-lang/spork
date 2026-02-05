@@ -8,6 +8,11 @@ The @code`http` module is an HTTP/1.1 parser, server and client module. It prove
 The @code`http` module is also non-blocking, so a single thread can run
 many clients, servers, and connections at once.
 
+The @code`http` module supports custom stream transports via the @code`:stream-factory` parameter,
+allowing HTTP to work over different underlying protocols (e.g., TLS, QUIC, or custom transports).
+The stream factory should accept @code`(host port &opt opts)` and return a Janet stream that supports
+@code`:read`, @code`:write`, and @code`:close` methods.
+
 ## Examples
 
 ### Server
@@ -32,6 +37,19 @@ many clients, servers, and connections at once.
 (import spork/http)
 
 (def response (http/request "GET" "http://www.example.com"))
+(def body (http/read-body response))
+(print body)
+```
+
+### Client with Custom Stream (e.g., HTTPS)
+
+@codeblock[janet]```
+(import spork/http)
+(import jossl/tls)
+
+# Use TLS for HTTPS
+(def response (http/request "GET" "https://www.example.com"
+                           :stream-factory tls/connect))
 (def body (http/read-body response))
 (print body)
 ```

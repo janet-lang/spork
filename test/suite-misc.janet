@@ -89,6 +89,9 @@
   (deep= (misc/select-keys {1 2 3 4 5 6} [1]) @{1 2})
   "selects key from dictionary")
 (assert
+  (deep= (misc/select-keys {1 false 3 4 5 6} [1]) @{1 false})
+  "selects key with false value")
+(assert
   (deep= (misc/select-keys {1 2 3 4 5 {:a :b}} [1 5]) @{1 2 5 {:a :b}})
   "selects keys from nested dictionary")
 

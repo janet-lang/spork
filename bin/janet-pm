@@ -52,6 +52,11 @@
         Create an environment with which one can install Janet
         dependencies and scripts in an isolated manner.
 
+    full-env name
+        Similar to `env name`, but also copies a snapshot of the Janet
+        interpreter, headers, pkgconfig, and shared objects. Useful when
+        using multiple Janet versions.
+
     new-project name
         Create a new Janet project in a directory `name`.
 
@@ -121,6 +126,7 @@
     JANET_BUILD_TYPE
         What kind of build to make when building a bundle that has a
         project.janet. Should be "develop", "release", or "debug".
+        Defaults to "release".
 
     JANET_CURL
         Where to get the "curl" command when handling project.janet.
@@ -269,6 +275,12 @@
   [path]
   (pm/scaffold-pm-shell path))
 
+(defn new-full-venv
+  "Create a new virtual environment, capturing snapshots of the janet interpreter and shared libraries as well."
+  [path]
+  (pm/scaffold-pm-shell path)
+  (pm/vendor-binaries-pm-shell path))
+
 (defn quickbin
   "Create an executable file"
   [entry output]
@@ -277,7 +289,8 @@
     (require (if (dyn :install-time-syspath)
                "@install-time-syspath/spork/declare-cc"
                "spork/declare-cc")))
-  (def quickbin-fn (module/value module "quickbin"))
+  (def quickbin-fn (module/value module 'quickbin))
+  (assert quickbin-fn)
   (quickbin-fn entry output))
 
 (defn show-config
@@ -296,6 +309,7 @@
    "deps" deps
    "hook" do-hook
    "env" new-venv
+   "full-env" new-full-venv
    "new-project" new-project
    "new-simple-project" new-simple-project
    "new-c-project" new-c-project

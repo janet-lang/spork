@@ -8,6 +8,7 @@
 # - unit testing?
 
 (import spork/rawterm)
+(import spork/generators)
 
 (def max-history "Maximal amount of items in the history" 500)
 
@@ -80,19 +81,24 @@
   (var ret-value "Value to return to caller, usually the mutated buffer." buf)
   (var more-input "Loop condition variable" true)
   (def input-buf @"")
+  (var pre-input "User provided inputs" @"")
 
   (defn getc
     "Get next character. Caller needs to check input buf after call if utf8 sequence returned (>= c 0x80)"
     []
     (buffer/clear input-buf)
-    (rawterm/getch input-buf)
+    (if-let [i (next pre-input)]
+      (buffer/push-byte input-buf (in pre-input i))
+      (rawterm/getch input-buf))
     (def c (get input-buf 0))
     (when (>= c 0x80)
       (repeat (cond
                 (= (band c 0xF8) 0xF0) 3
                 (= (band c 0xF0) 0xE0) 2
                 1)
-        (rawterm/getch input-buf)))
+        (if-let [i (next pre-input)]
+          (buffer/push-byte input-buf (in pre-input i))
+          (rawterm/getch input-buf))))
     c)
 
   (defn- flushs
@@ -135,7 +141,10 @@
 
     (def view (rawterm/slice-monowidth buf available-w view-pos))
     (def visual-pos (+ prpt-width (- columns-to-pos shift-right-amnt width-under-cursor)))
-    (buffer/format tmp-buf "\r%s%s%s\e[0K\r\e[%dC" prpt pad view visual-pos)
+    (buffer/format tmp-buf "\r%s%s%s\e[0K\r" prpt pad view)
+    # Different implementations may behave inconsistently regarding to "move 0 column".
+    (if (not (= 0 visual-pos))
+      (buffer/format-at tmp-buf -1 "\e[%dC" visual-pos))
     (flushs))
 
   (defn- history-move
@@ -288,7 +297,8 @@
     (refresh))
 
   (fn getline-fn
-    [&opt prompt buff _]
+    [&opt prompt buff _parser prefill]
+    (set pre-input (if prefill (generators/from-iterable prefill) @""))
     (set buf (or buff @""))
     (set prpt (string prompt))
     (set prpt-width (rawterm/monowidth prpt))
@@ -345,11 +355,13 @@
             13 # enter
             (do (set more-input false) (buffer/push buf "\n") (clear-lines))
             14 # ctrl-n
-            (set hindex (history-move hindex -1))
-            16 # ctrl-p
             (set hindex (history-move hindex 1))
+            16 # ctrl-p
+            (set hindex (history-move hindex -1))
             17 # ctrl-q
             (do (set more-input false) (set ret-value :cancel) (clear-lines))
+            21 # ctrl-u
+            (do (buffer/blit buf buf 0 pos) (buffer/popn buf pos) (set pos 0) (clear-lines) (refresh))
             23 # ctrl-w
             (kbackw)
             26 # ctrl-z
@@ -360,7 +372,7 @@
               (let [c3 (getc)]
                 (cond
                   (and (>= c3 (chr "0")) (<= c3 (chr "9")))
-                  (case (def c4 (getc))
+                  (case (getc)
                     (chr "1") (khome)
                     (chr "3") (kdelete)
                     (chr "4") (kend)

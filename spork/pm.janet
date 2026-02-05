@@ -9,6 +9,7 @@
 (import ./sh)
 (import ./path)
 (import ./pm-config)
+(import ./cc)
 
 (defdyn *gitpath* "What git command to use to fetch dependencies")
 (defdyn *tarpath* "What tar command to use to fetch dependencies")
@@ -51,7 +52,7 @@
   (if (string/find ":" bname) (break bname))
   (let [pkgs (try
                (require "pkgs")
-               ([err]
+               ([_err]
                  (bundle-install-recursive (getpkglist))
                  (require "pkgs")))
         url (get-in pkgs ['packages :value (symbol bname)])]
@@ -129,7 +130,7 @@
 (defn download-tar-bundle
   "Download a dependency from a tape archive. The archive should have exactly one
   top level directory that contains the contents of the project."
-  [bundle-dir url &opt force-gz]
+  [bundle-dir url]
   (def has-gz (string/has-suffix? "gz" url))
   (def is-remote (string/find ":" url))
   (def dest-archive (if is-remote (string bundle-dir "/bundle-archive." (if has-gz "tar.gz" "tar")) url))
@@ -319,8 +320,9 @@
   "Run a bundle hook on the local project."
   [hook & args]
   (project-janet-shim ".")
-  (def [ok module] (protect (require "/bundle")))
-  (unless ok (break))
+  (def [fullpath _] (module/find "/bundle"))
+  (unless fullpath (break))
+  (def module (require "/bundle"))
   (def hookf (module/value module (symbol hook)))
   (unless hookf (break))
   (hookf ;args))
@@ -331,7 +333,7 @@
 
 (defn save-lockfile
   "Create a lockfile that can be used to reinstall all currently installed bundles at a later date."
-  [lock-dest &opt allow-local]
+  [lock-dest]
   (def lock @[])
   (each b (bundle/topolist)
     (def manifest (bundle/manifest b))
@@ -353,7 +355,7 @@
   (def lock (-> lock-src slurp parse))
   (each d lock
     (def {:pm pm :name name} d)
-    (pm-install pm true true)
+    (pm-install pm :force-update true :no-deps true)
     (assert (bundle/installed? name))))
 
 (set bundle-install-recursive pm-install)
@@ -368,7 +370,7 @@
 ### Generate new projects quickly, ported from jpm
 ###
 
-(def- template-peg
+(def- template-peg :flycheck
   "Extract string pieces to generate a templating function"
   (peg/compile
     ~{:sub (group
@@ -388,7 +390,7 @@
       :string (array/push string-args (string ;chunk))
       :array (each sym chunk
                (array/push string-args ~(,get opts ,(keyword (first sym)))))))
-  ~(fn [opts] (,string ,;string-args)))
+  ~(fn [opts] opts (,string ,;string-args)))
 
 (defmacro deftemplate
   ```
@@ -661,7 +663,7 @@
     ````
     # . bin/activate
     if [ -n "$${_OLD_JANET_PATH+set}" ]; then
-      echo 'An environment is already active, please run `deactivate()` first.';
+      echo 'An environment is already active, please run `deactivate` first.';
     else
       _OLD_JANET_PATH="$$JANET_PATH";
       _OLD_JANET_PATH_SET="$${JANET_PATH+set}";
@@ -748,11 +750,15 @@
   ````)
 
 (defn scaffold-pm-shell
-  "Generate a pm shell with configuration already setup."
+  "Generate a pm shell with configuration already setup. If `copy-janet` is truthy, the Janet executable file
+   will be bundled in the new environment"
   [path]
   (os/mkdir path)
   (os/mkdir (path/join path "bin"))
   (os/mkdir (path/join path "man"))
+  (os/mkdir (path/join path "include"))
+  (os/mkdir (path/join path "lib"))
+  (os/mkdir (path/join path "lib" "pkgconfig"))
   (def opts {:path path :abspath (path/abspath path) :name (path/basename path)})
   (spit (path/join path "bin" "activate") (enter-shell-template opts))
   (spit (path/join path "bin" "activate.ps1") (enter-ps-template opts))
@@ -762,3 +768,88 @@
   (print "(PowerShell) run `. " path "/bin/activate.ps1` to enter the new environment, then `deactivate` to exit.")
   (print "(CMD)        run `" path "\\bin\\activate` to enter the new environment, then `deactivate` to exit.")
   (print "(Unix sh)    run `. " path "/bin/activate` to enter the new environment, then `deactivate` to exit."))
+
+(defn- try-copy
+    [src dest]
+    (unless (sh/exists? src) (break false))
+    (sh/copy src dest)
+    true)
+
+(defn vendor-binaries-pm-shell
+  ```
+  Copy the Janet interpreter, shared libraries, and other installation files directly into the new shell environment. This allows
+  updates and changes to the system configuration without breaking the shell.
+  ```
+  [path]
+  (def is-win (= :windows (os/which)))
+  (def exec-name (dyn *executable* "janet"))
+  (def executable (sh/which exec-name))
+  (assert (sh/exists? executable) "unable to resolve location of the janet binary. Is it on your path?")
+  (def exe-ext (if is-win ".exe" ""))
+  (def dest (string (path/join path "bin" "janet") exe-ext))
+  (sh/copy executable dest)
+
+  # Copy shared objects, DLLs, static archives, and janet.h into path
+  (def [has-prefix prefix] (protect (cc/get-unix-prefix)))
+  (when has-prefix
+    (def lib (string prefix "/lib"))
+    (def include (string prefix "/include"))
+    (def parts (string/split "." janet/version))
+    (def majorminor (string (in parts 0) "." (in parts 1)))
+
+    # Copy libjanet.so (with correct symlinks and versions)
+    (def libjanet-so-with-version (string "libjanet.so." majorminor))
+    (def libjanet-so-with-full-version (string "libjanet.so." janet/version))
+    (when (try-copy (path/join lib libjanet-so-with-full-version) (path/join path "lib" libjanet-so-with-full-version))
+      (os/link libjanet-so-with-full-version (path/join path "lib" libjanet-so-with-version) true)
+      (os/link libjanet-so-with-full-version (path/join path "lib" "libjanet.so") true))
+
+    # Copy libjanet.dylib (with correct symlinks and versions)
+    (def libjanet-dylib-with-version (string "libjanet.dylib." majorminor))
+    (def libjanet-dylib-with-full-version (string "libjanet.dylib." janet/version))
+    (when (try-copy (path/join lib libjanet-dylib-with-full-version) (path/join path "lib" libjanet-dylib-with-full-version))
+      (os/link libjanet-dylib-with-full-version (path/join path "lib" libjanet-dylib-with-version) true)
+      (os/link libjanet-dylib-with-full-version (path/join path "lib" "libjanet.dylib") true))
+
+    # Copy libjanet.a (try versioned file first)
+    (def libjanet-static-full (string "libjanet.a." janet/version))
+    (if
+      (try-copy (path/join lib libjanet-static-full) (path/join path "lib" libjanet-static-full))
+      (os/link (path/join path libjanet-static-full) (path/join path "lib" "libjanet.a") true)
+      (try-copy (path/join lib "libjanet.a") (path/join path "lib" "libjanet.a")))
+
+    # Copy janet.h
+    (os/mkdir (path/join path "include" "janet"))
+    (try-copy (path/join include "janet" "janet.h") (path/join path "include" "janet" "janet.h"))
+    (try-copy (path/join include "janet.h") (path/join path "include" "janet.h"))
+
+    # pkgconfig
+    (def [has-pkgconfig pkgconfig-in] (protect (slurp (path/join prefix "lib" "pkgconfig" "janet.pc"))))
+    (when has-pkgconfig # we need to rewrite the pkgconfig file from the default install with new paths
+      (def new-values
+        {"prefix" (path/abspath path)
+         "includedir" (path/abspath (path/join path "include" "janet"))
+         "libdir" (path/abspath (path/join path "lib"))})
+      (defn do-assignment [key old-value]
+        (def new-value (get new-values key old-value))
+        (string key "=" new-value))
+      (def peg
+        ~{:assignment (* '(some (range "az" "AZ" "09" "__")) "=" '(to (+ -1 "\n")))
+          :remap (/ :assignment ,do-assignment)
+          :main (accumulate (any (+ :remap '1)))})
+      (def result (peg/match peg pkgconfig-in))
+      (when result
+        (spit (path/join path "lib" "pkgconfig" "janet.pc") (first result))))
+
+    # End unix prefix code
+    nil)
+
+  # Copy shared objects, DLLs, static archives, and janet.h into path
+  (def [has-winprefix win-prefix] (protect (cc/get-msvc-prefix)))
+  (when has-winprefix
+    (os/mkdir (path/join path "C"))
+    (each name ["janet.lib" "janet.h" "janet.exp" "janet.c" "libjanet.lib"]
+      (try-copy (path/win32/join win-prefix "C" name) (path/win32/join path "C" name))))
+
+  (print "Copied janet binaries and shared libraries into " path)
+  nil)

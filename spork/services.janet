@@ -124,7 +124,6 @@
     (error (string "service " service-name " does not exist")))
   (eprint "stopping service " service-name)
   (def services (get manager :services))
-  (def services-inverse (get manager :services-inverse))
   (def serv (get services service-name))
   (def logfile (get serv :logfile))
   (def f (get serv :fiber))
@@ -201,7 +200,7 @@
    :last-msg "Last Error"
    :started-at "Started At"})
 (def- service-column-map
-  {:started-at (fn [timestamp row] (format-time timestamp))})
+  {:started-at (fn [timestamp _row] (format-time timestamp))})
 
 (defn print-all
   "Print a table of all running services."

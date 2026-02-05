@@ -211,7 +211,7 @@
   (def nurse (tasker :nurse))
   (default qnames (tasker :queue-names))
   (each qname qnames
-    (def channels (seq [[[q p] c] :pairs (tasker :queues) :when (= q qname)] c))
+    (def channels (seq [[[q] c] :pairs (tasker :queues) :when (= q qname)] c))
     (for n 0 workers-per-queue
       (ev-utils/spawn-nursery
         nurse
