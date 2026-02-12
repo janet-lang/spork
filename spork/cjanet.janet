@@ -29,7 +29,7 @@
   (peg/compile
     ~{:valid (range "az" "AZ" "__" "..")
       :one (+ '"->" (/ "-" "_") '"::" '" " ':valid (/ '(if-not ":" 1) ,|(string "_X" ($ 0))))
-      :main (% (* (? "@") '(any (set "*&")) :one (any (+ ':d :one)) -1))}))
+      :main (% (* '(any (set "*&")) :one (any (+ ':d :one)) -1))}))
 
 (def- mangle-name-peg
   (peg/compile
@@ -133,7 +133,7 @@
 
 # Macros
 # We need to be judicious with macros as they can obscure real C functions. In practice we can get
-# around this with mangling magic - add a leading "@" to the symbol and it will not match a macro name
+# around this with the "call" expression.
 
 (def- extra-macros @{})
 

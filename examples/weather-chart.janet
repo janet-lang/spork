@@ -61,7 +61,7 @@
   :height 540
   :data data-frame
   :x-column :time
-  :y-columns y-columns
+  :y-column y-columns
   :color-map {:temperature_2m 0xFF0000dd
               :wind_speed_10m 0xFFdd0000
               :relative_humidity_2m 0xFF96AF00}

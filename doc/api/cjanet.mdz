@@ -2,12 +2,159 @@
  :template "mdzdoc/main.html"}
  ---
 
-A DSL that compiles to C. 
-  Improved version of jpm/cgen that is more amenable to Janet integration, macros, and meta-programming.
+A DSL that compiles to C. Improved version of jpm/cgen that is more amenable
+to Janet integration, macros, and meta-programming. The semantics of the
+language are basically the same as C so a higher level language (or type
+system) should be built on top of this. This IR emits a very useful
+subset of valid C 99, and attempts to be at least somewhat familiar to anyone using
+C.
 
-The semantics of the language are basically the
-same as C so a higher level language (or type system) should be built on top of this. 
-  This IR emits a very useful subset of valid C 99.
+CJanet's main purpose is to more easily write or auto-generate bindings for Janet, although
+it can be used to author software by itself. The syntax tries to bridge the gap
+between Janet and C and reduce a lot of the boilerplate required for writing
+Janet bindings. Lastly, CJanet is just a library, allowing deep integration for code
+generation and metaprogramming for C.
+
+## Standalone Hello World
+
+In a file @code`helloc.janet`:
+
+@codeblock[janet]```
+(use spork/cjanet)
+
+(include <stdio.h>)
+
+(function main
+ [argc:int argv:**char] -> int
+ (def (world (const *char)) "world")
+ (printf "Hello, %s!\n" world)
+ (return 0))
+```
+
+This example can be compiled to C by first evaluating the Janet source file
+with @code`janet helloc.janet > helloc.c`, and then further compiling with
+@code`cc helloc.c -o hello`. From this short demonstration, we can already see
+several features of CJanet, such as the function declaration syntax, a terse
+notation for C types, function calls, and defining local variables.
+
+## Simple Module
+
+@codeblock[janet]```
+(use spork/cjanet)
+
+(include <janet.h>)
+
+(cfunction hello
+ [what:cstring] -> int
+ (janet-printf "Hello, %s!\n" what)
+ (return 0))
+
+(module-entry "hello")
+```
+
+This can next be compiled much in the same manner as the standalone program. We
+will need a few extra flags depending on your operating system and distribution
+- on most Linux distributions, we will add @code`-shared` to compile a shared
+library, and @code`-fPIC` to compile position independent code.
+
+@codeblock[janet]```
+janet hello-module.janet > hello.module.c
+cc hello-module.c -shared -fPIC -o hello.so
+```
+
+Next, we can load and run the new native file from Janet:
+
+@codeblock[]```
+$ janet
+Janet 1.41.0-dev-306ce892 linux/x64/gcc - '(doc)' for help
+repl:1:> (import ./hello)
+@{_ @{:value <cycle 0>} hello/hello @{:private true}}
+repl:2:> (hello/hello "world")
+Hello, world!
+0
+```
+
+You have just created your first native module! Tools like @code`janet-pm` will
+handle the multi-step compilation for you, or you can use any script or build system
+of your choosing to automate this.
+
+## Syntax
+
+### Top Level Forms
+
+* include
+* @ \(C preprocessor directive)
+* function / emit-function
+* cfunction / emit-cfunction
+* typedef
+* declare
+* extern
+* block
+
+### Block Level Forms
+
+* do
+* while
+* for
+* switch
+* if / cond
+
+### Statement Forms
+
+* return
+* break
+* continue
+* label
+* goto
+* def
+* var
+* set
+
+### Expression Forms
+
+* deref
+* aref
+* cast
+* ? \(ternary)
+* . \(field index)
+* -> \(dereference index)
+* &/addr \(address of)
+* call - alternative function call syntax
+
+### Binary Operators
+
+* +
+* -
+* /
+* *
+* %
+* <
+* <=
+* = / ==
+* not= / !=
+* >=
+* >
+* << / blshift
+* >> / brshift
+* && / and
+* or
+* ^ / xor
+* band
+* bor
+* bxor
+
+Macro shorthands
+
+* +=
+* -=
+
+### Unary Operators
+
+* bnot
+* ! / not
+* - / neg
+* ++
+* --
 
 ## Reference
 
