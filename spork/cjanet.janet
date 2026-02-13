@@ -981,14 +981,14 @@
   ```
   Begin C Janet JIT context. Optionally pass in options to configure compilation. The `options` argument
   will be passed to the `spork/cc` module to compile generated C code. Generated intermediates will be created
-  in the _cjanet/ directory.
+  in the _build/ directory.
   ```
   [&keys options]
   (def compilation-unit @"#include <janet.h>\n")
   (def prevout (dyn *out*))
   (def cont
     {:buffer compilation-unit
-     :build-dir "_cjanet"
+     :build-dir "_build"
      :opts options
      :old-out prevout
      :prefix (get options :prefix)
@@ -998,7 +998,7 @@
      *abstract-type-list* @[]
      :module-name (get options :module-name (string "cjanet" (gensym) "_" (os/getpid)))})
   (setdyn *jit-context* cont)
-  (os/mkdir "_cjanet")
+  (os/mkdir "_build")
   (setdyn *out* compilation-unit)
   (setdyn *cdef-list* (get cont *cdef-list*))
   (setdyn *cfun-list* (get cont *cfun-list*))

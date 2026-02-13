@@ -611,7 +611,6 @@
           (g/plot-ring canvas x y point-radius color)
           (g/ring canvas x y (- point-radius stroke-thickness) point-radius color)))))
 
-
   canvas)
 
 (defn line-chart

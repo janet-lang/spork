@@ -1,6 +1,4 @@
 ###
-### Use cjanet JIT and libpng to generate a large fractal.
-###
 ### Requires a c compiler and glfw
 ### Direct port of tutorial from https://learnopengl.com/Getting-started/Hello-Window
 ###
@@ -16,7 +14,7 @@
 (function process-input
   "handle key presses"
   [window:*GLFWwindow] -> void
-  (when (== GLFW_PRESS (glfwGetKey window GLFW_KEY_ESCAPE))
+  (when (= GLFW_PRESS (glfwGetKey window GLFW_KEY_ESCAPE))
     (glfwSetWindowShouldClose window 1)))
 
 (function render
@@ -37,7 +35,7 @@
   (glfwWindowHint GLFW_CONTEXT_VERSION_MAJOR 3)
   (glfwWindowHint GLFW_CONTEXT_VERSION_MINOR 3)
   (glfwWindowHint GLFW_OPENGL_PROFILE GLFW_OPENGL_CORE_PROFILE)
-  (def (window (* GLFWwindow)) (glfwCreateWindow w h "LearnOpenGL" NULL NULL))
+  (def window:*GLFWwindow (glfwCreateWindow w h "LearnOpenGL" NULL NULL))
   (unless window
     (printf "failed to create glfw window\n")
     (glfwTerminate)

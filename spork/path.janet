@@ -309,6 +309,6 @@
    "relpath"])
 
 (comptime # for flycheck
-  (let [pre (if (= :windows (os/which)) "win32" "posix")]
-    (each sym syms
-      (redef (string pre "/" sym) sym))))
+          (let [pre (if (= :windows (os/which)) "win32" "posix")]
+            (each sym syms
+              (redef (string pre "/" sym) sym))))

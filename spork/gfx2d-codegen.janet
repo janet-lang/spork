@@ -262,7 +262,7 @@
 
 (function indexed-to-vs
   "Get vectors from an indexed collection. Must be freed with janet_sfree."
-  [coords:JanetView n:*int] -> 'V2
+  [coords:JanetView n:*int] -> *V2
   (if (band 1 coords.len) (janet-panic "expected an even number of point coordinates"))
   (def ret:*V2 (janet-smalloc (* (sizeof V2) (/ coords.len 2))))
   (for [(var i:int 0) (< i coords.len) (+= i 2)]
@@ -311,7 +311,7 @@
     (janet-free image->data))
   (return 0))
 
-(function gc-mark :static
+(function gc-mark-image :static
   [p:*void s:size_t] -> int
   (unused s)
   (def image:*Image p)
@@ -319,10 +319,21 @@
     (janet-mark (janet-wrap-abstract image->parent)))
   (return 0))
 
+(function image-bytes :static
+  [p:*void s:size_t] -> JanetByteView
+  (unused s)
+  (def image:*Image p)
+  (def view:JanetByteView)
+  # TODO - for viewports, memory is non-contiguous
+  (set view.len (* image->stride image->height))
+  (set view.bytes image->data)
+  (return view))
+
 (abstract-type Image
   :name "gfx2d/image"
-  :gcmark gc-mark
-  :gc gc-image)
+  :gcmark gc-mark-image
+  :gc gc-image
+  :bytes image-bytes)
 
 (comp-unless (dyn :shader-compile)
 
