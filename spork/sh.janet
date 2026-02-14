@@ -153,19 +153,27 @@
         (buffer/clear buf)))))
 
 (defn copy
-  `Copy a file or directory recursively from one location to another.
-  Expects input to be unix style paths`
+  `Copy a file or directory recursively from one location to another.`
   [src dest]
   (if (= :windows (os/which))
-    (let [end (last (path/posix/parts src))
-          isdir (= (os/stat src :mode) :directory)]
+    (let [end (last (path/parts src))
+          isdir (= (os/stat src :mode) :directory)
+          dest-isdir (= (os/stat dest :mode) :directory)]
+      (def srcfile (path/win32/join ;(path/parts src)))
+      (def destfile (path/win32/join ;(if (or dest-isdir isdir) [;(path/parts dest) end] (path/parts dest))))
+      # Create dest ahead of time so xcopy doesn't (badly) try to guess what we want
+      (if dest-isdir
+        (if isdir 
+          (os/mkdir dest)
+          (spit destfile "")))
       # xcopy copies important extra file attributes that a normal copy seems not to.
       (with [nul (devnull)]
         (os/execute
           ["C:\\Windows\\System32\\xcopy.exe"
-           (path/win32/join ;(path/posix/parts src))
-           (path/win32/join ;(if isdir [;(path/posix/parts dest) end] (path/posix/parts dest)))
-           "/y" "/s" "/e" "/i"] :px {:out nul})))
+           srcfile
+           destfile
+           "/y" "/s" "/e" "/q" "/i"]
+          :px {:out nul})))
     (os/execute ["cp" "-rf" src dest] :px)))
 
 (def- shlex-grammar :flycheck
