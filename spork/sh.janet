@@ -162,9 +162,10 @@
       # xcopy copies important extra file attributes that a normal copy seems not to.
       (os/execute
         ["C:\\Windows\\System32\\xcopy.exe"
-         "/y" "/s" "/e" "/i" "/k" "/f"
          (path/win32/join ;(path/parts src))
-         (path/win32/join ;(if (or dest-isdir isdir) [;(path/parts dest) end] (path/parts dest)))] :px))
+         (path/win32/join ;(if (or dest-isdir isdir) [;(path/parts dest) end] (path/parts dest)))
+         "/y" "/s" "/e" "/f" "/i" "/k"]
+        :px))
     (os/execute ["cp" "-rf" src dest] :px)))
 
 (def- shlex-grammar :flycheck
