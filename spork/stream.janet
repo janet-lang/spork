@@ -26,3 +26,18 @@
         (when (not (empty? chunk))
           (yield chunk)))))
   (coro (fetch-lines @"")))
+
+(defn make-stdin
+  "Return a readable stream on /dev/stdin. It doesn't work on windows."
+  []
+  (os/open "/dev/stdin" :r))
+
+(defn make-stdout
+  "Return a writable stream on /dev/stdout. It doesn't work on windows."
+  []
+  (os/open "/dev/stdout" :w))
+
+(defn make-stderr
+  "Return a writable stream on /dev/stderr. It doesn't work on windows."
+  []
+  (os/open "/dev/stderr" :w))
