@@ -173,6 +173,10 @@
 ### Math helpers
 ###
 
+(function roundi :static :inline
+  [a:double] -> int
+  (return (cast int (+ a 0.5))))
+
 (function lerp :static :inline
   [a:double b:double t:double] -> double
   (return (+ (* (- 1 t) a) (* t b))))
@@ -952,8 +956,8 @@
     (def gh:int font->gh)
     (def bytes-per-row:int (/ (+ 7 gw) 8))
     (def bytes-per-char:int (* bytes-per-row gh))
-    (def xint:int (cast int (+ 0.5 x)))
-    (def yint:int (cast int (+ 0.5 y)))
+    (def xint:int (roundi x))
+    (def yint:int (roundi y))
     (var xx:int 0)
     (var yy:int 0)
 
@@ -1132,10 +1136,10 @@
     "Draw a 1 pixel line from (x1, y1) to (x2, y2)"
     [img:*Image x1:double y1:double x2:double y2:double color:uint32_t &opt stipple-cycle:int=0 stipple-on:int=0] -> *Image
     (plot-stipple img
-                  (cast int (+ 0.5 x1))
-                  (cast int (+ 0.5 y1))
-                  (cast int (+ 0.5 x2))
-                  (cast int (+ 0.5 y2))
+                  (roundi x1)
+                  (roundi y1)
+                  (roundi x2)
+                  (roundi y2)
                   color 0 stipple-cycle stipple-on)
     (return img))
 
@@ -1152,10 +1156,10 @@
       (set stipple-counter
            (plot-stipple
              img
-             (round (.x (aref vs (- i 1))))
-             (round (.y (aref vs (- i 1))))
-             (round (.x (aref vs i)))
-             (round (.y (aref vs i)))
+             (roundi (.x (aref vs (- i 1))))
+             (roundi (.y (aref vs (- i 1))))
+             (roundi (.x (aref vs i)))
+             (roundi (.y (aref vs i)))
              color
              stipple-counter
              stipple-cycle
@@ -1243,8 +1247,8 @@
     (def plen:int (+ 2 points.len))
     (def (ipoints 'int) (janet-smalloc (* (sizeof int) plen)))
     (for [(var i:int 0) (< i points.len) (set i (+ i 2))]
-      (def x:int (round (janet-getnumber points.items i)))
-      (def y:int (round (janet-getnumber points.items (+ i 1))))
+      (def x:int (roundi (janet-getnumber points.items i)))
+      (def y:int (roundi (janet-getnumber points.items (+ i 1))))
       (set (aref ipoints i) x)
       (set (aref ipoints (+ 1 i)) y)
       (set xmin (? (> x xmin) xmin x))
@@ -1334,8 +1338,8 @@
   (var ymax:int INT32-MIN)
   (def (ibuf 'Intersection) (janet-smalloc (* (sizeof Intersection) (* 2 npoints))))
   (each-i 0 npoints
-    (set ymin (min2z ymin (round (. (aref points i) y))))
-    (set ymax (max2z ymax (round (. (aref points i) y)))))
+    (set ymin (min2z ymin (roundi (. (aref points i) y))))
+    (set ymax (max2z ymax (roundi (. (aref points i) y)))))
   # Clip
   (set ymin (clampz ymin 0 (- img->height 1)))
   (set ymax (clampz ymax 0 (- img->height 1)))
@@ -1349,10 +1353,10 @@
         (var intersect:Intersection)
         (def did-intersect:int
           (scanline-test
-            (cast int (+ 0.5 pb.x))
-            (cast int (+ 0.5 pb.y))
-            (cast int (+ 0.5 pa.x))
-            (cast int (+ 0.5 pa.y))
+            (roundi pb.x)
+            (roundi pb.y)
+            (roundi pa.x)
+            (roundi pa.y)
             y &intersect))
         (when did-intersect
           (for [(var j:int 0) (< j intersection-count) (++ j)]
