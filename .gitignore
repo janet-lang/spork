@@ -21,3 +21,5 @@ temp.mdz
 jpm_tree
 .vcvars.jdn
 lockfile.jdn
+/venv
+/_cjanet
