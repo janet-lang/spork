@@ -2,7 +2,7 @@ name: Test
 
 on:
   push:
-    branches: [ master ]
+    branches: [ master, cjanet-jit ]
   pull_request:
     branches: [ master ]
 
