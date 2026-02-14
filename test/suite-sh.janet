@@ -47,6 +47,7 @@
          (os/rmdir (path/join base-path ;new-dir)))
   (sh/copy (path/join base-path ;assets-dir "test.file")
            (path/join base-path ;new-dir))
-  (assert (= :file (os/stat (path/join base-path ;new-dir "test.file") :mode))))
+  (assert (= :file (os/stat (path/join base-path ;new-dir "test.file") :mode))
+          "directory with file should be copied"))
 
 (end-suite)
