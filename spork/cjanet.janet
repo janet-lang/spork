@@ -996,7 +996,7 @@
      *cdef-list* @[]
      *cfun-list* @[]
      *abstract-type-list* @[]
-     :module-name (get options :module-name (string "cjanet" (gensym) "_" (os/getpid)))})
+     :module-name (get options :module-name (string "cjanet" (gensym) "_" (math/random)))})
   (setdyn *jit-context* cont)
   (os/mkdir "_build")
   (setdyn *out* compilation-unit)
