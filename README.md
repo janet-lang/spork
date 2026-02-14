@@ -9,6 +9,13 @@ To use all features mentioned below in one program you can do `(use spork)` to
 import them. When you need only part of the functionality, please use `import`
 as seen in the example for the part.
 
+## Source
+
+Source code lives on both GitHub and SourceHut
+
+* https://github.com/janet-lang/spork
+* https://git.sr.ht/~bakpakin/spork
+
 ## Build
 
 ```
