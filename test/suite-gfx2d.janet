@@ -6,6 +6,9 @@
 # Test charting as well
 (import spork/charts :as charts)
 
+# Don't make hash dependent tests - not easily portable across verions
+(setdyn charts/*color-seed* (os/cryptorand 16))
+
 (start-suite)
 
 (assert true)
@@ -318,6 +321,7 @@
       :font :olive
       :grid :solid
       :circle-points true
+      :color-map {:temperature-1 blue :temperature-2 green :temperature-3 yellow :temperature-4 cyan}
       :legend :top
       :legend-map (tabseq [c :in columns] c (string/replace "temperature-" "T" c))
       :y-column columns))
@@ -355,10 +359,11 @@
       :x-column :x
       :y-column :y
       :data {:x (range 0 11) :y (seq [x :range [0 11]] (+ 50 (* 40 (math/sin (* 1 x)))))}
+      :color-map {:y blue}
       :line-style :bar)
 
     # Lets add a legend in the top right corner
-    (def legend-args [:labels ["Thing 1" "Thing 2"] :frame true :padding 4])
+    (def legend-args [:labels ["Thing 1" "Thing 2"] :frame true :padding 4 :color-map {"Thing 1" blue "Thing 2" green}])
     (def [lw lh] (charts/draw-legend nil ;legend-args))
     (def {:width vw :height vh} (unpack view))
     (def legend-view (viewport view (- vw lw 10) 10 lw lh true))
