@@ -1,6 +1,8 @@
 ###
 ### gfx2d-codegen.janet
 ###
+### NOTE: Beta-quality - apis may change.
+###
 ### Various simple CPU-based 2d graphics tools suitable for demos,
 ### visulizations, and charting. The module generates C code which then is
 ### further compiled. It can also be used to generate "shaders" by evaluating
@@ -59,8 +61,6 @@
 ### [x] - right-angle rotated text
 ### [ ] - color and otherwise anotated text w/ VT100 escape codes (allow for pretty printing w/ colors)
 ### [x] - remove prototype fill in default build (leave code for testing purposes)
-
-### Stretch TODO
 ### [ ] - vector font rendering and arbitrarily rotated text
 ### [ ] - anti-aliasing w/ mutli-sampling and/or analysis
 ### [x] - shaders using cjanet-jit - "fill" and "stroke" shaders

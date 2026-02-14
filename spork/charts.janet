@@ -1,4 +1,8 @@
 ###
+### charts.janet
+###
+### NOTE: Beta-quality - apis may change.
+###
 ### This module is for generating graphs and charts on the CPU and rendering
 ### them to bitmaps. While not completely general in styling, charts should be general
 ### purpose in visualizing different kinds of data. For more rendering backends or functionality,
