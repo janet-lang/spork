@@ -806,7 +806,7 @@
   (if getfn
     ~(def (,v ,ctype) (,getfn ,argv ,n))
     (do
-      (assertf abstract "cannot use type alias %j as C function parameter, call 'register-binding-type' to enable this" T)
+      (assert abstract (string/format "cannot use type alias %j as C function parameter, call 'register-binding-type' to enable this" T))
       ~(def (,v ,ctype) (janet-getabstract ,argv ,n ,abstract)))))
 
 (defn- janet-opt*
@@ -825,7 +825,7 @@
     (if optfn
       ~(def (,v ,ctype) (,optfn ,argv ,argc ,n ,dflt))
       (do
-        (assertf abstract "cannot use type alias %j as C function parameter, call 'register-binding-type' to enable this" T)
+        (assert abstract (string/format "cannot use type alias %j as C function parameter, call 'register-binding-type' to enable this" T))
         ~(def (,v ,ctype) (janet-optabstract ,argv ,argc ,n ,abstract ,dflt))))))
 
 (defn emit-abstract-type
