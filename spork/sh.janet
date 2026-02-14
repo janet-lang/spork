@@ -167,12 +167,13 @@
           (os/mkdir dest)
           (spit destfile "")))
       # xcopy copies important extra file attributes that a normal copy seems not to.
-      (os/execute
-        ["C:\\Windows\\System32\\xcopy.exe"
-         srcfile
-         destfile
-         "/y" "/s" "/e" "/q" "/i"]
-        :px))
+      (with [nul (devnull)]
+        (os/execute
+          ["C:\\Windows\\System32\\xcopy.exe"
+           srcfile
+           destfile
+           "/y" "/s" "/e" "/q" "/i"]
+          :px {:out nul})))
     (os/execute ["cp" "-rf" src dest] :px)))
 
 (def- shlex-grammar :flycheck
