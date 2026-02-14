@@ -302,13 +302,17 @@
   []
   (def npoints 100)
   (def rng (math/rng 10))
+  # Order of calculation must be deterministic between Janet versions! Do NOT inline this into the struct in `data`.
+  (def t1 (seq [i :range [0 npoints]] (+ (math/log (+ i 1)) (* 0.3 (math/rng-uniform rng)))))
+  (def t2 (seq [i :range [0 npoints]] (+ (* 0.94 (math/log (+ i 1))) (* 0.2 (math/rng-uniform rng)))))
+  (def t3 (seq [i :range [0 npoints]] (+ (* 0.79 (math/log (+ i 1))) (* 0.4 (math/rng-uniform rng)))))
+  (def t4 (seq [i :range [0 npoints]] (+ (* 0.45 (math/log (+ i 8))) (* 0.4 (math/rng-uniform rng)))))
   (def data
     {:timestamp (map |(/ $ 10) (range npoints))
-     :temperature-1 (seq [i :range [0 npoints]] (+ (math/log (+ i 1)) (* 0.3 (math/rng-uniform rng))))
-     :temperature-2 (seq [i :range [0 npoints]] (+ (* 0.94 (math/log (+ i 1))) (* 0.2 (math/rng-uniform rng))))
-     :temperature-3 (seq [i :range [0 npoints]] (+ (* 0.79 (math/log (+ i 1))) (* 0.4 (math/rng-uniform rng))))
-     :temperature-4 (seq [i :range [0 npoints]] (+ (* 0.45 (math/log (+ i 8))) (* 0.4 (math/rng-uniform rng))))
-     })
+     :temperature-1 t1
+     :temperature-2 t2
+     :temperature-3 t3
+     :temperature-4 t4})
   (def columns [:temperature-1 :temperature-2 :temperature-3 :temperature-4])
   (def img
     (charts/line-chart

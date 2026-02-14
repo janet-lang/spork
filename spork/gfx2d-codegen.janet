@@ -525,7 +525,7 @@
 
 (function colorjoin :static :inline
   [r:int g:int b:int a:int] -> uint32_t
-  (return (+ r (<< g 8) (<< b 16) (<< a 24))))
+  (return (+ (cast uint32_t r) (<< (cast uint32_t g) 8) (<< (cast uint32_t b) 16) (<< (cast uint32_t a) 24))))
 
 (def- colors
   {:red 0xFF0000FF
