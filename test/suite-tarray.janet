@@ -104,7 +104,7 @@
 (assert (approx-eq 0.0745142 (variance arr) 0.000001) "variance")
 (assert (approx-eq 0.0752669 (sample-variance arr) 0.000001) "sample-variance")
 (assert (approx-eq 0.520372 (median arr) 0.000001) "median")
-(assert (approx-eq 0.645951 (mode arr) 0.000001) "mode")
+(assert (mode arr) "mode") # don't check result as it depends on hash function when there is no mode.
 (assert (approx-eq 0.409312 (interquartile-range arr) 0.000001) "interquartile-range")
 (assert (approx-eq 0.348654 (geometric-mean arr) 0.00001) "geometric-mean")
 (assert (approx-eq 0.122595 (harmonic-mean arr) 0.00001) "harmonic-mean")
