@@ -160,12 +160,11 @@
           isdir (= (os/stat src :mode) :directory)
           dest-isdir (= (os/stat dest :mode) :directory)]
       # xcopy copies important extra file attributes that a normal copy seems not to.
-      (with [nul (devnull)]
-        (os/execute
-          ["C:\\Windows\\System32\\xcopy.exe"
-           (path/win32/join ;(path/parts src))
-           (path/win32/join ;(if (or dest-isdir isdir) [;(path/parts dest) end] (path/parts dest)))
-           "/y" "/s" "/e" "/i" "/k"] :px {:out nul :err nul})))
+      (os/execute
+        ["C:\\Windows\\System32\\xcopy.exe"
+         "/y" "/s" "/e" "/i" "/k" "/f"
+         (path/win32/join ;(path/parts src))
+         (path/win32/join ;(if (or dest-isdir isdir) [;(path/parts dest) end] (path/parts dest)))] :px))
     (os/execute ["cp" "-rf" src dest] :px)))
 
 (def- shlex-grammar :flycheck
