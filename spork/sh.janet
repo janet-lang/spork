@@ -163,7 +163,7 @@
       (def destfile (path/win32/join ;(if (or dest-isdir isdir) [;(path/parts dest) end] (path/parts dest))))
       # Create dest ahead of time so xcopy doesn't (badly) try to guess what we want
       (if dest-isdir
-        (if isdir 
+        (if isdir
           (os/mkdir dest)
           (spit destfile "")))
       # xcopy copies important extra file attributes that a normal copy seems not to.
