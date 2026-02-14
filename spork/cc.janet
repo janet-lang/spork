@@ -18,7 +18,7 @@
 ### (pkg-config "sdl2" "vulkan")
 ### (with-dyns [*defines* {"GAME_BUILD" "devel-0.0"}
 ###             *visit* visit-execute-if-stale]
-###   (compile-and-link-executable "game" "main.c" "sound.c" "graphics.c"))
+###   (compile-and-link-executable "game" "main.c" "generate-c.janet" "sound.c" "graphics.c"))
 ###
 
 (import ./path)
