@@ -159,11 +159,14 @@
     (let [end (last (path/parts src))
           isdir (= (os/stat src :mode) :directory)
           dest-isdir (= (os/stat dest :mode) :directory)]
+      (def srcfile (path/win32/join ;(path/parts src)))
+      (def destfile (path/win32/join ;(if (or dest-isdir isdir) [;(path/parts dest) end] (path/parts dest))))
+      (if (or isdir dest-isdir) (spit destfile ""))
       # xcopy copies important extra file attributes that a normal copy seems not to.
       (os/execute
         ["C:\\Windows\\System32\\xcopy.exe"
-         (path/win32/join ;(path/parts src))
-         (path/win32/join ;(if (or dest-isdir isdir) [;(path/parts dest) end] (path/parts dest)))
+         srcfile
+         destfile
          "/y" "/s" "/e" "/f" "/i" "/k"]
         :px))
     (os/execute ["cp" "-rf" src dest] :px)))
