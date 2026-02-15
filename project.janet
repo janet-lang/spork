@@ -4,6 +4,7 @@
   :author "Calvin Rose"
   :license "MIT"
   :dependencies []
+  :version "1.2.0"
   :url "https://github.com/janet-lang/spork"
   :repo "git+https://github.com/janet-lang/spork")
 
