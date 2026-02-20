@@ -47,10 +47,10 @@
         err (string/split "\n" (output :err))]
     (when (> (length out) 0)
       (each line out
-        (printf line)))
+        (print line)))
     (when (> (length err) 0)
       (each line err
-        (printf line)))))
+        (print line)))))
 
 (def bat (if (= (os/which) :windows) ".bat" ""))
 

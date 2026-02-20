@@ -39,6 +39,14 @@
          (let [m (os/stat path :modified)]
            (if (nil? m) false m)))))
 
+(defn- make-sure-exists
+  "Assert that files exist. Helps debug rules that should create files"
+  [rules msg files]
+  (each f files
+    (def f-target (get rules f {}))
+    (unless (in f-target :task) # phony dep, don't check disk
+      (assert (os/stat f :mode) (string "file or directory " f msg)))))
+
 (defn- utd
   "Check if a target is up to date."
   [target all-targets utd-cache mtime-cache]
@@ -116,9 +124,13 @@
           (each o (get rule :outputs [])
             (protect (os/rm o)))
           (repeat n-workers (ev/give q nil)))
+        # Check that all inputs exists
+        (make-sure-exists rules " is missing as input" (get rule :inputs []))
         (if (indexed? r)
           (each rr r (rr))
-          (r)))
+          (r))
+        # Make sure all outputs were created
+        (make-sure-exists rules " was not created by the rule" (get rule :outputs [])))
       (array/push targets-built target)
       (eachk next-target dependent-set
         (-- (dep-counts next-target))
@@ -161,7 +173,7 @@
   (def target (first all-targets))
   (def id (dyn *implicit-deps* []))
   (each d [;deps ;id ;all-targets]
-    (assert (string? d) "inputs and outputs must be strings"))
+    (assert (string? d) (string/format "%v: inputs and outputs must be strings" d)))
   (unless (get rules target)
     (def new-rule
       @{:inputs @[]
