@@ -5,6 +5,9 @@
 ### sh-dsl.janet
 ###
 
+(defdyn *pipefail* "When set, the return value of a pipeline is the last non-zero exit code instead of the default right-most exit code")
+(defdyn *errexit* "When set, error immediately if pipelines run with `$`, `$<`, or `$<_` return with a non-zero exit code.")
+
 (def- parse-env-set-peg (peg/compile '(* '(to "=") "=" ':S*)))
 
 # Re-implements ev/go-gather
@@ -40,6 +43,25 @@
 
 # End ev/go-gather
 
+(defn- last-nonzero
+  [xs]
+  (var ret 0)
+  (each x xs (when (not= 0 x) (set ret x)))
+  ret)
+
+(defn- pipeline-results
+  [xs]
+  (def status-codes (filter number? xs))
+  (assert (next status-codes)) # we must have at least 1 status code
+  (let [rc (if (dyn *pipefail*)
+             (last-nonzero status-codes)
+             (last status-codes))]
+    (if (not= 0 rc)
+      (if (dyn *errexit*)
+        (error (string/format "non-zero exit code %v" rc))
+        rc)
+      (last xs))))
+
 (defn- string-token [x]
   (if (bytes? x)
     (string x)
@@ -73,6 +95,7 @@
   (def procs @[])
   (def fds @[])
   (var pipein nil)
+  (var out nil)
   (defn getfd [f] (array/push fds f) f)
 
   (defer
@@ -140,8 +163,10 @@
           (ev/read final-pipe :all capture-buf)
           capture-buf)))
 
-    (def out (wait-thunks thunks))
-    (if return-all out (last out))))
+    (set out (wait-thunks thunks)))
+
+  # Outside defer for better stack trace on error
+  (if return-all out (pipeline-results out)))
 
 ###
 ### DSL Parsing

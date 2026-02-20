@@ -201,6 +201,7 @@
   be run in the environment dictated by (dyn :modpath)."
   [&opt root-directory]
   (var errors-found 0)
+  # TODO - flycheck all tests before running them - fail quickly
   (defn dodir
     [dir]
     (each sub (sort (os/dir dir))

@@ -31,6 +31,29 @@
 
   # More pipes using just janet
   (def version (buffer janet/version "-" janet/build))
-  (assert (deep= version ($<_ ,janet --version | ,janet -e '(prin (:read stdin :all)))) "janet pipe example"))
+  (assert (deep= version ($<_ ,janet --version | ,janet -e '(prin (:read stdin :all)))) "janet pipe example")
+
+  # Pipefail
+  (setdyn *pipefail* true)
+  (assert ($< echo) "echo pipefail 1")
+  (assert (deep= @"hi\n" ($< echo hi)) "echo pipefail 2")
+  (assert (deep= @"hi" ($<_ echo hi)) "echo pipefail 3")
+  (assert (= 1 ($< ,janet -e "(os/exit 0)" | ,janet -e "(os/exit 1)" | ,janet -e "(os/exit 0)")) "pipefail 1")
+
+  # Errexit
+  (setdyn *pipefail* false)
+  (setdyn *errexit* true)
+  (assert ($< echo) "echo errexit 1")
+  (assert (deep= @"hi\n" ($< echo hi)) "echo errexit 2")
+  (assert (deep= @"hi" ($<_ echo hi)) "echo errexit 3")
+  (assert-error "errexit grep" ($ echo hi | grep nope))
+
+  # Pipefail and Errexit
+  (setdyn *pipefail* true)
+  (assert ($< echo) "echo pipefail + errexit 1")
+  (assert (deep= @"hi\n" ($< echo hi)) "echo pipefail + errexit 2")
+  (assert (deep= @"hi" ($<_ echo hi)) "echo pipefail + errexit 3")
+  (assert-error "pipefail + errexit grep" ($ echo hi | grep nope))
+  (assert-error "pipefail + errexit grep" ($ echo hi | grep nope | ,janet -e "(os/exit 0)")))
 
 (end-suite)
