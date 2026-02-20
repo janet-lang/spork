@@ -53,6 +53,8 @@
   (assert (deep= @"hi\n" ($< echo hi)) "echo errexit 2")
   (assert (deep= @"hi" ($<_ echo hi)) "echo errexit 3")
   (assert-error "errexit grep" ($ echo hi | grep nope))
+  (assert ($? ,janet -e "(os/exit 0)") "$? works normally with errexit 1")
+  (assert (not ($? ,janet -e "(os/exit 1)")) "$? works normally with errexit 2")
 
   # Pipefail and Errexit
   (setdyn *pipefail* true)

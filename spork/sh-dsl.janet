@@ -50,14 +50,14 @@
   ret)
 
 (defn- pipeline-results
-  [xs]
+  [xs err-exit]
   (def status-codes (filter number? xs))
   (assert (next status-codes)) # we must have at least 1 status code
   (let [rc (if (dyn *pipefail*)
              (last-nonzero status-codes)
              (last status-codes))]
     (if (not= 0 rc)
-      (if (dyn *errexit*)
+      (if (and err-exit (dyn *errexit*))
         (error (string/format "non-zero exit code %v" rc))
         rc)
       (last xs))))
@@ -91,7 +91,7 @@
   and opens files, calls os/spawn on each command, and finally waits
   until completion. Also cleans up resources when done.
   ```
-  [pipeline &opt capture return-all]
+  [pipeline &opt capture return-all no-err-exit]
   (def procs @[])
   (def fds @[])
   (var pipein nil)
@@ -166,7 +166,7 @@
     (set out (wait-thunks thunks)))
 
   # Outside defer for better stack trace on error
-  (if return-all out (pipeline-results out)))
+  (if return-all out (pipeline-results out (not no-err-exit))))
 
 ###
 ### DSL Parsing
@@ -260,9 +260,9 @@
   pipeline)
 
 (defn- dsl-impl
-  [tokens &opt capture all-status]
+  [tokens &opt capture all-status no-err-exit]
   # Run pipeline at runtime
-  ~(,do-pipeline-impl ,(build-pipeline tokens) ,capture ,all-status))
+  ~(,do-pipeline-impl ,(build-pipeline tokens) ,capture ,all-status ,no-err-exit))
 
 ###
 ### API
@@ -284,7 +284,7 @@
 (defmacro $?
   "Run and return true if last command passed, false otherwise"
   [& cmd]
-  ~(,zero? ,(dsl-impl cmd false)))
+  ~(,zero? ,(dsl-impl cmd false false true)))
 
 (defmacro $<_
   "Run and returns the standard output of the last command in the output with the last newline stripped."
