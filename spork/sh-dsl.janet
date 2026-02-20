@@ -248,6 +248,7 @@
   (unless (empty? cmd-buffer) (next-cmd))
 
   # Process and check pipeline
+  (assert (next pipeline) "cannot make empty pipeline")
   (eachp [i {:tab t}] pipeline
     (def is-first (zero? i))
     (def is-last (= i (dec (length pipeline))))

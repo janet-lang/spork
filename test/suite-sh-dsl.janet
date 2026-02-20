@@ -16,6 +16,12 @@
   (assert (deep= @"hi\n" ($< echo hi)) "echo 2")
   (assert (deep= @"hi" ($<_ echo hi)) "echo 3")
 
+  # Malformed (eval wrapped since these are macros)
+  (assert-error "malformed 1" (eval '($)))
+  (assert-error "malformed 2" (eval '($<)))
+  (assert-error "malformed 3" (eval '($<_)))
+  (assert-error "malformed 4" (eval '($< < README.md)))
+
   # Pipes
   (assert (deep= @"hi" ($<_ echo "hi\nhello" | grep hi)) "pipeline 1")
   (assert-error "bad program" (deep= @"hi" ($<_ echo "hi\nhello" | greppy-123abc456789 hi)))
