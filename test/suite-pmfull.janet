@@ -15,7 +15,7 @@
 (defn randdir
   "Get a random directory name"
   []
-  (string "/tmp/pm/tmp_dir_" (slice (string (math/random) ".tmp") 2)))
+  (string "tmp/pm/tmp_dir_" (slice (string (math/random) ".tmp") 2)))
 
 (unless enabled (print "set SPORK_TEST_ALL_PACKAGES=1 to run full pm testing."))
 (when enabled
