@@ -280,12 +280,14 @@
 
 (defn new-venv
   "Create a new virtual environment"
-  [path]
+  [&opt path]
+  (default path "venv")
   (pm/scaffold-pm-shell path))
 
 (defn new-full-venv
   "Create a new virtual environment, capturing snapshots of the janet interpreter and shared libraries as well."
-  [path]
+  [&opt path]
+  (default path "venv")
   (pm/scaffold-pm-shell path)
   (pm/vendor-binaries-pm-shell path))
 
