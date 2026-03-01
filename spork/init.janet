@@ -8,6 +8,7 @@
 (import ./cjanet :export true)
 (import ./cron :export true)
 (import ./data :export true)
+(import ./date :export true)
 (import ./declare-cc :export true)
 (import ./ev-utils :export true)
 (import ./fmt :export true)
