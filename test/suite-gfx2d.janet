@@ -49,11 +49,14 @@
       (def f-ref-buf (get f-ref 4))
       (def blen (length f-img-buf))
       (var total-diff 0)
+      (var num-pixels-diff 0)
       (for i 0 blen
         # Compare each byte and given absdiff. No sRGB considerations.
-        (+= total-diff (math/abs (- (in f-img-buf i) (in f-ref-buf i)))))
+        (def absdiff (math/abs (- (in f-img-buf i) (in f-ref-buf i))))
+        (if (> absdiff 0) (++ num-pixels-diff))
+        (+= total-diff absdiff))
       (def diff (/ total-diff blen))
-      (assert (< diff diff-threshold (string "difference between reference and test image (%.3f) is beyond threshold (%.3f) for %s" diff diff-threshold file-name))))
+      (assert (< diff diff-threshold (string/format "difference between reference and test image (%.3f) is beyond threshold (%.3f) for %s - %d pixels different" diff diff-threshold file-name num-pixels-diff))))
     # No fuzzy-compare
     (assert (deep= (freeze-image reference) (freeze-image img)) (string "reference not identical to test image " file-name))))
 
