@@ -1525,15 +1525,17 @@
 
   (function bitmap-bake
     "Custom bitmap bake to better handle missing glyphs, etc. Modified from BakeFontBitmap_internal in stb_truetype.h"
-    [data:*uint8_t pixel-height:float pixels:*uint8_t pw:int ph:int first-char:int num-chars:int chardata:*stbtt_bakedchar] -> int
-    (def scale:float)
+    [data:*uint8_t scale:float pixels:*uint8_t pw:int ph:int first-char:int num-chars:int chardata:*stbtt_bakedchar] -> int
     (def x:int) (def y:int) (def bottom-y:int)
     (def f:stbtt-fontinfo)
     (set f.userdata NULL)
     (unless (stbtt-InitFont &f data 0) (return -1))
     (memset pixels 0 (* pw ph))
     (set x 1) (set y 1) (set bottom-y 1)
-    (set scale (stbtt-ScaleForPixelHeight &f pixel-height))
+    # Allow both pts and pixels
+    (if (< scale 0)
+      (set scale (- scale)) # pts
+      (set scale (stbtt-ScaleForPixelHeight &f scale))) # pixels
     (def advance:int)
     (def lsb:int)
     (def x0:int)
@@ -1666,7 +1668,7 @@
       height int32_t))
 
   (function measure-text-impl :static
-    "Measure text and get it's bounds"
+    "Measure text and get its bounds"
     [font:*Font (cursor (const *uint8_t)) scale:float orientation:int] -> TextMeasure
     (var fx:float 0.0)
     (var fy:float 0.0)
@@ -1758,7 +1760,7 @@
         (continue))
       (def glyphi:int (- cp fp->first-codepoint))
       (when (= 0 (.xadvance (aref fp->cdata glyphi)))
-        (+= fx (* 2 scale font->scale))
+        (+= fx (fabs (* 2 scale font->scale)))
         (continue))
       (def q:stbtt-aligned-quad)
       (stbtt-GetBakedQuad fp->cdata fp->pdata-width fp->pdata-height

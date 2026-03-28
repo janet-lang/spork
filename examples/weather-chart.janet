@@ -82,7 +82,7 @@
     :format-x format-x
     # :font :olive
     # :olive, :default, and :tall are built-in bitmap fonts that don't need an external TTF file.
-    :font (gfx2d/load-font "examples/fonts/Roboto-Regular.ttf" 42)
+    :font (gfx2d/load-font "examples/fonts/Roboto-Regular.ttf" 29.5)
     :padding 40 # default padding is 16, larger padding looks better for larger fonts and images.
     :super-sample 4 # Super-sampled anti-aliasing is a great way to get nice charts.
     # It is a bit slow to render, especially for large images (4x super-sampled is 16 times the pixels). Going beyond 4 is usually superfluous.

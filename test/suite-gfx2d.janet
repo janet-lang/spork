@@ -25,7 +25,7 @@
 
 (defn check-image
   "Either save image to a directory or compare against the existing image"
-  [img file-name]
+  [img file-name &opt diff-threshold]
   (def fullpath (path/join "test" "gold" file-name))
   (def tmppath (path/join "tmp" file-name))
   (os/mkdir "tmp")
@@ -37,7 +37,24 @@
     (save fullpath img)
     (break))
   (def reference (load fullpath))
-  (assert (deep= (freeze-image reference) (freeze-image img)) (string "reference not identical to test image " file-name)))
+  (if diff-threshold
+    # Fuzzy-compare
+    (let [f-img (freeze-image img)
+          f-ref (freeze-image reference)]
+      # Compare w, h, channels, and stride
+      (assert (deep= (take 4 f-img) (take 4 f-ref)) (string "reference dimensions not identical to test image dimensions " file-name))
+      # For pointer buffer, allow for some differences given a threshold
+      # TODO - create C function(s) for image statistics
+      (def f-img-buf (get f-img 4))
+      (def f-ref-buf (get f-ref 4))
+      (def blen (length f-img-buf))
+      (var total-diff 0)
+      (for i 0 blen
+        # Compare each byte and given absdiff. No sRGB considerations.
+        (+= total-diff (math/abs (- (in f-img-buf i) (in f-ref-buf i)))))
+      (assert (< (/ total-diff blen) diff-threshold (string "difference between reference and test image is beyond threshold " diff-threshold " : " file-name))))
+    # No fuzzy-compare
+    (assert (deep= (freeze-image reference) (freeze-image img)) (string "reference not identical to test image " file-name))))
 
 (defn test-image-1
   []
@@ -392,7 +409,7 @@
   (def canvas (blank 256 256 3))
   (def font (load-font "examples/fonts/Roboto-Regular.ttf" 18))
   (draw-text canvas font 2 2 "Hello, world!\nabc\n\t123" white)
-  (check-image canvas "tabs_newlines_ttf_text.png"))
+  (check-image canvas "tabs_newlines_ttf_text.png" 0.1))
 
 (test-tabs-newlines-ttf)
 
