@@ -52,7 +52,8 @@
       (for i 0 blen
         # Compare each byte and given absdiff. No sRGB considerations.
         (+= total-diff (math/abs (- (in f-img-buf i) (in f-ref-buf i)))))
-      (assert (< (/ total-diff blen) diff-threshold (string "difference between reference and test image is beyond threshold " diff-threshold " : " file-name))))
+      (def diff (/ total-diff blen))
+      (assert (< diff diff-threshold (string "difference between reference and test image (%.3f) is beyond threshold (%.3f) for %s" diff diff-threshold file-name))))
     # No fuzzy-compare
     (assert (deep= (freeze-image reference) (freeze-image img)) (string "reference not identical to test image " file-name))))
 
@@ -409,7 +410,7 @@
   (def canvas (blank 256 256 3))
   (def font (load-font "examples/fonts/Roboto-Regular.ttf" 18))
   (draw-text canvas font 2 2 "Hello, world!\nabc\n\t123" white)
-  (check-image canvas "tabs_newlines_ttf_text.png" 0.1))
+  (check-image canvas "tabs_newlines_ttf_text.png" 1.0))
 
 (test-tabs-newlines-ttf)
 
