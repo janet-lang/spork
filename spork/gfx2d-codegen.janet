@@ -538,7 +538,7 @@
    :yellow 0xFF00FFFF
    :magenta 0xFFFF00FF})
 
-(eachp [name value] colors
+(each [name value] (sort (pairs colors))
   (@ define ,name ,value)
   (unless (dyn :shader-compile)
     (emit-cdef (symbol name) (string "color constant for " name) ~(janet-wrap-number ,value))))
@@ -1531,6 +1531,7 @@
     (set f.userdata NULL)
     (unless (stbtt-InitFont &f data 0) (return -1))
     (memset pixels 0 (* pw ph))
+    (memset chardata 0 (* num-chars (sizeof stbtt_bakedchar)))
     (set x 1) (set y 1) (set bottom-y 1)
     # Allow both pts and pixels
     (if (< scale 0)
@@ -1603,7 +1604,7 @@
         (janet-panic "failed to allocate font plane atlas"))
       (def new-size:uint32_t (* 8 (/ (cast uint32_t (+ 32 (/ atlas-size frac-filled))) 8)))
       (if (< new-size atlas-size)
-        (set new-size (+ atlas-size 64)))
+        (set new-size (+ atlas-size 32)))
       (set atlas-size new-size))
     (def w:uint32_t atlas-size)
     (def h:uint32_t atlas-size)
@@ -1627,15 +1628,17 @@
     (def plane-key:uint32_t (+ (<< small-scale 24) (>> codepoint 10)))
     (def check:Janet (janet-table-get font->planes (janet-wrap-number plane-key)))
     (when (janet-checktype check JANET_ABSTRACT)
-      (return (cast *FontPlane (janet-unwrap-abstract check))))
+      (def plane:*FontPlane (cast *FontPlane (janet-unwrap-abstract check)))
+      (assert (>= codepoint plane->first-codepoint))
+      (assert (< codepoint (+ plane->first-codepoint plane->n-codepoints)))
+      (return plane))
     # No plane found, make one
-    (def first-codepoint:uint32_t (<< plane-key 10))
+    (def first-codepoint:uint32_t (band 0xFFFFFF (<< plane-key 10)))
     (def n-codepoints:uint32_t 1024) # 2^10
-    (when (= 0 first-codepoint)
-      (+= first-codepoint 32)
-      (-= n-codepoints 32))
     (def plane:*FontPlane (make-font-plane font first-codepoint n-codepoints scale))
     (janet-table-put font->planes (janet-wrap-number plane-key) (janet-wrap-abstract plane))
+    (assert (>= codepoint plane->first-codepoint))
+    (assert (< codepoint (+ plane->first-codepoint plane->n-codepoints)))
     (return plane))
 
   (cfunction load-font
@@ -1685,6 +1688,7 @@
       (unless (and fp (>= cp fp->first-codepoint) (< cp (+ fp->first-codepoint fp->n-codepoints)))
         (set fp (get-plane-for-codepoint font cp scale)))
       (def q:stbtt-aligned-quad)
+      (memset &q 0 (sizeof q))
       # Special handling
       (when (= 10 cp)
         (set fx 0)
@@ -1763,6 +1767,7 @@
         (+= fx (fabs (* 2 scale font->scale)))
         (continue))
       (def q:stbtt-aligned-quad)
+      (memset &q 0 (sizeof q))
       (stbtt-GetBakedQuad fp->cdata fp->pdata-width fp->pdata-height
                           glyphi
                           &fx &fy
