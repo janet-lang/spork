@@ -145,8 +145,8 @@
         # take end token with deadline
         (ev/with-deadline complete-time (ev/take completion-channel)))
       ([err fib]
-       (file/write logfile "no affirmative cancellation response\n")
-       (debug/stacktrace fib err ""))))
+        (file/write logfile "no affirmative cancellation response\n")
+        (debug/stacktrace fib err ""))))
   (ev/chan-close completion-channel)
   (file/close logfile)
   nil)
@@ -236,7 +236,7 @@
   (defn g
     []
     (def root (fiber/root))
-     # messages to this thread will cancel the root fiber
+    # messages to this thread will cancel the root fiber
     (ev/go |(do (ev/cancel root (ev/take cancel-chan)) (after-cancel)))
     (f))
   (defn body [] (ev/thread g))
@@ -268,27 +268,27 @@
   (def sp (dyn *syspath*))
   (def tid (dyn :task-id))
   (thread-with-cancel |(ev/give completion-channel :done)
-    (fn :thread
-      []
-      # Reopen on the new thread rather than transfer via marshalling
-      (def g (file/open logpath :ab))
-      (try
-        (do
-          (setdyn *err* g)
-          (setdyn *out* g)
-          (setdyn *syspath* sp)
-          (setdyn *pretty-format* "%.5q")
-          (setdyn :task-id tid)
-          # TODO - allow easily setting title of service
-          (def main (module/value (require module-name) (symbol func)))
-          (setdyn *args* [module-name ;args])
-          (main ;(dyn *args*)))
-        ([err f]
-          (debug/stacktrace g err "")
-          (file/flush g) # flush f after making error stack trace
-          (propagate f err)))
-      (xprin g "finished module in thread!\n")
-      (file/flush g))))
+                      (fn :thread
+                        []
+                        # Reopen on the new thread rather than transfer via marshalling
+                        (def g (file/open logpath :ab))
+                        (try
+                          (do
+                            (setdyn *err* g)
+                            (setdyn *out* g)
+                            (setdyn *syspath* sp)
+                            (setdyn *pretty-format* "%.5q")
+                            (setdyn :task-id tid)
+                            # TODO - allow easily setting title of service
+                            (def main (module/value (require module-name) (symbol func)))
+                            (setdyn *args* [module-name ;args])
+                            (main ;(dyn *args*)))
+                          ([err f]
+                            (debug/stacktrace g err "")
+                            (file/flush g) # flush f after making error stack trace
+                            (propagate f err)))
+                        (xprin g "finished module in thread!\n")
+                        (file/flush g))))
 
 ###
 ### Reporting

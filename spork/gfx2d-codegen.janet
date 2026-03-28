@@ -927,10 +927,10 @@
     [orientation:int] -> OrientationTransform
     (switch
       (% orientation 4)
-      0 (return (named-struct OrientationTransform x-by-x  1 x-by-y  0 y-by-y  1 y-by-x  0))
-      1 (return (named-struct OrientationTransform x-by-x  0 x-by-y -1 y-by-y  0 y-by-x  1))
-      2 (return (named-struct OrientationTransform x-by-x -1 x-by-y  0 y-by-y -1 y-by-x  0))
-      3 (return (named-struct OrientationTransform x-by-x  0 x-by-y  1 y-by-y  0 y-by-x -1))))
+      0 (return (named-struct OrientationTransform x-by-x 1 x-by-y 0 y-by-y 1 y-by-x 0))
+      1 (return (named-struct OrientationTransform x-by-x 0 x-by-y -1 y-by-y 0 y-by-x 1))
+      2 (return (named-struct OrientationTransform x-by-x -1 x-by-y 0 y-by-y -1 y-by-x 0))
+      3 (return (named-struct OrientationTransform x-by-x 0 x-by-y 1 y-by-y 0 y-by-x -1))))
 
   (function orient-xform
     "Apply oritentation to a point"
@@ -1697,21 +1697,21 @@
     (var w:int32_t (cast int32_t (+ 0.5 (- max-fx min-fx))))
     (var h:int32_t (cast int32_t (+ 0.5 (- max-fy min-fy))))
     (switch (% orientation 4)
-      0 (break)
-      1 (do
-          (swap w h int32_t)
-          (set min-fx min-fy)
-          (set min-fy (- max-fx))
-          (break))
-      2 (do
-          (set min-fx (- max-fx))
-          (set min-fy (- max-fy))
-          (break))
-      3 (do
-          (swap w h int32_t)
-          (set min-fx (- max-fy))
-          (set min-fy max-fx)
-          (break)))
+            0 (break)
+            1 (do
+                (swap w h int32_t)
+                (set min-fx min-fy)
+                (set min-fy (- max-fx))
+                (break))
+            2 (do
+                (set min-fx (- max-fx))
+                (set min-fy (- max-fy))
+                (break))
+            3 (do
+                (swap w h int32_t)
+                (set min-fx (- max-fy))
+                (set min-fy max-fx)
+                (break)))
     (return (named-struct TextMeasure xmin min-fx ymin min-fy width w height h)))
 
   (cfunction load-font
