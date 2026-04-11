@@ -578,4 +578,14 @@
 
 (test-multi-bar-scatter)
 
+
+(defn test-packing-chart
+  []
+  (def df
+    {:x [1 2 3 4 5] :y [1 2 3 4 5]})
+  (def c (charts/plot-packing-chart :data df :width 200 :height 200))
+  (check-image c "packing-chart-simple.png"))
+
+(test-packing-chart)
+
 (end-suite)

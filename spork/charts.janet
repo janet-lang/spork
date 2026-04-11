@@ -105,8 +105,8 @@
   (default scale 1)
   (default orientation 0)
   # Uncomment to check text bounding boxes for layout calculations
-  #(def [w h] (text-measure text font scale orientation))
-  #(draw-frame image x y (+ x w) (+ y h) color)
+  # (def [w h] (text-measure text font scale orientation))
+  # (draw-frame image x y ((if (> orientation 1) - +) x w) ((if (even? orientation) + -) y h) color)
   (if (abstract? font)
     (g/draw-text image font x y text color scale orientation)
     (g/draw-simple-text image x y text color font scale scale orientation)))
@@ -1577,5 +1577,130 @@
   # Save to file
   (when save-as
     (g/save save-as canvas))
+
+  canvas)
+
+###
+### Packing chart (area chart) - show relative sizes of things by area
+###
+
+(defn plot-packing-chart
+  ```
+  Draw a packing chart (relative area chart). Plot boxes for each value who sizes are proportianal to the value
+  they represent. A more versatile and compact alternative to pie charts.
+  ```
+  [&named
+   canvas width height
+   data-map data x-column y-column
+   padding inner-padding
+   background-color
+   text-color
+   font title color-map
+   omega
+   scramble]
+
+  (def [canvas canvas-w canvas-h] :shadow (canvas-and-dimensions canvas width height))
+  (def canvas (g/blank canvas-w canvas-h 4))
+  (default padding 2)
+  (default inner-padding 2)
+  (default background-color (dyn *background-color* default-background-color))
+  (default color-map :magma)
+  (default font (dyn *font* default-font))
+  (def cmap (to-color-map color-map))
+
+  # Convert data-frame to map of keys->values
+  (def data :shadow
+    (or data-map
+        (let [skeys (sort (keys data))]
+          (default x-column (first skeys))
+          (default y-column (get skeys 0))
+          (assert x-column)
+          (assert y-column)
+          (def xs (assert (get data x-column)))
+          (def ys (assert (get data y-column)))
+          (def data-mapping @{})
+          (for i 0 (length xs)
+            (put data-mapping (get xs i) (get ys i)))
+          data-mapping)))
+
+  # Preprocess data
+  (def categories (keys data))
+  (def all-measurements (values data))
+  (each x all-measurements (assert (>= x 0) "cannot have area measurements less than 0"))
+  (def total-area (sum all-measurements))
+  (def max-value (max-of all-measurements))
+  (def min-value (min-of all-measurements))
+  (def value-range (- max-value min-value))
+  (unless scramble
+    (sort-by |(- (get data $)) categories))
+
+  (defn do-branch
+    [x y w h categories]
+
+    # Boxes are too small
+    (if (<= w (+ padding padding)) (break))
+    (if (<= h (+ padding padding)) (break))
+
+    # Leaf cases
+    (when (empty? categories) (break))
+    (when (= 1 (length categories))
+      (def cat (first categories))
+      (def text (string cat))
+      (def t (if (> value-range 0) (/ (- (get data cat) min-value) value-range) 0.5))
+      (def color (cmap t cat))
+      (def tcolor (or text-color (if (< 0.6 (color-value color)) g/black g/white))) # black or white, maximizing contrast
+      (g/fill-rect canvas (+ padding x) (+ padding y) (- w padding padding 1) (- h padding padding 1) color)
+      (def [tw th] (text-measure text font))
+      (def wlimit (- w inner-padding inner-padding padding padding))
+      (def hlimit (- h inner-padding inner-padding padding padding))
+      (def noh (or (> th hlimit) (> tw wlimit)))
+      (def nov (or (> tw hlimit) (> th wlimit)))
+      (if (and noh nov) (break)) # TODO - other things besides omit lable?
+      (def orient (if noh 1 0))
+      # Scale up text to fill rectangle
+      (def tscale (max 1 (math/floor (- (min (/ (case orient 0 w h) tw)
+                                             (/ (case orient 0 h w) th))
+                                        0.2))))
+      (def tw (* tw tscale))
+      (def th (* th tscale))
+      (text-draw canvas
+                 (+ x (div (- w (case orient 0 tw th)) 2))
+                 (+ y (div (- h (case orient 0 th (- tw))) 2))
+                 text tcolor font tscale orient)
+      (break))
+
+    # Group categories for split
+    (def split-dir (if (>= w h) :h :v))
+    (def lhs @[])
+    (def total-weight (sum (seq [x :in categories] (get data x))))
+    # TODO play with this parameter, make it a function of w, h, number of categories, etc.
+    (default omega 0.5)
+    (def split-weight (* omega total-weight))
+    (var weight 0)
+    # Don't check last to ensure a split
+    (loop [ci :range [0 (- (length categories) 1)] :while (< weight split-weight)]
+      (def c (get categories ci))
+      (array/push lhs c)
+      (+= weight (get data c)))
+    (def rhs (drop (length lhs) categories))
+    (def fraction (/ weight total-weight))
+    (def inv-fraction (- 1 fraction))
+
+    # Split
+    (def ish (= :h split-dir))
+    (def left-x x)
+    (def left-y y)
+    (def left-w (math/round (* (if ish fraction 1) w)))
+    (def left-h (math/round (* (if ish 1 fraction) h)))
+    (def right-x (if ish (+ x left-w) x))
+    (def right-y (if ish y (+ y left-h)))
+    (def right-w (if ish (- w left-w) w))
+    (def right-h (if ish h (- h left-h)))
+    (do-branch right-x right-y right-w right-h rhs)
+    (do-branch left-x left-y left-w left-h lhs))
+
+  # Initial recursive call
+  (g/fill-rect canvas 0 0 canvas-w canvas-h background-color)
+  (do-branch 0 0 canvas-w canvas-h categories)
 
   canvas)
