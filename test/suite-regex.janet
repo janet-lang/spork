@@ -24,4 +24,7 @@
 (assert (regex/match `(cat|dog|mouse)+` "mousecatdog") "match 12")
 (assert (regex/match `a(cat|dog|mouse)+` "amousecatdog") "match 13")
 
+(assert (regex/match `\w+` "anne_elk_theory") "match 14")
+(assert (regex/match `\W+` `\[^^]/`) "match 15")
+
 (end-suite)
