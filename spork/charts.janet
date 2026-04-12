@@ -46,6 +46,7 @@
 ### [ ] - captions and sub-titles
 ### [ ] - labeling data points
 
+(import spork/math :as smath)
 (import spork/gfx2d :as g)
 
 # Defaults
@@ -1597,7 +1598,9 @@
    text-color
    font title color-map
    omega
-   scramble]
+   no-text-resize
+   shuffle-bins
+   sort-bins]
 
   (def [canvas canvas-w canvas-h] :shadow (canvas-and-dimensions canvas width height))
   (def canvas (g/blank canvas-w canvas-h 4))
@@ -1606,9 +1609,11 @@
   (default background-color (dyn *background-color* default-background-color))
   (default color-map :magma)
   (default font (dyn *font* default-font))
+  (default sort-bins true)
   (def cmap (to-color-map color-map))
 
   # Convert data-frame to map of keys->values
+  (var categories nil)
   (def data :shadow
     (or data-map
         (let [skeys (sort (keys data))]
@@ -1618,21 +1623,24 @@
           (assert y-column)
           (def xs (assert (get data x-column)))
           (def ys (assert (get data y-column)))
+          (set categories (array/slice xs))
           (def data-mapping @{})
           (for i 0 (length xs)
             (put data-mapping (get xs i) (get ys i)))
           data-mapping)))
 
   # Preprocess data
-  (def categories (keys data))
+  (unless categories (set categories (keys data))) # keep in order for data frame
   (def all-measurements (values data))
   (each x all-measurements (assert (>= x 0) "cannot have area measurements less than 0"))
   (def total-area (sum all-measurements))
   (def max-value (max-of all-measurements))
   (def min-value (min-of all-measurements))
   (def value-range (- max-value min-value))
-  (unless scramble
+  (if sort-bins
     (sort-by |(- (get data $)) categories))
+  (if shuffle-bins
+    (smath/shuffle-in-place categories))
 
   (defn do-branch
     [x y w h categories]
@@ -1658,9 +1666,10 @@
       (if (and noh nov) (break)) # TODO - other things besides omit lable?
       (def orient (if noh 1 0))
       # Scale up text to fill rectangle
-      (def tscale (max 1 (math/floor (- (min (/ (case orient 0 w h) tw)
-                                             (/ (case orient 0 h w) th))
-                                        0.2))))
+      (def tscale (if no-text-resize 1
+                    (max 1 (math/floor (- (min (/ (case orient 0 w h) tw)
+                                               (/ (case orient 0 h w) th))
+                                          0.2)))))
       (def tw (* tw tscale))
       (def th (* th tscale))
       (text-draw canvas

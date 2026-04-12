@@ -1,5 +1,7 @@
 ###
-### Make a packed-area chart of the population of countries
+### Make a packed-area chart of the population of countries. Each country gets
+### a rectange whose area is proportional to it's population. This makes a good alternative
+### to a bar chart, especially when there are many categories.
 ###
 
 (import spork/gfx2d)
@@ -255,9 +257,17 @@
 
 (def extended-data @{})
 (eachp [k v] data (put extended-data (string k "\n" (format-thousand-sep v)) v))
-(def font (gfx2d/load-font "examples/fonts/Roboto-Regular.ttf" 16))
+(def font (gfx2d/load-font "examples/fonts/Roboto-Regular.ttf" 8))
+# use non-linear mapping - country populations are not uniformally distributed.
 (def turbo (get charts/color-maps :viridis))
 (defn mapping [t x & args] (turbo (math/pow t 0.10) x ;args)) # use non-linear mapping
-(def c (charts/plot-packing-chart :width 3840 :height 2160 :data-map extended-data :scramble false :inner-padding 2 :color-map mapping :font font))
+(def c (charts/plot-packing-chart
+         :width (* 1 3840) :height (* 1 2160)
+         :data-map extended-data
+         :shuffle-bins true
+         #:scramble true
+         #:background-color gfx2d/black
+         #:no-text-resize true
+         :inner-padding 2 :padding 1 :color-map mapping :font font))
 (gfx2d/save "tmp/world-population.png" c)
 (print "Wrote to tmp/world-population.png")
