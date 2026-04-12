@@ -65,8 +65,8 @@
   (if-let [m (peg/match posix/last-sep-peg path (length path))]
     (let [[p] m]
       (cond (zero? p) ""
-            (and (= p 1) (= (string/slice path 0 1) "/")) "/"
-            true (string/slice path 0 (- p 1))))
+        (and (= p 1) (= (string/slice path 0 1) "/")) "/"
+        true (string/slice path 0 (- p 1))))
     path))
 
 (defn posix/parts
@@ -214,15 +214,15 @@
     (let [[p] m
           prefix-end (win32-path-prefix path)]
       (cond (and (zero? prefix-end) (zero? p))
-            ""
-            (and (zero? prefix-end) (not (zero? p)))
-            (string/slice path 0 (dec p))
-            (and (not (zero? prefix-end)) (zero? p))
-            path
-            true
-            (if (= prefix-end (length path))
-              path
-              (string/slice path 0 (if (= p prefix-end) p (dec p))))))
+        ""
+        (and (zero? prefix-end) (not (zero? p)))
+        (string/slice path 0 (dec p))
+        (and (not (zero? prefix-end)) (zero? p))
+        path
+        true
+        (if (= prefix-end (length path))
+          path
+          (string/slice path 0 (if (= p prefix-end) p (dec p))))))
     path))
 
 # if there is a prefix (drive letter or unc location),
@@ -345,4 +345,3 @@
 (def relpath
   "Get the relative path between two subpaths."
   (if (posix?) posix/relpath win32/relpath))
-
