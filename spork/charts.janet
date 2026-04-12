@@ -105,8 +105,8 @@
   (default scale 1)
   (default orientation 0)
   # Uncomment to check text bounding boxes for layout calculations
-  #(def [w h] (text-measure text font scale orientation))
-  #(draw-frame image x y (+ x w) (+ y h) color)
+  # (def [w h] (text-measure text font scale orientation))
+  # (draw-frame image x y ((if (> orientation 1) - +) x w) ((if (even? orientation) + -) y h) color)
   (if (abstract? font)
     (g/draw-text image font x y text color scale orientation)
     (g/draw-simple-text image x y text color font scale scale orientation)))
@@ -384,7 +384,7 @@
 
   `canvas` can be either nil to skip drawing or a gfx2d/image.
 
-  * :background-color - the color of the background of the legend
+  * :background-color - the color of the background of the legend. Use :none to skip drawing a background.
   * :font - the font to use for legend text
   * :padding - the number of pixels to leave around all drawn content
   * :color-map - a table/struct that maps labels to colors
@@ -1128,7 +1128,7 @@
 
   Chart Styling
   * :padding - the number of pixels of white space around various elements of the chart
-  * :background-color - color of background, defaults to white
+  * :background-color - color of background, defaults to white. Use :none to skip drawing a background.
   * :text-color - color of text, defaults to black
   * :color-map - a dictionary mapping columns to colors. By default will hash column name to pseudo-random colors
   * :scatter - set to true to disable lines connecting points
@@ -1378,7 +1378,7 @@
   * :canvas - A gfx2d/image to draw on
   *   :width - (if no canvas provided) - make a new canvas with the given width in pixels
   *   :height - (if no canvas provided) - make a new canvas with the given height in pixels
-  * :color-map - a color map keyword or function used to map numbers 0
+  * :color-map - a color map keyword or function used to map numbers in the range [0, 1] to a color.
   * :save-as - optional path to save the chart
 
   Function Callback Input
@@ -1415,7 +1415,7 @@
   * :title-font - font used to draw title. Defaults to font.
   * :text-color - color of axes and title text
   * :padding - Number of pixels to separate various elements of the chart
-  * :background-color - chart background color
+  * :background-color - chart background color. Use :none to skip drawing a background.
   * :legend - one of :top, :bottom, :left, :right, :top-left, :top-right, :bottom-left, :bottom-right, or :none
   * :legend-labels - an array of evenly-spaced markers to put on the color map legend.
   * :legend-width - width of color map gradient in the legend in pixels
@@ -1577,5 +1577,164 @@
   # Save to file
   (when save-as
     (g/save save-as canvas))
+
+  canvas)
+
+###
+### Packing chart (area chart) - show relative sizes of things by area.
+###
+
+(defn plot-packing-chart
+  ```
+  Draw a packing chart (relative area chart). Plot boxes for each value who sizes are proportianal to the value
+  they represent. A more versatile and compact alternative to pie charts, especially when there are many categories.
+  Returns either a new gfx2d/image or the passed-in :canvas.
+
+  Basic Parameters:
+  * :canvas - A gfx2d/image to draw on
+  *   :width - (if no canvas provided) - make a new canvas with the given width in pixels
+  *   :height - (if no canvas provided) - make a new canvas with the given height in pixels
+  * :color-map - a color map keyword or function used to map numbers in the range [0, 1] to a color.
+
+  Data Frame Input:
+  * :data - a dataframe table that contains a grid of cell
+  * :x-column - a column name to use a the category identifiers. Defaults to the first column.
+  * :y-column - a column name to use for the area quantities. Defaults to the second column
+
+  Data Table Input:
+  * :data-map - A table or struct that maps keys as categories to values as proportional rectangle areas.
+
+  Layout Parameters:
+  * :omega - a number between 0 and 1 used to decide how to split rectangular areas. The default is 0.5
+  * :sort-bins - If true, will sort bins from largest to smallest before layout. This usually results in better-looking charts. Default is true.
+       For custom bin ordering before layout, use a dataframe input, set sort-bins to false, and order the rows as desired.
+
+  Color and Theme:
+  * :font - Font to use to draw text inside areas.
+  * :no-text-resize - By default, text will be scaled to fill the space inside each area. Enabling this option keeps all text the same scale.
+  * :text-color - Color to draw text inside areas. By default, will choose white or black to maximize contrast.
+  * :padding - Number of pixels / 2 between areas.
+  * :inner-padding - Minimum number of pixels between area text and the area border.
+  * :background-color - Background color of canvas. Use :none to skip drawing a background.
+  ```
+  [&named
+   canvas width height
+   data-map data x-column y-column
+   padding inner-padding
+   background-color
+   text-color
+   font color-map
+   omega
+   no-text-resize
+   sort-bins]
+
+  (def [canvas canvas-w canvas-h] :shadow (canvas-and-dimensions canvas width height))
+  (def canvas (g/blank canvas-w canvas-h 4))
+  (default padding 2)
+  (default inner-padding 2)
+  (default background-color (dyn *background-color* default-background-color))
+  (default color-map :magma)
+  (default font (dyn *font* default-font))
+  (default sort-bins true)
+  (def cmap (to-color-map color-map))
+
+  # Convert data-frame to map of keys->values
+  (var categories nil)
+  (def data :shadow
+    (or data-map
+        (let [skeys (sort (keys data))]
+          (default x-column (first skeys))
+          (default y-column (get skeys 0))
+          (assert x-column)
+          (assert y-column)
+          (def xs (assert (get data x-column)))
+          (def ys (assert (get data y-column)))
+          (set categories (array/slice xs))
+          (def data-mapping @{})
+          (for i 0 (length xs)
+            (put data-mapping (get xs i) (get ys i)))
+          data-mapping)))
+
+  # Preprocess data
+  (unless categories (set categories (keys data))) # keep in order for data frame
+  (def all-measurements (values data))
+  (each x all-measurements (assert (>= x 0) "cannot have area measurements less than 0"))
+  (def total-area (sum all-measurements))
+  (def max-value (max-of all-measurements))
+  (def min-value (min-of all-measurements))
+  (def value-range (- max-value min-value))
+  (if sort-bins
+    (sort-by |(- (get data $)) categories))
+
+  (defn do-branch
+    [x y w h categories]
+
+    # Boxes are too small
+    (if (<= w (+ padding padding)) (break))
+    (if (<= h (+ padding padding)) (break))
+
+    # Leaf cases
+    (when (empty? categories) (break))
+    (when (= 1 (length categories))
+      (def cat (first categories))
+      (def text (string cat))
+      (def t (if (> value-range 0) (/ (- (get data cat) min-value) value-range) 0.5))
+      (def color (cmap t cat))
+      (def tcolor (or text-color (if (< 0.6 (color-value color)) g/black g/white))) # black or white, maximizing contrast
+      (g/fill-rect canvas (+ padding x) (+ padding y) (- w padding padding 1) (- h padding padding 1) color)
+      (def [tw th] (text-measure text font))
+      (def wlimit (- w inner-padding inner-padding padding padding))
+      (def hlimit (- h inner-padding inner-padding padding padding))
+      (def noh (or (> th hlimit) (> tw wlimit)))
+      (def nov (or (> tw hlimit) (> th wlimit)))
+      (if (and noh nov) (break)) # TODO - other things besides omit lable?
+      (def orient (if noh 1 0))
+      # Scale up text to fill rectangle
+      (def tscale (if no-text-resize 1
+                    (max 1 (math/floor (- (min (/ (case orient 0 w h) tw)
+                                               (/ (case orient 0 h w) th))
+                                          0.2)))))
+      (def tw (* tw tscale))
+      (def th (* th tscale))
+      (text-draw canvas
+                 (+ x (div (- w (case orient 0 tw th)) 2))
+                 (+ y (div (- h (case orient 0 th (- tw))) 2))
+                 text tcolor font tscale orient)
+      (break))
+
+    # Group categories for split
+    (def split-dir (if (>= w h) :h :v))
+    (def lhs @[])
+    (def total-weight (sum (seq [x :in categories] (get data x))))
+    # TODO play with this parameter, make it a function of w, h, number of categories, etc.
+    (default omega 0.5)
+    (def split-weight (* omega total-weight))
+    (var weight 0)
+    # Don't check last to ensure a split
+    (loop [ci :range [0 (- (length categories) 1)] :while (< weight split-weight)]
+      (def c (get categories ci))
+      (array/push lhs c)
+      (+= weight (get data c)))
+    (def rhs (drop (length lhs) categories))
+    (def fraction (/ weight total-weight))
+    (def inv-fraction (- 1 fraction))
+
+    # Split
+    (def ish (= :h split-dir))
+    (def left-x x)
+    (def left-y y)
+    (def left-w (math/round (* (if ish fraction 1) w)))
+    (def left-h (math/round (* (if ish 1 fraction) h)))
+    (def right-x (if ish (+ x left-w) x))
+    (def right-y (if ish y (+ y left-h)))
+    (def right-w (if ish (- w left-w) w))
+    (def right-h (if ish h (- h left-h)))
+    (do-branch right-x right-y right-w right-h rhs)
+    (do-branch left-x left-y left-w left-h lhs))
+
+  # Initial recursive call
+  (when (not= :none background-color)
+    (g/fill-rect canvas 0 0 canvas-w canvas-h background-color))
+  (do-branch 0 0 canvas-w canvas-h categories)
 
   canvas)
