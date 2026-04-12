@@ -264,10 +264,12 @@
 (def c (charts/plot-packing-chart
          :width (* 1 3840) :height (* 1 2160)
          :data-map extended-data
-         :shuffle-bins true
-         #:scramble true
+         #:shuffle-bins true
+         #:sort-bins false
          #:background-color gfx2d/black
          #:no-text-resize true
-         :inner-padding 2 :padding 1 :color-map mapping :font font))
+         :inner-padding 2 :padding 1 :color-map mapping
+         :font font
+         ))
 (gfx2d/save "tmp/world-population.png" c)
 (print "Wrote to tmp/world-population.png")

@@ -46,7 +46,6 @@
 ### [ ] - captions and sub-titles
 ### [ ] - labeling data points
 
-(import spork/math :as smath)
 (import spork/gfx2d :as g)
 
 # Defaults
@@ -385,7 +384,7 @@
 
   `canvas` can be either nil to skip drawing or a gfx2d/image.
 
-  * :background-color - the color of the background of the legend
+  * :background-color - the color of the background of the legend. Use :none to skip drawing a background.
   * :font - the font to use for legend text
   * :padding - the number of pixels to leave around all drawn content
   * :color-map - a table/struct that maps labels to colors
@@ -1129,7 +1128,7 @@
 
   Chart Styling
   * :padding - the number of pixels of white space around various elements of the chart
-  * :background-color - color of background, defaults to white
+  * :background-color - color of background, defaults to white. Use :none to skip drawing a background.
   * :text-color - color of text, defaults to black
   * :color-map - a dictionary mapping columns to colors. By default will hash column name to pseudo-random colors
   * :scatter - set to true to disable lines connecting points
@@ -1379,7 +1378,7 @@
   * :canvas - A gfx2d/image to draw on
   *   :width - (if no canvas provided) - make a new canvas with the given width in pixels
   *   :height - (if no canvas provided) - make a new canvas with the given height in pixels
-  * :color-map - a color map keyword or function used to map numbers 0
+  * :color-map - a color map keyword or function used to map numbers in the range [0, 1] to a color.
   * :save-as - optional path to save the chart
 
   Function Callback Input
@@ -1416,7 +1415,7 @@
   * :title-font - font used to draw title. Defaults to font.
   * :text-color - color of axes and title text
   * :padding - Number of pixels to separate various elements of the chart
-  * :background-color - chart background color
+  * :background-color - chart background color. Use :none to skip drawing a background.
   * :legend - one of :top, :bottom, :left, :right, :top-left, :top-right, :bottom-left, :bottom-right, or :none
   * :legend-labels - an array of evenly-spaced markers to put on the color map legend.
   * :legend-width - width of color map gradient in the legend in pixels
@@ -1582,13 +1581,41 @@
   canvas)
 
 ###
-### Packing chart (area chart) - show relative sizes of things by area
+### Packing chart (area chart) - show relative sizes of things by area.
 ###
 
 (defn plot-packing-chart
   ```
   Draw a packing chart (relative area chart). Plot boxes for each value who sizes are proportianal to the value
-  they represent. A more versatile and compact alternative to pie charts.
+  they represent. A more versatile and compact alternative to pie charts, especially when there are many categories.
+  Returns either a new gfx2d/image or the passed-in :canvas.
+
+  Basic Parameters:
+  * :canvas - A gfx2d/image to draw on
+  *   :width - (if no canvas provided) - make a new canvas with the given width in pixels
+  *   :height - (if no canvas provided) - make a new canvas with the given height in pixels
+  * :color-map - a color map keyword or function used to map numbers in the range [0, 1] to a color.
+
+  Data Frame Input:
+  * :data - a dataframe table that contains a grid of cell
+  * :x-column - a column name to use a the category identifiers. Defaults to the first column.
+  * :y-column - a column name to use for the area quantities. Defaults to the second column
+
+  Data Table Input:
+  * :data-map - A table or struct that maps keys as categories to values as proportional rectangle areas.
+
+  Layout Parameters:
+  * :omega - a number between 0 and 1 used to decide how to split rectangular areas. The default is 0.5
+  * :sort-bins - If true, will sort bins from largest to smallest before layout. This usually results in better-looking charts. Default is true.
+       For custom bin ordering before layout, use a dataframe input, set sort-bins to false, and order the rows as desired.
+
+  Color and Theme:
+  * :font - Font to use to draw text inside areas.
+  * :no-text-resize - By default, text will be scaled to fill the space inside each area. Enabling this option keeps all text the same scale.
+  * :text-color - Color to draw text inside areas. By default, will choose white or black to maximize contrast.
+  * :padding - Number of pixels / 2 between areas.
+  * :inner-padding - Minimum number of pixels between area text and the area border.
+  * :background-color - Background color of canvas. Use :none to skip drawing a background.
   ```
   [&named
    canvas width height
@@ -1596,10 +1623,9 @@
    padding inner-padding
    background-color
    text-color
-   font title color-map
+   font color-map
    omega
    no-text-resize
-   shuffle-bins
    sort-bins]
 
   (def [canvas canvas-w canvas-h] :shadow (canvas-and-dimensions canvas width height))
@@ -1639,8 +1665,6 @@
   (def value-range (- max-value min-value))
   (if sort-bins
     (sort-by |(- (get data $)) categories))
-  (if shuffle-bins
-    (smath/shuffle-in-place categories))
 
   (defn do-branch
     [x y w h categories]
@@ -1709,7 +1733,8 @@
     (do-branch left-x left-y left-w left-h lhs))
 
   # Initial recursive call
-  (g/fill-rect canvas 0 0 canvas-w canvas-h background-color)
+  (when (not= :none background-color)
+    (g/fill-rect canvas 0 0 canvas-w canvas-h background-color))
   (do-branch 0 0 canvas-w canvas-h categories)
 
   canvas)
