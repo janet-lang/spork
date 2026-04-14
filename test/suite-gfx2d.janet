@@ -578,7 +578,6 @@
 
 (test-multi-bar-scatter)
 
-
 (defn test-packing-chart
   []
   (def df
@@ -587,5 +586,23 @@
   (check-image c "packing-chart-simple.png"))
 
 (test-packing-chart)
+
+(defn test-packing-chart-repeated-data
+  []
+  (def df
+    {:x [1 2 1 2 3] :y [1 2 3 4 5]})
+  (def c (charts/plot-packing-chart :data df :width 200 :height 200))
+  (check-image c "packing-chart-repeat.png"))
+
+(test-packing-chart-repeated-data)
+
+(defn test-packing-chart-custom-color
+  []
+  (def df
+    {:x [1 2 1 2 3] :y [1 2 3 4 5] :c [0 0.2 0.8 0.2 0]})
+  (def c (charts/plot-packing-chart :data df :x-column :x :y-column :y :c-column :c :width 200 :height 200))
+  (check-image c "packing-chart-custom-color.png"))
+
+(test-packing-chart-custom-color)
 
 (end-suite)

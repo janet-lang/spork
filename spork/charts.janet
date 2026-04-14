@@ -1584,6 +1584,15 @@
 ### Packing chart (area chart) - show relative sizes of things by area.
 ###
 
+(defn- second [xs] (get xs 1))
+(defn- tab-to-df
+  "convert a table/struct to a 2 column data-frame."
+  [x]
+  (def xs @[])
+  (def ys @[])
+  (eachp [k v] x (array/push xs k) (array/push ys v))
+  @{:x xs :y ys})
+
 (defn plot-packing-chart
   ```
   Draw a packing chart (relative area chart). Plot boxes for each value who sizes are proportianal to the value
@@ -1600,6 +1609,7 @@
   * :data - a dataframe table that contains a grid of cell
   * :x-column - a column name to use a the category identifiers. Defaults to the first column.
   * :y-column - a column name to use for the area quantities. Defaults to the second column
+  * :c-column - a column name to use for color grading. Defaults to the same as the y-column, but mapped to a range from 0 to 1.
 
   Data Table Input:
   * :data-map - A table or struct that maps keys as categories to values as proportional rectangle areas.
@@ -1619,7 +1629,8 @@
   ```
   [&named
    canvas width height
-   data-map data x-column y-column
+   data-map
+   data x-column y-column c-column
    padding inner-padding
    background-color
    text-color
@@ -1638,33 +1649,33 @@
   (default sort-bins true)
   (def cmap (to-color-map color-map))
 
-  # Convert data-frame to map of keys->values
-  (var categories nil)
-  (def data :shadow
-    (or data-map
-        (let [skeys (sort (keys data))]
-          (default x-column (first skeys))
-          (default y-column (get skeys 0))
-          (assert x-column)
-          (assert y-column)
-          (def xs (assert (get data x-column)))
-          (def ys (assert (get data y-column)))
-          (set categories (array/slice xs))
-          (def data-mapping @{})
-          (for i 0 (length xs)
-            (put data-mapping (get xs i) (get ys i)))
-          data-mapping)))
+  # Normalize input data
+  (default data (tab-to-df (assert data-map "need :data or :data-map argument")))
+  (def skeys (sort (keys data)))
+  (default x-column (first skeys))
+  (default y-column (get skeys 1))
+  (def xs (assert (get data x-column)))
+  (def ys (assert (get data y-column)))
+
+  # Allow a custom color column, but use the y-column by default with a reasonable color ramp.
+  (def max-value (max-of ys))
+  (def min-value (min-of ys))
+  (def value-range (- max-value min-value))
+  (def color-ramp-slope (cond c-column 1 (not= 0 value-range) (/ value-range) 0))
+  (def color-ramp-offset (cond c-column 0 (not= 0 value-range) (- (/ min-value value-range)) 0.5))
+  (default c-column y-column)
+  (def cs (assert (get data c-column)))
+
+  # Use zipped data for sorting
+  (def zipped-data (map tuple xs ys cs))
+
+  (var custom-draw nil)
 
   # Preprocess data
-  (unless categories (set categories (keys data))) # keep in order for data frame
-  (def all-measurements (values data))
-  (each x all-measurements (assert (>= x 0) "cannot have area measurements less than 0"))
-  (def total-area (sum all-measurements))
-  (def max-value (max-of all-measurements))
-  (def min-value (min-of all-measurements))
-  (def value-range (- max-value min-value))
+  (each y ys (assert (>= y 0) "cannot have area measurements less than 0"))
+  (def total-area (sum ys))
   (if sort-bins
-    (sort-by |(- (get data $)) categories))
+    (sort-by |(- (get $ 1)) zipped-data))
 
   (defn do-branch
     [x y w h categories]
@@ -1676,9 +1687,10 @@
     # Leaf cases
     (when (empty? categories) (break))
     (when (= 1 (length categories))
-      (def cat (first categories))
+      (def [cat area colort] (first categories))
+      (when custom-draw (break (custom-draw x y w h cat area colort)))
       (def text (string cat))
-      (def t (if (> value-range 0) (/ (- (get data cat) min-value) value-range) 0.5))
+      (def t (+ color-ramp-offset (* color-ramp-slope colort)))
       (def color (cmap t cat))
       (def tcolor (or text-color (if (< 0.6 (color-value color)) g/black g/white))) # black or white, maximizing contrast
       (g/fill-rect canvas (+ padding x) (+ padding y) (- w padding padding 1) (- h padding padding 1) color)
@@ -1687,7 +1699,7 @@
       (def hlimit (- h inner-padding inner-padding padding padding))
       (def noh (or (> th hlimit) (> tw wlimit)))
       (def nov (or (> tw hlimit) (> th wlimit)))
-      (if (and noh nov) (break)) # TODO - other things besides omit lable?
+      (if (and noh nov) (break)) # TODO - other things besides omit label?
       (def orient (if noh 1 0))
       # Scale up text to fill rectangle
       (def tscale (if no-text-resize 1
@@ -1705,7 +1717,7 @@
     # Group categories for split
     (def split-dir (if (>= w h) :h :v))
     (def lhs @[])
-    (def total-weight (sum (seq [x :in categories] (get data x))))
+    (def total-weight (sum (map second categories)))
     # TODO play with this parameter, make it a function of w, h, number of categories, etc.
     (default omega 0.5)
     (def split-weight (* omega total-weight))
@@ -1713,8 +1725,9 @@
     # Don't check last to ensure a split
     (loop [ci :range [0 (- (length categories) 1)] :while (< weight split-weight)]
       (def c (get categories ci))
+      (def [_ area] c)
       (array/push lhs c)
-      (+= weight (get data c)))
+      (+= weight area))
     (def rhs (drop (length lhs) categories))
     (def fraction (/ weight total-weight))
     (def inv-fraction (- 1 fraction))
@@ -1735,6 +1748,6 @@
   # Initial recursive call
   (when (not= :none background-color)
     (g/fill-rect canvas 0 0 canvas-w canvas-h background-color))
-  (do-branch 0 0 canvas-w canvas-h categories)
+  (do-branch 0 0 canvas-w canvas-h zipped-data)
 
   canvas)
