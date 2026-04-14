@@ -10,7 +10,8 @@
 ### dependencies is very useful to have.
 ###
 ### Data is passed to most charts as a "data-frame", which is a table mapping keyword (or any Janet value) column names
-### to arrays of data points, usually numbers.
+### to arrays of data points, usually numbers. The columns of a dataframe are considered to be the sorted keys of table or struct.
+### Many visualizations will infer the X column as the "first" column and the Y column as the second column.
 ###
 ### Data frame example:
 ###
@@ -1591,7 +1592,41 @@
   (def xs @[])
   (def ys @[])
   (eachp [k v] x (array/push xs k) (array/push ys v))
-  @{:x xs :y ys})
+  {:x xs :y ys})
+
+(defn- convert-to-nested
+  "Convert the dataframes to a nested representation, such that the label-column
+  is used to group rows. The grouped rows will be combined into a sub-dataframe that lives
+  inside another cell in the main dataframe. This is an unnatural representation but is convenient
+  for rendering packing charts with hierarchical data."
+  [df x-column area-column label-column]
+  (def df-columns (sort (keys df)))
+  (def len (length (get df area-column)))
+  (defn append-row [to i] (each col df-columns (array/push (get to col) (get (get df col) i))) to)
+  (defn make-new [] (let [ndf @{}] (each col df-columns (put ndf col @[])) ndf))
+  (def new-df (make-new))
+  (def cat-data (assert (or (get df label-column) (array/new-filled len nil))))
+  (def nested-dfs @{})
+  # Iterate over the rows and extract/remove rows with a non-nil label
+  (for i 0 len
+    (def label-category (get cat-data i))
+    (if (= nil label-category)
+      (append-row new-df i)
+      (let [sub-df (or (get nested-dfs label-category) (set (nested-dfs label-category) (make-new)))]
+        (append-row sub-df i))))
+  # Add the nested dataframes back to our copy of the original data-frame with the groupings removed.
+  (eachp [cat-label nested-df] nested-dfs
+    (def summed-area (sum (get nested-df area-column)))
+    (put nested-df label-column nil)
+    (each col df-columns
+      (def value-array (get new-df col))
+      (array/push value-array
+                  (case col
+                    x-column cat-label
+                    area-column summed-area
+                    label-column nested-df
+                    nil))))
+  new-df)
 
 (defn plot-packing-chart
   ```
@@ -1605,14 +1640,16 @@
   *   :height - (if no canvas provided) - make a new canvas with the given height in pixels
   * :color-map - a color map keyword or function used to map numbers in the range [0, 1] to a color.
 
+  Data Table Input (quick and easy method):
+  * :data-map - A table or struct that maps keys as categories to values as proportional rectangle areas.
+
   Data Frame Input:
-  * :data - a dataframe table that contains a grid of cell
+  * :data - a data-frame table that contains a grid of cell
   * :x-column - a column name to use a the category identifiers. Defaults to the first column.
   * :y-column - a column name to use for the area quantities. Defaults to the second column
-  * :c-column - a column name to use for color grading. Defaults to the same as the y-column, but mapped to a range from 0 to 1.
-
-  Data Table Input:
-  * :data-map - A table or struct that maps keys as categories to values as proportional rectangle areas.
+  * :c-column - a column name to use for color grading. Defaults to the same as the y-column, but mapped to a range from 0 to 1, such that
+      the minimum value is a color paramter of 0 and the maximum has a color parameter of 1.
+  * :group-column - a column name that contains a label for grouping areas. Optional.
 
   Layout Parameters:
   * :omega - a number between 0 and 1 used to decide how to split rectangular areas. The default is 0.5
@@ -1630,7 +1667,7 @@
   [&named
    canvas width height
    data-map
-   data x-column y-column c-column
+   data x-column y-column c-column group-column
    padding inner-padding
    background-color
    text-color
@@ -1640,7 +1677,6 @@
    sort-bins]
 
   (def [canvas canvas-w canvas-h] :shadow (canvas-and-dimensions canvas width height))
-  (def canvas (g/blank canvas-w canvas-h 4))
   (default padding 2)
   (default inner-padding 2)
   (default background-color (dyn *background-color* default-background-color))
@@ -1654,7 +1690,6 @@
   (def skeys (sort (keys data)))
   (default x-column (first skeys))
   (default y-column (get skeys 1))
-  (def xs (assert (get data x-column)))
   (def ys (assert (get data y-column)))
 
   # Allow a custom color column, but use the y-column by default with a reasonable color ramp.
@@ -1663,13 +1698,46 @@
   (def value-range (- max-value min-value))
   (def color-ramp-slope (cond c-column 1 (not= 0 value-range) (/ value-range) 0))
   (def color-ramp-offset (cond c-column 0 (not= 0 value-range) (- (/ min-value value-range)) 0.5))
-  (default c-column y-column)
-  (def cs (assert (get data c-column)))
+
+  # Convert to a nested representation if we have a nested column
+  (def data :shadow (if group-column (convert-to-nested data x-column y-column group-column) data))
+  (def xs (assert (get data x-column)))
+  (def ys :shadow (assert (get data y-column)))
+  (def ns (or (if group-column (get data group-column)) (array/new-filled (length xs) nil)))
+  (def cs (assert (get data (or c-column y-column))))
 
   # Use zipped data for sorting
-  (def zipped-data (map tuple xs ys cs))
+  (def zipped-data (map tuple xs ys cs ns))
 
-  (var custom-draw nil)
+  (defn- do-subgroup
+    [x y w h lab children]
+    (def text (string lab))
+    (def [tw th] (text-measure text font))
+    (def tscale 1)
+    (def tcolor (or text-color (if (< 0.6 (color-value background-color)) g/black g/white))) # black or white, maximizing contrast
+    (text-draw canvas (+ x (div (- w tw) 2)) (+ y inner-padding)
+               text tcolor font tscale 0)
+    (def h :shadow (- h th inner-padding))
+    (def y :shadow (+ y th inner-padding))
+    # Recurse on new view port
+    (def group-padding (* 2 inner-padding))
+    (def view (g/viewport canvas (+ group-padding x) y (- w (* 2 group-padding)) (- h group-padding)))
+    (plot-packing-chart :canvas view
+                        :x-column x-column
+                        :y-column y-column
+                        :c-column c-column
+                        :group-column group-column
+                        :data children # children-as-data
+                        :color-map color-map
+                        :sort-bins sort-bins
+                        :font font
+                        :background-color background-color
+                        :inner-padding inner-padding
+                        :padding padding
+                        :omega omega
+                        :no-text-resize no-text-resize
+                        :text-color text-color)
+    nil)
 
   # Preprocess data
   (each y ys (assert (>= y 0) "cannot have area measurements less than 0"))
@@ -1687,8 +1755,8 @@
     # Leaf cases
     (when (empty? categories) (break))
     (when (= 1 (length categories))
-      (def [cat area colort] (first categories))
-      (when custom-draw (break (custom-draw x y w h cat area colort)))
+      (def [cat area colort children] (first categories))
+      (when (dictionary? children) (break (do-subgroup x y w h cat children)))
       (def text (string cat))
       (def t (+ color-ramp-offset (* color-ramp-slope colort)))
       (def color (cmap t cat))

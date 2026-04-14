@@ -605,4 +605,23 @@
 
 (test-packing-chart-custom-color)
 
+(defn test-packing-chart-nested
+  []
+  (def p "Big Pig")
+  (def c "Little Chicken")
+  (def w "Medium Cow")
+  (def o "Other")
+  (def df2
+    {:x (range 1 16)
+     :y (range 1 16)
+     :group [o w w w o p p p p o o c c c c]})
+  (def c (charts/plot-packing-chart :data df2
+                                    :color-map :turbo
+                                    :font :tall
+                                    :x-column :x :y-column :y
+                                    :group-column :group :width 400 :height 400))
+  (check-image c "packing-chart-nested.png"))
+
+(test-packing-chart-nested)
+
 (end-suite)
