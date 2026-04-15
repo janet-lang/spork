@@ -10,7 +10,7 @@
 ### dependencies is very useful to have.
 ###
 ### Data is passed to most charts as a "data-frame", which is a table mapping keyword (or any Janet value) column names
-### to arrays of data points, usually numbers. The columns of a dataframe are considered to be the sorted keys of table or struct.
+### to arrays of data points, usually numbers. The columns of a data-frame are considered to be the sorted keys of table or struct.
 ### Many visualizations will infer the X column as the "first" column and the Y column as the second column.
 ###
 ### Data frame example:
@@ -34,11 +34,11 @@
 ### [x] - bar chart
 ### [x] - area chart
 ### [x] - horizontal bar charts
-### [ ] - multi-bar charts
+### [x] - multi-bar charts
 ### [ ] - flame graph
-### [ ] - packing chart (alternative to pie-charts)
+### [x] - packing chart (treemap, alternative to pie-charts)
 ### [x] - heat map
-### [ ] - more graphics for scatter plots besides rings.
+### [x] - more graphics for scatter plots besides rings.
 ### [ ] - error bars on line chart
 ### [ ] - fill between chart
 ### [ ] - attributed text for captions and annotations
@@ -1389,7 +1389,7 @@
   * :cell-text-fn - Function `(cell-text-fn x y)` that returns an optional string to render for each cell. If the function evaluates to nil, no text will be drawn for that cell.
 
   Data Frame Input
-  * :data - a dataframe table that contains a grid of cell
+  * :data - a data-frame table that contains a grid of cell
   * :data-scale - map numeric data to a [0.0, 1.0] range with a scale factor or function. Is the constant 1.0 by default.
   * :xs - a list of x columns - these are keys in `data`
   * :ys - (optional) keys into each column - by default this is just (range num-rows-in-data).
@@ -1595,9 +1595,9 @@
   {:x xs :y ys})
 
 (defn- convert-to-nested
-  "Convert the dataframes to a nested representation, such that the label-column
-  is used to group rows. The grouped rows will be combined into a sub-dataframe that lives
-  inside another cell in the main dataframe. This is an unnatural representation but is convenient
+  "Convert the data-frames to a nested representation, such that the label-column
+  is used to group rows. The grouped rows will be combined into a sub-data-frame that lives
+  inside another cell in the main data-frame. This is an unnatural representation but is convenient
   for rendering packing charts with hierarchical data."
   [df x-column area-column label-column]
   (def df-columns (sort (keys df)))
@@ -1614,7 +1614,7 @@
       (append-row new-df i)
       (let [sub-df (or (get nested-dfs label-category) (set (nested-dfs label-category) (make-new)))]
         (append-row sub-df i))))
-  # Add the nested dataframes back to our copy of the original data-frame with the groupings removed.
+  # Add the nested data-frames back to our copy of the original data-frame with the groupings removed.
   (eachp [cat-label nested-df] nested-dfs
     (def summed-area (sum (get nested-df area-column)))
     (put nested-df label-column nil)
@@ -1630,7 +1630,7 @@
 
 (defn plot-packing-chart
   ```
-  Draw a packing chart (relative area chart). Plot boxes for each value who sizes are proportianal to the value
+  Draw a packing chart (a.k.a relative area chart or treemap). Plot boxes for each value who sizes are proportional to the value
   they represent. A more versatile and compact alternative to pie charts, especially when there are many categories.
   Returns either a new gfx2d/image or the passed-in :canvas.
 
@@ -1645,16 +1645,16 @@
 
   Data Frame Input:
   * :data - a data-frame table that contains a grid of cell
-  * :x-column - a column name to use a the category identifiers. Defaults to the first column.
+  * :x-column - a column name to use the category identifiers. Defaults to the first column.
   * :y-column - a column name to use for the area quantities. Defaults to the second column
   * :c-column - a column name to use for color grading. Defaults to the same as the y-column, but mapped to a range from 0 to 1, such that
-      the minimum value is a color paramter of 0 and the maximum has a color parameter of 1.
+      the minimum value is a color parameter of 0 and the maximum has a color parameter of 1.
   * :group-column - a column name that contains a label for grouping areas. Optional.
 
   Layout Parameters:
   * :omega - a number between 0 and 1 used to decide how to split rectangular areas. The default is 0.5
   * :sort-bins - If true, will sort bins from largest to smallest before layout. This usually results in better-looking charts. Default is true.
-       For custom bin ordering before layout, use a dataframe input, set sort-bins to false, and order the rows as desired.
+       For custom bin ordering before layout, use a data-frame input, set sort-bins to false, and order the rows as desired.
 
   Color and Theme:
   * :font - Font to use to draw text inside areas.
@@ -1709,6 +1709,7 @@
   # Use zipped data for sorting
   (def zipped-data (map tuple xs ys cs ns))
 
+  # Nesting with labeled sub-groups
   (defn- do-subgroup
     [x y w h lab children]
     (def text (string lab))
