@@ -376,7 +376,7 @@
     (errorf "unknown color map %v - expect function, array, tuple, table, struct, number, table, or keyword, got %v" cmap)))
 
 ###
-### Argument groups
+### Legends
 ###
 
 (defn draw-legend
@@ -973,7 +973,7 @@
 
     # Plot lines between points
     (def line-style2 (get line-style-per-column ycol line-style))
-    (enum line-style2 :plot :stipple :fine-stipple :stroke :bar :multi-bar :none :area)
+    (enum line-style2 :plot :stipple :fine-stipple :stroke :stroke-stipple :bar :multi-bar :none :area)
     (def multi-bar (= line-style2 :multi-bar)) # multi-bar and bar share most of the same code
     (case (if multi-bar :bar line-style2)
 
@@ -1001,6 +1001,10 @@
       :stroke
       (do
         (g/stroke-path canvas pts graph-color stroke-thickness))
+
+      :stroke-stipple
+      (do
+        (g/stroke-path canvas pts graph-color stroke-thickness false (* 8 stroke-thickness) (* 4 stroke-thickness)))
 
       :area
       (do
@@ -1135,12 +1139,15 @@
   * :scatter - set to true to disable lines connecting points
   * :legend - set to true to add a legend to the top of the chart
   * :legend-map - a dictionary mapping column names to pretty text for the chart
+  * :legend-labels - optional list of y-column names to display in the legend
   * :legend-padding - extra padding around legend area
   * :point-radius - radius of points when drawing a scatter plot
   * :line-style - How to draw lines. Can be one of :stroke, :plot, :none, :bar, :area, or :stipple. Default is :plot.
   * :line-style-per-column - Optional dictionary to override line style by y-column name.
   * :super-sample - Super Sample anti-aliasing for chart lines. Is a bit slow, but makes smooth plots. Works best with :stroke and :bar
   * :stroke-thickness - thickness in pixels of the stroke of the graph when :line-type = :stroke
+  * :annotate - an optional function to add annotations to a rendered chart. This function should take 3 arguments:
+      (fn callback [view to-pixel to-metric] ...)
 
   Axis Boundaries
   * :x-min - minimum x coordinate on chart
@@ -1155,7 +1162,7 @@
    x-min x-max y-min y-max
    padding inner-padding inner-padding-x inner-padding-y title
    circle-points
-   scatter grid legend super-sample stroke-thickness
+   scatter grid legend legend-labels super-sample stroke-thickness
    format-x format-y
    save-as
    legend-map legend-padding
@@ -1168,6 +1175,7 @@
    x-grid-ticks y-grid-ticks
    x-labels-vertical
    grid-between-x grid-between-y
+   annotate
    transpose]
 
   # Check parameters and set defaults.
@@ -1203,7 +1211,7 @@
 
   # Check enums
   (enum grid :none :solid :stipple :fine-stipple)
-  (enum line-style :plot :stipple :fine-stipple :stroke :bar :multi-bar :none :area) # - allow for dictionary of styles
+  (enum line-style :plot :stipple :fine-stipple :stroke :stroke-stipple :bar :multi-bar :none :area) # - allow for dictionary of styles
   (enum legend :none :top :top-left :top-right :bottom-left :bottom-right)
 
   # Allow variadic shorthand
@@ -1224,14 +1232,15 @@
 
   # Add legend if legend = :top. This makes a horizontal legend just below the title with no extra framing
   (default legend-padding (max 4 (div padding 4)))
+  (default legend-labels y-columns)
   (when (= legend :top)
     (+= title-padding (div padding 2))
     (def view-width (- width padding padding))
-    (def [lw lh] (draw-legend nil :font font :padding legend-padding :labels y-columns :legend-map legend-map :view-width view-width))
+    (def [lw lh] (draw-legend nil :font font :padding legend-padding :labels legend-labels :legend-map legend-map :view-width view-width))
     (def legend-view (g/viewport canvas (math/floor (* (- width lw) 0.5)) title-padding lw lh true))
     (+= title-padding lh)
     (-= title-padding (math/floor (* 0.5 padding))) # just looks a bit better
-    (draw-legend legend-view :font font :padding legend-padding :labels y-columns :color-map color-map
+    (draw-legend legend-view :font font :padding legend-padding :labels legend-labels :color-map color-map
                  :legend-map legend-map :text-color text-color :view-width view-width))
 
   # Crop title section out of place where axis and charting will draw
@@ -1243,7 +1252,7 @@
                            (if transpose y-columns x-column)
                            (if transpose x-column y-columns)
                            x-min x-max y-min y-max))
-  (def [graph-view to-pixel-space _to-metric-space]
+  (def [graph-view to-pixel-space to-metric-space]
     (draw-axes
       :canvas view
       :padding padding :inner-padding inner-padding
@@ -1282,9 +1291,11 @@
     :bar-padding bar-padding
     :transpose transpose)
 
+  (when annotate (annotate graph-view to-pixel-space to-metric-space))
+
   # Draw internal legend if selected
   (when (index-of legend [:top-left :top-right :bottom-left :bottom-right])
-    (def [lw lh] (draw-legend nil :font font :padding legend-padding :labels y-columns :legend-map legend-map :frame false))
+    (def [lw lh] (draw-legend nil :font font :padding legend-padding :labels legend-labels :legend-map legend-map :frame false))
     (def {:width gw :height gh} (g/unpack graph-view))
     (def legend-view
       (case legend
@@ -1294,10 +1305,9 @@
         :bottom-right (g/viewport graph-view (- gw lw padding) (- gh lh padding) lw lh true)))
     (when (not= :none background-color)
       (g/fill-rect legend-view 0 0 lw lh background-color))
-    (draw-legend legend-view :font font :padding legend-padding :labels y-columns :view-width 0
+    (draw-legend legend-view :font font :padding legend-padding :labels legend-labels :view-width 0
                  :color-map color-map :legend-map legend-map :frame true))
 
-  # Save to file
   (when save-as
     (g/save save-as canvas))
 

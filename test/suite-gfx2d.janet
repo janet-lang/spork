@@ -228,6 +228,38 @@
 
 (test-stroke-bezier)
 
+(defn test-stroke-bezier-stipple
+  []
+  (def width 256)
+  (def height 256)
+  (def canvas (blank width height 3))
+  (def control-points [10 10
+                       10 (- height 10)
+                       (- width 10) (- height 10)
+                       (- width 10) 10])
+  (def points (bezier-path control-points 0.04))
+  (stroke-path canvas [0 0 (/ width 2) (/ height 2) width height] red 4 false 20 10)
+  (stroke-path canvas points green 4 false 20 10)
+  (check-image canvas "bezier-stipple.png"))
+
+(test-stroke-bezier-stipple)
+
+(defn test-stroke-bezier-stipple-2
+  []
+  (def width 256)
+  (def height 256)
+  (def canvas (blank width height 3))
+  (def control-points [10 10
+                       10 (- height 10)
+                       (- width 10) (- height 10)
+                       (- width 10) 10])
+  (def points (bezier-path control-points 0.004))
+  (stroke-path canvas [0 0 (/ width 2) (/ height 2) width height] red 4 false 10 5)
+  (stroke-path canvas points green 4 false 10 5)
+  (check-image canvas "bezier-stipple-2.png"))
+
+(test-stroke-bezier-stipple-2)
+
 (defn test-fill-bezier
   []
   (def width 256)

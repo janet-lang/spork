@@ -254,7 +254,7 @@
 
 (function v/lerp :static :inline
   [a:V2 b:V2 t:double] -> V2
-  (return (v/+ (v/s* t a) (v/s* (- 1 t) b))))
+  (return (v/+ (v/s* (- 1 t) a) (v/s* t b))))
 
 (function v/rotate-cw-90 :static :inline
   [a:V2] -> V2
@@ -1554,27 +1554,54 @@
 
 (cfunction stroke-path
   "Stroke a line along a path"
-  [img:*Image points:indexed ,;shader-args &opt thickness:double=1 join-end:bool=0] -> *Image
+  [img:*Image points:indexed ,;shader-args &opt thickness:double=1 join-end:bool=0 stipple-cycle:int=0 stipple-on:int=0] -> *Image
   (var npoints:int 0)
   (var (vs 'V2))
   (if join-end
     (set vs (indexed-to-vs-join-end points &npoints))
     (set vs (indexed-to-vs points &npoints)))
-  (each-i 1 npoints
-    (def A:V2 (aref vs (- i 1)))
-    (def B:V2 (aref vs i))
-    (def AB:V2 (v/- B A))
-    (def leg:V2 (v/s* thickness (v/rotate-cw-90 (v/norm AB))))
-    (def p1:V2 (v/+ A leg))
-    (def p2:V2 (v/- A leg))
-    (def p3:V2 (v/- B leg))
-    (def p4:V2 (v/+ B leg))
-    (def (ps (array V2)) @[p1 p2 p3 p4 p1])
-    (fill-path-impl img ps 5 ,;shader-params))
-  (each-i 0 npoints
-    (def P:V2 (aref vs i))
-    (circle img P.x P.y (+ 0.25 thickness) ,;shader-params))
-  (janet-sfree vs:*V2) # self-test for mangling of type-grafted symbols
+  (if (or (>= 0 stipple-cycle) (>= stipple-on stipple-cycle))
+    (do # solid stroke
+      (each-i 1 npoints
+        (def A:V2 (aref vs (- i 1)))
+        (def B:V2 (aref vs i))
+        (def AB:V2 (v/- B A))
+        (def ABlen:float (v/len AB))
+        (if (= 0 ABlen) (continue))
+        (def leg:V2 (v/s* thickness (v/rotate-cw-90 (v/norm AB))))
+        (def p1:V2 (v/+ A leg))
+        (def p2:V2 (v/- A leg))
+        (def p3:V2 (v/- B leg))
+        (def p4:V2 (v/+ B leg))
+        (def (ps (array V2)) @[p1 p2 p3 p4 p1])
+        (fill-path-impl img ps 5 ,;shader-params))
+      (each-i 0 npoints
+        (def P:V2 (aref vs i))
+        (circle img P.x P.y (+ 0.25 thickness) ,;shader-params)))
+    (do # stippled stroke
+      (var pixel-lookback:float 0)
+      (each-i 1 npoints
+        (def A:V2 (aref vs (- i 1)))
+        (def B:V2 (aref vs i))
+        (def AB:V2 (v/- B A))
+        (def ABlen:float (v/len AB))
+        (if (= 0 ABlen) (continue))
+        (def leg:V2 (v/s* thickness (v/rotate-cw-90 (v/norm AB))))
+        (for [(def t:float (- (/ pixel-lookback ABlen))) (< t 1) (+= t (/ stipple-cycle ABlen))]
+          (def t-end:float (+ t (/ stipple-on ABlen)))
+          (def t1:double (- (clamp t 0 1) (/ 1 ABlen)))
+          (def t2:double (clamp t-end 0 1))
+          (when (and (not= t1 t2) (or (> t 0) (> t-end 0)))
+            (def C:V2 (v/lerp A B t1))
+            (def D:V2 (v/lerp A B t2))
+            (def p1:V2 (v/+ C leg))
+            (def p2:V2 (v/- C leg))
+            (def p3:V2 (v/- D leg))
+            (def p4:V2 (v/+ D leg))
+            (def (ps (array V2)) @[p1 p2 p3 p4 p1])
+            (fill-path-impl img ps 5 ,;shader-params))
+          (set pixel-lookback (* ABlen (- 1 t)))))))
+  (janet-sfree vs:*V2) # cjanet self-test for mangling of type-grafted symbols
   (return img))
 
 ###
@@ -1888,7 +1915,7 @@
     # Always do internal measurement non-rotated, and then rotate output during sampling.
     (def measure:TextMeasure (measure-text-impl font cursor scale 0))
     # Shift origin to match simple text - by default, text origin is upper most glyph. Instead, should be ascender line.
-    (def from-glyphtop:int (? (= 1 (band orientation 2r1100)) 1 0))
+    (def from-glyphtop:int (? (= 2r100 (band orientation 2r1100)) 1 0))
     (var fx:float (- measure.xmin))
     (var fy:float (? from-glyphtop (- measure.ymin) (* font->ascent scale font->scale font->glyph-space-to-pixel)))
     (while *cursor
