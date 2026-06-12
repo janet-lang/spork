@@ -130,7 +130,7 @@
 
   # Handle an option
   (defn handle-option
-    [name handler]
+    [name handler &opt value]
     (array/push (res :order) name)
     (case (handler :kind)
       :flag (put res name true)
@@ -138,16 +138,16 @@
                (var counter (or (get res name) 0))
                (++ counter)
                (put res name counter))
-      :option (if-let [arg (get args i)]
+      :option (if-let [arg (or value (get args i))]
                 (do
                   (put res name arg)
-                  (++ i))
+                  (unless value (++ i)))
                 (usage "missing argument for " name))
-      :accumulate (if-let [arg (get args i)]
+      :accumulate (if-let [arg (or value (get args i))]
                     (do
                       (def arr (or (get res name) @[]))
                       (array/push arr arg)
-                      (++ i)
+                      (unless value (++ i))
                       (put res name arr))
                     (usage "missing argument for " name))
       # default
@@ -183,7 +183,14 @@
         (++ i)
         (if handler
           (handle-option name handler)
-          (usage "unknown option " name)))
+          (let [parts (string/split "=" name)]
+            (if (> (length parts) 1)
+              (if-let [name (parts 0)
+                       value (string/join (array/slice parts 1) "=")
+                       handler (get options name)]
+                (handle-option name handler value)
+                (usage "unknown option " name))
+              (usage "unknown option " name)))))
 
       # short names (-flags)
       (and (string/has-prefix? "-" arg) process-options?)
