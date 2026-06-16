@@ -35,6 +35,7 @@
 (test-http-parse http/read-request @"GET /abc.janet HTTP/1.0\r\n\r\n" "GET" "/abc.janet" nil {})
 (test-http-parse http/read-request @"GET /abc.janet HTTP/1.0\r\na:b\r\n\r\n" "GET" "/abc.janet" nil {"a" "b"})
 (test-http-parse http/read-request @"POST /abc.janet HTTP/1.0\r\na:b\r\n\r\nextraextra" "POST" "/abc.janet" nil {"a" "b"})
+(test-http-parse http/read-response @"HTTP/1.0 200 \r\na:b\r\n\r\nextraextra" nil nil 200 {"a" "b"}) # ws after 200 is required but empty Reason Phrase is allowed
 (test-http-parse http/read-response @"HTTP/1.0 200 OK\r\na:b\r\n\r\nextraextra" nil nil 200 {"a" "b"})
 (test-http-parse http/read-response @"HTTP/1.0 200 OK\r\nh:eta\r\nh:heta\r\nt:theta\r\n\r\nextraextra" nil nil 200 {"h" ["eta" "heta"] "t" "theta"})
 
