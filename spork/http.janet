@@ -15,7 +15,7 @@
 (def- http-grammar
   ~{:request-status (* :method :ws :path :ws "HTTP/1." :d :any-ws :rn)
     :response-status (* "HTTP/1." :d :ws (/ ':d+ ,scan-number)
-                        :ws '(some :printable) :rn)
+                        :ws '(any :printable) :rn)
     :ws (some (set " \t"))
     :any-ws (any (set " \t"))
     :rn "\r\n"
