@@ -455,7 +455,7 @@
     (set found-path vcv)
     (do
       (loop [pf :in ["Program Files" "Program Files (x86)"]
-             y :in [2022 2019 2017]
+             y :in [18 2022 2019 2017] # vc18 -> VS 2026
              e :in ["Enterprise" "Professional" "Community" "BuildTools"]]
         (def path (loc pf y e))
         (when (os/stat path :mode)
