@@ -75,8 +75,8 @@
   "Ends test suite, prints summary and exits if any tests have failed."
   []
   (def delta (- (os/clock) start-time))
-  (prinf "test suite %V finished in %.3f seconds - " suite-num delta)
-  (print num-tests-passed " of " num-tests-run " tests passed.")
+  (eprinf "test suite %V finished in %.3f seconds - " suite-num delta)
+  (eprint num-tests-passed " of " num-tests-run " tests passed.")
   (if (not= num-tests-passed num-tests-run) (os/exit 1)))
 
 (defmacro timeit
