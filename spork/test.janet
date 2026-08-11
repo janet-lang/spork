@@ -23,12 +23,17 @@
   (def line-info (string/format "%s:%d"
                                 (frame :source) (frame :source-line)))
   (if x
-    (when (is-verbose) (eprintf "\e[32m✔\e[0m %s: %s: %v"
-                                line-info
-                                (if (string? e) e (describe e))
-                                x))
+    (when (is-verbose)
+      (eprintf "\e[32m✔\e[0m %s: %s: %v"
+               line-info
+               (if (string? e) e (describe e))
+               x))
     (do
-      (eprintf "\e[31m✘\e[0m %s: %s: %v" line-info (describe e) x) (eflush)))
+      (eprintf "\e[31m✘\e[0m %s: %s: %v"
+               line-info
+               (if (string? e) e (describe e))
+               x)
+      (eflush)))
   x)
 
 (defn skip-asserts
