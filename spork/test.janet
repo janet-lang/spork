@@ -22,18 +22,12 @@
   (def frame (last stack))
   (def line-info (string/format "%s:%d"
                                 (frame :source) (frame :source-line)))
+  (def desc (if (string? e) e (describe e)))
+
   (if x
-    (when (is-verbose)
-      (eprintf "\e[32m✔\e[0m %s: %s: %v"
-               line-info
-               (if (string? e) e (describe e))
-               x))
+    (when (is-verbose) (eprintf "\e[32m✔\e[0m %s: %s: %v" line-info desc x))
     (do
-      (eprintf "\e[31m✘\e[0m %s: %s: %v"
-               line-info
-               (if (string? e) e (describe e))
-               x)
-      (eflush)))
+      (eprintf "\e[31m✘\e[0m %s: %s: %v" line-info desc x) (eflush)))
   x)
 
 (defn skip-asserts
