@@ -18,16 +18,16 @@
     (break x))
   (default e "assert error")
   (when x (++ num-tests-passed))
-  (def stack (debug/stack (fiber/current)))
-  (def frame (last stack))
-  (def line-info (string/format "%s:%d"
-                                (frame :source) (frame :source-line)))
-  (def desc (if (string? e) e (describe e)))
-
+  (defn line-data []
+    (def stack (debug/stack (fiber/current)))
+    (def frame (last stack))
+    (string/format "%s:%d: %s: %v"
+                   (frame :source) (frame :source-line)
+                   (if (string? e) e (describe e)) x))
   (if x
-    (when (is-verbose) (eprintf "\e[32m✔\e[0m %s: %s: %v" line-info desc x))
+    (when (is-verbose) (eprintf "\e[32m✔\e[0m %s" (line-data)))
     (do
-      (eprintf "\e[31m✘\e[0m %s: %s: %v" line-info desc x) (eflush)))
+      (eprintf "\e[31m✘\e[0m %s" (line-data)) (eflush)))
   x)
 
 (defn skip-asserts
