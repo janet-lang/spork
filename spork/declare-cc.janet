@@ -77,8 +77,9 @@
       (put manifest :has-bin-script true) # remove eventually
       (put manifest :has-exe true))
     (when thunk (thunk))
-    (bundle/add manifest src dest chmod-mode)
-    nil)
+    # duplicate bundle/add-bin functionality just-in-case
+    (if (string/has-prefix? "bin" dest) (os/mkdir (string (dyn *syspath*) path/sep "bin")))
+    (bundle/add manifest src dest chmod-mode))
   dest)
 
 (defn- install-buffer
