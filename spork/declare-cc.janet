@@ -77,7 +77,8 @@
       (put manifest :has-bin-script true) # remove eventually
       (put manifest :has-exe true))
     (when thunk (thunk))
-    (bundle/add manifest src dest chmod-mode))
+    (bundle/add manifest src dest chmod-mode)
+    nil)
   dest)
 
 (defn- install-buffer
@@ -383,20 +384,16 @@
   (each s headers
     (install-rule s (dest s))))
 
-(defn declare-bin
-  "Declare a generic file to be installed as an executable."
-  [&named main]
-  (install-rule main "bin" 8r755 (mkbin) true))
-
 (defn declare-binscript
   ``Declare a janet file to be installed as an executable script. Creates
   a shim on windows. If hardcode is true, will insert code into the script
   such that it will run correctly even when JANET_PATH is changed. if auto-shebang
   is truthy, will also automatically insert a correct shebang line.
   ``
-  [&named main hardcode-syspath is-janet]
+  [&named main name hardcode-syspath is-janet]
   (def main :shadow (path/abspath main))
-  (def dest (path/join "bin" (path/basename main)))
+  (default name (path/basename main))
+  (def dest (path/join "bin" name))
   (defn contents []
     (with [f (file/open main :rbn)]
       (def first-line (:read f :line))
@@ -420,6 +417,15 @@
     (def bat (string "@echo off\r\ngoto #_undefined_# 2>NUL || title %COMSPEC% & janet \"" absdest "\" %*"))
     (install-buffer bat (string dest ".bat") nil (mkbin)))
   dest)
+
+(defn declare-bin
+  "Declare a generic file to be installed as an executable."
+  [&named main name]
+  (assert main)
+  (default name (path/basename main))
+  (if (string/has-suffix? ".janet" main)
+    (declare-binscript :main main :name name :is-janet true)
+    (install-rule main (path/join "bin" name) 8r755 (mkbin) true)))
 
 (defn declare-archive
   "Build a janet archive. This is a file that bundles together many janet
