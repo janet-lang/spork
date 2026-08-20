@@ -81,7 +81,11 @@
 
     uninstall (repos...)
         Uninstall the current project's artifacts. Shorthand for
-        `janet --uninstall {current-project-name }`
+        `janet --uninstall {current-project-name or repos}`
+
+    reinstall (repos...)
+        Uninstall the current project's artifacts. Shorthand for
+        `janet --reinstall {current-project-name or repos}`
 
     prune
         Remove any bundles that have no dependents and are marked for
@@ -216,6 +220,14 @@
     (each rep repo
       (bundle/uninstall rep))))
 
+(defn reinstall
+  [& repo]
+  (if (empty? repo)
+    (let [m (pm/load-project-meta ".")]
+      (bundle/reinstall (get m :name)))
+    (each rep repo
+      (bundle/reinstall rep))))
+
 (defn test
   []
   (def my-bundle (pm/resolve-bundle "file::."))
@@ -345,7 +357,8 @@
    "prune" bundle/prune
    "show-config" show-config
    "update-pkgs" update-pkgs
-   "uninstall" uninstall})
+   "uninstall" uninstall
+   "reinstall" reinstall})
 
 (defn main
   [&]
