@@ -669,7 +669,7 @@
     (do
       (eprint (string/join cmd " "))
       (flush)
-      (exec-linebuffered cmd))
+      (exec-linebuffered (map string cmd)))
     (do
       (unless (dyn :quiet) (print message))
       (with [proc (os/spawn (map string cmd) :p {:out :pipe :err :pipe})]

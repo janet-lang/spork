@@ -141,10 +141,10 @@
   [& cases]
   (assert (odd? (length cases)))
   (def case-value (take 2 cases))
-  (def [case value] case-value)
+  (def [thecase value] case-value)
   (if (> 2 (length case-value))
-    case
-    ~(? ,case ,value ,(cond-expression ;(drop 2 cases)))))
+    thecase
+    ~(? ,thecase ,value ,(cond-expression ;(drop 2 cases)))))
 
 (defn- polymorph
   :cjanet-block-macro
@@ -1031,12 +1031,14 @@
   (function get-orientation
     "Make an orientation matrix"
     [orientation:int] -> OrientationTransform
+    (assert (>= orientation 0))
     (switch
       (% orientation 4)
       0 (return (named-struct OrientationTransform x-by-x 1 x-by-y 0 y-by-y 1 y-by-x 0))
       1 (return (named-struct OrientationTransform x-by-x 0 x-by-y -1 y-by-y 0 y-by-x 1))
       2 (return (named-struct OrientationTransform x-by-x -1 x-by-y 0 y-by-y -1 y-by-x 0))
-      3 (return (named-struct OrientationTransform x-by-x 0 x-by-y 1 y-by-y 0 y-by-x -1))))
+      3 (return (named-struct OrientationTransform x-by-x 0 x-by-y 1 y-by-y 0 y-by-x -1)))
+    (assert 0))
 
   (function orient-xform
     "Apply oritentation to a point"
