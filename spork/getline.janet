@@ -40,7 +40,7 @@
   (when doc-entry
     (def doc-string (get doc-entry :doc))
     (when doc-string
-      (string "\n" (doc-format doc-string w 4 true)))))
+      (string "\n" (doc-format doc-string w 4)))))
 
 (defn default-autocomplete-options
   "Default handler to get available autocomplete options for a given substring."
