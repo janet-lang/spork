@@ -15,11 +15,11 @@
   (assert (= [dec (length enc)] (utf8/decode-rune enc))
           (string/format "utf8: decode (U+%X)" dec)))
 
-(each inv
-  ["\x81" # stray continuation
-   "\xf0\x90\x8a" "\xf0\x90\x8a" "\xf0\x90" "\xf0" # truncated forward
-   "\x90\x8a\x80" "\x8a\x80" "\x80" # truncated backward
-   "\xfe" "\xff"] # invalid
+(def invalid ["\x81" # stray continuation
+              "\xf0\x90\x8a" "\xf0\x90\x8a" "\xf0\x90" "\xf0" # truncated forward
+              "\x90\x8a\x80" "\x8a\x80" "\x80" # truncated backward
+              "\xfe" "\xff"])
+(each inv invalid
   (assert (= [nil 0] (utf8/decode-rune inv))
           (string/format "utf8: decode invalid (%q)" inv)))
 
@@ -81,5 +81,20 @@
           "utf8: encode reuse buffer")
   (assert (deep= @"aá" b)
           "utf8: encode reuse buffer (encoding result)"))
+
+###
+### utf8/is-valid?
+###
+(each inv invalid
+  (assert (false? (utf8/is-valid? inv))
+          (string/format "utf8: is-valid? failed on invalid seqeuence alone (%q)" inv))
+  (assert (false? (utf8/is-valid? (string inv "bar")))
+          (string/format "utf8: is-valid? failed on invalid sequence at start (%q)" inv))
+  (assert (false? (utf8/is-valid? (string "foo" inv)))
+          (string/format "utf8: is-valid? failed on invalid sequence at end (%q)" inv))
+  (assert (false? (utf8/is-valid? (string "foo" inv "bar")))
+          (string/format "utf8: is-valid? failed on invalid sequence in the middle (%q)" inv)))
+(assert  (true?  (utf8/is-valid? "hello")) "utf8: is-valid? on ascii")
+(assert  (true?  (utf8/is-valid? "안녕")) "utf8: is-valid? on valid non-ascii")
 
 (end-suite)
