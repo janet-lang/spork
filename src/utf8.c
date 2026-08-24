@@ -26,18 +26,7 @@
  * See https://www.cl.cam.ac.uk/~mgk25/ucs/examples/UTF-8-test.txt for a list
  * of test cases. */
 
-JANET_FN(cfun_utf8_decode_rune,
-        "(utf8/decode-rune buf &opt start)",
-        "Read a UTF-8 encoded Unicode codepoint from the buffer which starts at the given index. Returns a tuple [value width], where width = number of bytes consumed. If at the end of buffer or the buffer contains malformed UTF-8, returns [nil 0].") {
-    janet_arity(argc, 1, 2);
-    JanetByteView buf = janet_getbytes(argv, 0);
-    int32_t start;
-    if (argc > 1) {
-        start = janet_getinteger(argv, 1);
-    } else {
-        start = 0;
-    }
-
+static JanetTuple decode_rune(JanetByteView buf, int32_t start) {
     Janet res[2] = { janet_wrap_nil(), janet_wrap_integer(0) };
     if (start >= buf.len) {
         goto exit;
@@ -80,7 +69,22 @@ JANET_FN(cfun_utf8_decode_rune,
 
     res[1] = janet_wrap_integer(i - start);
 exit:
-    return janet_wrap_tuple(janet_tuple_n(&res[0], 2));
+    return janet_tuple_n(&res[0], 2);
+}
+
+JANET_FN(cfun_utf8_decode_rune,
+        "(utf8/decode-rune buf &opt start)",
+        "Read a UTF-8 encoded Unicode codepoint from the buffer which starts at the given index. Returns a tuple [value width], where width = number of bytes consumed. If at the end of buffer or the buffer contains malformed UTF-8, returns [nil 0].") {
+    janet_arity(argc, 1, 2);
+    JanetByteView buf = janet_getbytes(argv, 0);
+    int32_t start;
+    if (argc > 1) {
+        start = janet_getinteger(argv, 1);
+    } else {
+        start = 0;
+    }
+
+    return janet_wrap_tuple(decode_rune(buf, start));
 }
 
 JANET_FN(cfun_utf8_encode_rune,
@@ -132,11 +136,28 @@ JANET_FN(cfun_utf8_prefixtowidth,
     return janet_wrap_integer(n);
 }
 
+JANET_FN(cfun_utf8_is_valid,
+        "(utf8/is-valid? buf)",
+        "Check if a buffer contains valid UTF-8 sequences.") {
+    janet_fixarity(argc, 1);
+    JanetByteView buf = janet_getbytes(argv, 0);
+    uint32_t i = 0;
+    while (i < buf.len) {
+        JanetTuple res = decode_rune(buf, i);
+        if (janet_checktype(res[0], JANET_NIL))
+            return janet_wrap_boolean(0);
+        i += janet_unwrap_integer(res[1]);
+    }
+
+    return janet_wrap_boolean(1);
+}
+
 JANET_MODULE_ENTRY(JanetTable *env) {
     JanetRegExt cfuns[] = {
         JANET_REG("decode-rune", cfun_utf8_decode_rune),
         JANET_REG("encode-rune", cfun_utf8_encode_rune),
         JANET_REG("prefix->width", cfun_utf8_prefixtowidth),
+        JANET_REG("is-valid?", cfun_utf8_is_valid),
         JANET_REG_END
     };
     janet_cfuns_ext(env, "utf8", cfuns);
