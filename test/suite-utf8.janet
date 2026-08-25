@@ -94,7 +94,7 @@
           (string/format "utf8: is-valid? failed on invalid sequence at end (%q)" inv))
   (assert (false? (utf8/is-valid? (string "foo" inv "bar")))
           (string/format "utf8: is-valid? failed on invalid sequence in the middle (%q)" inv)))
-(assert  (true?  (utf8/is-valid? "hello")) "utf8: is-valid? on ascii")
-(assert  (true?  (utf8/is-valid? "안녕")) "utf8: is-valid? on valid non-ascii")
+(assert (true? (utf8/is-valid? "hello")) "utf8: is-valid? on ascii")
+(assert (true? (utf8/is-valid? "안녕")) "utf8: is-valid? on valid non-ascii")
 
 (end-suite)
