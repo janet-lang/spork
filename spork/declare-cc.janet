@@ -585,8 +585,8 @@
               (string name asuffix)
               {:static-entry ename
                :cpp has-cpp
-               :ldflags libs
-               :lflags lflags
+               :ldflags (if libs ~[,;libs] '[])
+               :lflags (if lflags ~[,;lflags] '[])
                :static-libs static-libs
                :smart-libs smart-libs
                :use-rdynamic use-rdynamic
