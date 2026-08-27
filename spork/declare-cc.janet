@@ -587,7 +587,7 @@
                :cpp has-cpp
                :ldflags (if libs ~[,;libs])
                :lflags (if lflags ~[,;lflags])
-               :static-libs static-libs
+               :static-libs (if static-libs ~[,;static-libs])
                :smart-libs smart-libs
                :use-rdynamic use-rdynamic
                :use-rpath use-rpath})))
