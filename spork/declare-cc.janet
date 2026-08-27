@@ -472,8 +472,6 @@
   (def rules (get-rules))
 
   # Defaults
-  (default lflags @[])
-  (default ldflags @[])
   (default libs (thaw ldflags))
   (default embedded @[])
   (default nostatic false)
@@ -587,8 +585,8 @@
               (string name asuffix)
               {:static-entry ename
                :cpp has-cpp
-               :ldflags ~[,;libs]
-               :lflags ~[,;lflags]
+               :ldflags (if libs ~[,;libs])
+               :lflags (if lflags ~[,;lflags])
                :static-libs static-libs
                :smart-libs smart-libs
                :use-rdynamic use-rdynamic
