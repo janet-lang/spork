@@ -57,6 +57,7 @@
 (defdyn *rules* "Rules to use with visit-add-rule")
 (defdyn *vcvars-cache* "Where to cache vcvars once we have calculated them")
 (defdyn *janet-prefix* "Path prefix used to detect where to find libjanet, janet.h, etc.")
+(defdyn *janet-h-path* "Path to janet.h")
 
 ###
 ### Prefix detection
@@ -67,6 +68,7 @@
   []
   (if-let [p (dyn *janet-prefix*)] (break p))
   (var result nil)
+  (var found-header nil)
   (each test [(os/getenv "JANET_PREFIX")
               (os/getenv "PREFIX")
               (path/join (dyn *syspath*) ".." "..")
@@ -80,9 +82,11 @@
       (def headercheck (path/join test "include" "janet.h"))
       (when (= :file (os/stat headercheck :mode))
         (set result test)
+        (set found-header headercheck)
         (break))))
   (assert result "no prefix discovered for janet headers!")
   (setdyn *janet-prefix* result)
+  (setdyn *janet-h-path* found-header)
   result)
 
 (defn get-msvc-prefix
@@ -90,6 +94,7 @@
   []
   (if-let [p (dyn *janet-prefix*)] (break p))
   (var result nil)
+  (var found-header nil)
   (each test [(os/getenv "JANET_PREFIX")
               (os/getenv "PREFIX")
               (path/join (dyn *syspath*) ".." "..")
@@ -100,9 +105,11 @@
       (def headercheck (path/join test "C" "janet.h"))
       (when (= :file (os/stat headercheck :mode))
         (set result test)
+        (set found-header headercheck)
         (break))))
   (assert result "no prefix discovered for janet headers!")
   (setdyn *janet-prefix* result)
+  (setdyn *janet-h-path* found-header)
   result)
 
 ###
@@ -148,6 +155,11 @@
   "Get path to the installed Janet import lib. This import lib is needed when create dlls for natives."
   []
   (path/join (msvc-cpath) "janet.lib"))
+
+(defn janet-header
+  "Get path to janet.h"
+  []
+  (assert (dyn *janet-h-path*) "call get-unix-prefix or get-msvc-prefix first"))
 
 (defn- default-exec [&])
 (defn- exec

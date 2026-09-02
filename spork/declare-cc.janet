@@ -47,6 +47,15 @@
   (when (= :msvc toolchain)
     (cc/msvc-find)
     (assert (cc/msvc-setup?)))
+  # Make sure we can find paths
+  (if (= :msvc toolchain)
+    (cc/get-msvc-prefix)
+    (cc/get-unix-prefix))
+  # Add dependency on janet.h to all rules here. Ensure updating interpreter
+  # rebuilds nearly everything.
+  (def ids (dyn build-rules/*implicit-deps* @[]))
+  (array/push ids (assert (dyn cc/*janet-h-path*)))
+  (setdyn build-rules/*implicit-deps* ids)
   toolchain)
 
 (defn- toolchain-to-cc
