@@ -39,6 +39,20 @@
          (let [m (os/stat path :modified)]
            (if (nil? m) false m)))))
 
+(defn- get-shared-read
+  "On windows under some configurations, files may be locked by other processes during the build (windows search, anti-virus, etc.).
+  Grab a shared read-lock after building to prevent this. If we can't, spin with exponential back-off until we can. Return the file handle.
+  Don't do any IO with this handle, it is just for getting a lock on the file."
+  [file-path &opt sleep-seconds retries]
+  (default sleep-seconds 0.002)
+  (default retries 20)
+  (def [ok f] (protect (os/open file-path :rRV))) # R - shared reads, V - no IOCP
+  (if ok
+    f
+    (if (pos? retries)
+      (get-shared-read file-path (min (* 2 sleep-seconds) 1) (dec retries))
+      (error (string "unable to acquire file " file-path ". Is some other process using it?")))))
+
 (defn- make-sure-exists
   "Assert that files exist. Helps debug rules that should create files"
   [rules msg files]
@@ -80,6 +94,7 @@
   (var work-count 0)
   (def targets-built @[])
   (def q (ev/chan math/int32-max))
+  (def is-windows (let [o (os/which)] (or (= o :windows) (= o :mingw))))
 
   # Check rules for duplicates
   (each rule (distinct rules)
@@ -120,21 +135,32 @@
       (def rule (get all-targets target))
       (def dependent-set (get dependents target ()))
       (def r (assert (get rule :recipe)))
+      (def inputs (get rule :inputs []))
+      (var r-locks [])
 
       (def result
         (try
           (do
             # Check that all inputs exists
-            (make-sure-exists rules " is missing as input" (get rule :inputs []))
+            (make-sure-exists rules " is missing as input" inputs)
             (if (indexed? r)
               (each rr r (rr))
               (r))
+            # On windows, grab reader locks for each file input.
+            # Unix-likes don't usually have non-advisory file locking.
+            (when is-windows
+              (set r-locks
+                (seq [i :in inputs :when (string? i)] (get-shared-read i))))
             # Make sure all outputs were created
             (make-sure-exists rules " was not created by the rule" (get rule :outputs []))
+            # Done
             :good)
           ([err f]
             (debug/stacktrace f err (string/format "rule %V failed: " target))
             :bad)))
+
+      # Release any read locks unconditionally (don't leak file handles)
+      (each lockf r-locks (:close lockf))
 
       (when (= :bad result)
         (set bad-return true)
