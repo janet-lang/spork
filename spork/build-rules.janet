@@ -45,12 +45,14 @@
   Don't do any IO with this handle, it is just for getting a lock on the file."
   [file-path &opt sleep-seconds retries]
   (default sleep-seconds 0.002)
-  (default retries 20)
+  (default retries 40)
   (def [ok f] (protect (os/open file-path :rRV))) # R - shared reads, V - no IOCP
   (if ok
     f
     (if (pos? retries)
-      (get-shared-read file-path (min (* 2 sleep-seconds) 1) (dec retries))
+      (do
+        (ev/sleep sleep-seconds)
+        (get-shared-read file-path (min (* 2 sleep-seconds) 1) (dec retries)))
       (error (string "unable to acquire file " file-path ". Is some other process using it?")))))
 
 (defn- make-sure-exists
@@ -143,15 +145,16 @@
           (do
             # Check that all inputs exists
             (make-sure-exists rules " is missing as input" inputs)
-            (if (indexed? r)
-              (each rr r (rr))
-              (r))
             # On windows, grab reader locks for each file input.
             # Unix-likes don't usually have non-advisory file locking.
             (when is-windows
               (set r-locks
-                (seq [i :in inputs :when (string? i) :when (= (os/stat i :mode) :file)]
-                  (get-shared-read i))))
+                   (seq [i :in inputs :when (string? i) :when (= (os/stat i :mode) :file)]
+                     (get-shared-read i))))
+            # Run rules
+            (if (indexed? r)
+              (each rr r (rr))
+              (r))
             # Make sure all outputs were created
             (make-sure-exists rules " was not created by the rule" (get rule :outputs []))
             # Done
