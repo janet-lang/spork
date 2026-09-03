@@ -26,31 +26,32 @@
  * See https://www.cl.cam.ac.uk/~mgk25/ucs/examples/UTF-8-test.txt for a list
  * of test cases. */
 
-static JanetTuple decode_rune(JanetByteView buf, int32_t start) {
-    Janet res[2] = { janet_wrap_nil(), janet_wrap_integer(0) };
-    if (start >= buf.len) {
+static int32_t decode_rune(JanetByteView buf, int32_t* start) {
+    int32_t rune = -1;
+
+    if (start == NULL || *start >= buf.len) {
         goto exit;
     }
 
-    int32_t i = start;
+    int32_t i = *start;
     uint8_t a = buf.bytes[i++];
     if ((a & 0x80) == 0) {
-        res[0] = janet_wrap_integer((int32_t)a);
+        rune = (int32_t)a;
     } else if ((a & 0xE0) == 0xC0) {
         if (i >= buf.len) goto exit;
         uint8_t b = buf.bytes[i++];
         if ((b & 0xC0) != 0x80) goto exit;
-        res[0] = janet_wrap_integer((int32_t)(a & 0x1F) << 6 |
-                                    (int32_t)(b & 0x3F));
+        rune = (int32_t)(a & 0x1F) << 6 |
+               (int32_t)(b & 0x3F);
     } else if ((a & 0xF0) == 0xE0) {
         if ((i + 1) >= buf.len) goto exit;
         uint8_t b = buf.bytes[i++],
                 c = buf.bytes[i++];
         if ((b & 0xC0) != 0x80) goto exit;
         if ((c & 0xC0) != 0x80) goto exit;
-        res[0] = janet_wrap_integer((int32_t)(a & 0x0F) << 12 |
-                                    (int32_t)(b & 0x3F) <<  6 |
-                                    (int32_t)(c & 0x3F));
+        rune = (int32_t)(a & 0x0F) << 12 |
+               (int32_t)(b & 0x3F) <<  6 |
+               (int32_t)(c & 0x3F);
     } else if ((a & 0xF8) == 0xF0) {
         if ((i + 2) >= buf.len) goto exit;
         uint8_t b = buf.bytes[i++],
@@ -59,17 +60,17 @@ static JanetTuple decode_rune(JanetByteView buf, int32_t start) {
         if ((b & 0xC0) != 0x80) goto exit;
         if ((c & 0xC0) != 0x80) goto exit;
         if ((d & 0xC0) != 0x80) goto exit;
-        res[0] = janet_wrap_integer((int32_t)(a & 0x07) << 18 |
-                                    (int32_t)(b & 0x3F) << 12 |
-                                    (int32_t)(c & 0x3F) <<  6 |
-                                    (int32_t)(d & 0x3F));
+        rune = (int32_t)(a & 0x07) << 18 |
+               (int32_t)(b & 0x3F) << 12 |
+               (int32_t)(c & 0x3F) <<  6 |
+               (int32_t)(d & 0x3F);
     } else {
         goto exit;
     }
 
-    res[1] = janet_wrap_integer(i - start);
+    *start = i;
 exit:
-    return janet_tuple_n(&res[0], 2);
+    return rune;
 }
 
 JANET_FN(cfun_utf8_decode_rune,
@@ -84,7 +85,12 @@ JANET_FN(cfun_utf8_decode_rune,
         start = 0;
     }
 
-    return janet_wrap_tuple(decode_rune(buf, start));
+    int32_t i = start;
+    int32_t rune = decode_rune(buf, &i);
+    Janet res[2] = {
+        rune == -1 ? janet_wrap_nil() : janet_wrap_integer(rune),
+        janet_wrap_integer(i - start) };
+    return janet_wrap_tuple(janet_tuple_n(&res[0], 2));
 }
 
 JANET_FN(cfun_utf8_encode_rune,
@@ -143,13 +149,10 @@ JANET_FN(cfun_utf8_is_valid,
     JanetByteView buf = janet_getbytes(argv, 0);
     uint32_t i = 0;
     while (i < buf.len) {
-        JanetTuple res = decode_rune(buf, i);
-        if (janet_checktype(res[0], JANET_NIL))
-            return janet_wrap_boolean(0);
-        i += janet_unwrap_integer(res[1]);
+        if (decode_rune(buf, &i) == -1)
+            return janet_wrap_false();
     }
-
-    return janet_wrap_boolean(1);
+    return janet_wrap_true();
 }
 
 JANET_MODULE_ENTRY(JanetTable *env) {
