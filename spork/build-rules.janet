@@ -150,7 +150,8 @@
             # Unix-likes don't usually have non-advisory file locking.
             (when is-windows
               (set r-locks
-                (seq [i :in inputs :when (string? i)] (get-shared-read i))))
+                (seq [i :in inputs :when (string? i) :when (= (os/stat i :mode) :file)]
+                  (get-shared-read i))))
             # Make sure all outputs were created
             (make-sure-exists rules " was not created by the rule" (get rule :outputs []))
             # Done
