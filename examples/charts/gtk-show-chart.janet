@@ -92,7 +92,7 @@
   (gfx2d/fill-rect canvas 0 0 10000 10000 gfx2d/black)
   (def [view convert]
     (charts/draw-axes
-      canvas
+      :canvas canvas
       :padding 4
       :format-y |(string/format "$%.2f" $)
       :x-label "Units"
