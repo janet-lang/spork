@@ -208,7 +208,7 @@
 (defn- write-body
   "Write the body of an HTTP request, adding Content-Length header
   or Transfer-Encoding: chunked"
-  [conn buf body on-error]
+  [conn buf body]
 
   (cond
     (nil? body)
@@ -351,7 +351,7 @@
   (if (nil? on-error)
     (do-write)
     (try
-      (try-write)
+      (do-write)
       ([e] (on-error e)))))
 
 ###
