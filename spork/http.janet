@@ -208,29 +208,35 @@
 (defn- write-body
   "Write the body of an HTTP request, adding Content-Length header
   or Transfer-Encoding: chunked"
-  [conn buf body]
-  (cond
-    (nil? body)
-    (do
-      (buffer/push buf "\r\n")
-      (:write conn buf))
+  [conn buf body on-error]
 
-    (bytes? body)
-    (do
-      (buffer/format buf "Content-Length: %d\r\n\r\n%V" (length body) body)
-      (:write conn buf))
+  (defn try-write []
+    (cond
+      (nil? body)
+      (do
+        (buffer/push buf "\r\n")
+        (:write conn buf))
 
-    # default - iterate chunks
-    (do
-      (buffer/format buf "Transfer-Encoding: chunked\r\n\r\n")
-      (each chunk body
-        (assert (bytes? chunk) "expected byte chunk")
-        (buffer/format buf "%x\r\n%V\r\n" (length chunk) chunk)
-        (:write conn buf)
-        (buffer/clear buf))
-      (buffer/format buf "0\r\n\r\n")
-      (:write conn buf)))
-  (buffer/clear buf))
+      (bytes? body)
+      (do
+        (buffer/format buf "Content-Length: %d\r\n\r\n%V" (length body) body)
+        (:write conn buf))
+
+      # default - iterate chunks
+      (do
+        (buffer/format buf "Transfer-Encoding: chunked\r\n\r\n")
+        (each chunk body
+          (assert (bytes? chunk) "expected byte chunk")
+          (buffer/format buf "%x\r\n%V\r\n" (length chunk) chunk)
+          (:write conn buf)
+          (buffer/clear buf))
+        (buffer/format buf "0\r\n\r\n")
+        (:write conn buf)))
+    (buffer/clear buf))
+
+  (if (nil? on-error)
+    (try-write)
+    (try (try-write) ([e] (on-error e)))))
 
 (defn- read-until
   "Read single bytes from connection into buffer until the provided byte
@@ -325,7 +331,10 @@
   * `:status` - integer status code to write
   * `:body` - optional byte sequence or iterable (for chunked body)
      for returning contents. The iterable can be lazy, i.e. for streaming
-     data.``
+     data
+  * `:error` - optional function that is called in case writing has failed.
+     Specially useful when in a handler passed to `http/server` or
+     `http/server-handler`.``
   [conn response &opt buf]
   (default buf @"")
   (def status (get response :status 200))
@@ -339,7 +348,7 @@
       (each ve v (buffer/format buf "%V: %V\r\n" k ve))
       (buffer/format buf "%V: %V\r\n" k v)))
 
-  (write-body conn buf (in response :body)))
+  (write-body conn buf (in response :body) (in response :error)))
 
 ###
 ### Server Middleware
@@ -517,7 +526,7 @@
     (defer (:close conn)
 
       # Make request
-      (write-body conn buf body)
+      (write-body conn buf body nil)
 
       # Parse response pure janet
       (def res (read-response conn buf))

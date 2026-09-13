@@ -118,6 +118,17 @@
     "write-body: chunked encoding"))
 
 (with [[r w] (os/pipe) close-both]
+  (os/sigaction :pipe nil) # throw error on SIGPIPE instead of exiting
+  (:close r) # close the reading end of the pipe so it'll error out
+  (var got-error false)
+  (def body
+    (coro (yield "example data")))
+  (defn on-error [e]
+    (set got-error true))
+  (http/send-response w {:status 200 :body body :error on-error})
+  (assert got-error))
+
+(with [[r w] (os/pipe) close-both]
   (each len [1 16 256]
     (:write w (chunk (string/repeat "a" len))))
   (:write w "0\r\n\r\n")
