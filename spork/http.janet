@@ -210,33 +210,28 @@
   or Transfer-Encoding: chunked"
   [conn buf body on-error]
 
-  (defn try-write []
-    (cond
-      (nil? body)
-      (do
-        (buffer/push buf "\r\n")
-        (:write conn buf))
+  (cond
+    (nil? body)
+    (do
+      (buffer/push buf "\r\n")
+      (:write conn buf))
 
-      (bytes? body)
-      (do
-        (buffer/format buf "Content-Length: %d\r\n\r\n%V" (length body) body)
-        (:write conn buf))
+    (bytes? body)
+    (do
+      (buffer/format buf "Content-Length: %d\r\n\r\n%V" (length body) body)
+      (:write conn buf))
 
-      # default - iterate chunks
-      (do
-        (buffer/format buf "Transfer-Encoding: chunked\r\n\r\n")
-        (each chunk body
-          (assert (bytes? chunk) "expected byte chunk")
-          (buffer/format buf "%x\r\n%V\r\n" (length chunk) chunk)
-          (:write conn buf)
-          (buffer/clear buf))
-        (buffer/format buf "0\r\n\r\n")
-        (:write conn buf)))
-    (buffer/clear buf))
-
-  (if (nil? on-error)
-    (try-write)
-    (try (try-write) ([e] (on-error e)))))
+    # default - iterate chunks
+    (do
+      (buffer/format buf "Transfer-Encoding: chunked\r\n\r\n")
+      (each chunk body
+        (assert (bytes? chunk) "expected byte chunk")
+        (buffer/format buf "%x\r\n%V\r\n" (length chunk) chunk)
+        (:write conn buf)
+        (buffer/clear buf))
+      (buffer/format buf "0\r\n\r\n")
+      (:write conn buf)))
+  (buffer/clear buf))
 
 (defn- read-until
   "Read single bytes from connection into buffer until the provided byte
@@ -348,7 +343,16 @@
       (each ve v (buffer/format buf "%V: %V\r\n" k ve))
       (buffer/format buf "%V: %V\r\n" k v)))
 
-  (write-body conn buf (in response :body) (in response :error)))
+  (defn do-write []
+    (write-body conn buf (in response :body)))
+
+  (def on-error (in response :error))
+
+  (if (nil? on-error)
+    (do-write)
+    (try
+      (try-write)
+      ([e] (on-error e)))))
 
 ###
 ### Server Middleware
@@ -526,7 +530,7 @@
     (defer (:close conn)
 
       # Make request
-      (write-body conn buf body nil)
+      (write-body conn buf body)
 
       # Parse response pure janet
       (def res (read-response conn buf))
