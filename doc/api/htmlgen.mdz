@@ -35,7 +35,7 @@ We will show how HTMLgen renders from the data structure by dissecting
 the example above:
 
 @ul{
-  @li{`array` (and @code`fiber` which is not in the example) each member of
+  @li{@code`array` \(and @code`fiber` which is not in the example) each member of
     the sequence renders by one of these rules.}
   @li{@code`tuple` represents the HTML tag. The first member must be the name of
     the HTML tag. The second member can be a dictionary with HTML attributes

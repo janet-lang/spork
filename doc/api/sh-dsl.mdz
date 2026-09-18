@@ -42,7 +42,7 @@ variables from the calling process can also be passed in by passing in symbols t
 ($ JANET_PATH=/home/janet-user janet -e '(print (dyn *syspath*)))
 
 # Also works
-($ JANET_PATH=$HOME -e '(print (dyn *syspath*)))
+($ JANET_PATH=$HOME janet -e '(print (dyn *syspath*)))
 ($ echo $HOME)
 ($ echo ,(os/getenv "HOME")) # same thing
 ```

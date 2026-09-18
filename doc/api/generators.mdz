@@ -4,7 +4,27 @@
  :template "mdzdoc/main.html"}
 ---
 
-A @strong[generator] is an iterable data structure which yields individual values whenever called, potentially until its internal values are exhausted, at which point it's considered @em[dead].
+Eager evaluation costs a lot of memory when you need to process lots of data in a chain of eagerly evaluated functions
+as shown below.
+
+@codeblock[janet]```
+(->> big-data
+     (map inc)
+     (filter even?)
+     # ... more eagerly evaluated functions
+     )
+```
+
+The above code can create huge intermediate results which will be discarded by garbage collector later. You can avoid
+creating huge intermediate results with lazily evaluated generator functions in this module. Unlike lazy sequences in
+haskell and clojure, fiber-based generators don't cache values and don't leak memory.
+
+A @strong[generator] is an iterable coroutine which yields individual values whenever it is resumed, potentially until
+its internal values are exhausted, at which point it's considered dead. A coroutine is just another name for a fiber. A
+fiber is an iterable type that can be consumed by any of janet's core functions that expect iterable data types. A
+generator function can consume other generators and fully realized iterable data types produced by janet's core
+functions. In other words, iterables can generally be used interchangeably regardless of whether they are evaluated
+eagerly or lazily.
 
 This operation makes them very useful for:
 
@@ -12,7 +32,8 @@ This operation makes them very useful for:
     @li{Memory-sensitive applications, where it's not necessary to keep an entire sequence in memory at once}
     @li{Infinite sequences}}
 
-NB: Certain functions (specifically @code`run` and @code`to-array`) will create an infinite loop if their argument is an infinite generator!
+Note: Certain functions (specifically @code`run` and @code`to-array`) will create an infinite loop if their argument is
+an infinite generator!
 
 ## Reference
 

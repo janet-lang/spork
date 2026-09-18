@@ -1,9 +1,27 @@
-{:title "GFX2D"
+{:title "gfx2d"
  :author "Calvin Rose"
  :template "mdzdoc/main.html"}
 ---
 
-Module for CPU-based 2d raster graphics for Janet.
+NOTE: Beta-quality - apis may change.
+
+Various simple CPU-based 2d graphics tools suitable for demos, visulizations, and charting. The module generates C code which then is further compiled. It can also be used to generate "shaders" by evaluating this file with `(dyn :shader-compile)` set, which disables a number of functions and allows passing in a pixel shader stub.
+
+Leans on the underlying C compiler for optimization - recommended to be used with `JANET_BUILD_TYPE=native janet-pm install` to take advantage of the best available vectorization.
+
+This module doesn't presume any color-space, with the exception of when saving images to formats like PNG, which guarantees the sRGB color space. Most operations do not do blending - those that do also specify the color space in the blending modes. Unless otherwise specified, blending is done in a "linear" color space.
+
+Includes:
+* Saving and loading to and from several common image file formats.
+* Image blitting
+* Blend modes
+* Cropping imges
+* Read/Set individual pixels
+* Built in simple text rendering
+* Image resizing
+* Stroke and Fill paths
+* Bezier curves
+* Pixel shader abstraction with spork/cjanet
 
 ## Reference
 
