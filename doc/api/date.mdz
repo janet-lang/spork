@@ -1,0 +1,9 @@
+{:title "date"
+ :template "mdzdoc/main.html"}
+---
+
+Utility wrappers around `os/time` and `os/date` for working with dates, particularly formatting them as strings (with `date/to-string`) and reading dates from strings (with `date/from-string`).
+
+## Reference
+
+@api-docs("../../spork" "date")
