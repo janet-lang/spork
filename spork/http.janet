@@ -232,6 +232,38 @@
       (:write conn buf)))
   (buffer/clear buf))
 
+(defn- emit-chunk
+  "Emit a chunk of response body to sink (function, buffer, file, or stream)."
+  [sink chunk]
+  (case (type sink)
+    :nil nil
+    :function (sink chunk)
+    :buffer (buffer/push sink chunk)
+    :core/file (file/write sink chunk)
+    (unless (try (do (:write sink chunk) true) ([_] nil))
+      (error (string "invalid sink type: " (type sink))))))
+
+(def- chunk-header-peg
+  (peg/compile
+    ~(* (/ '(some :h) ,|(scan-number (string "16r" $)))
+        (any (if-not "\r\n" 1))
+        "\r\n"
+        ($))))
+
+(def- chunk-term-peg
+  (peg/compile
+    ~(* (+ "\r\n" (* (any (if-not "\r\n\r\n" 1)) "\r\n\r\n"))
+        ($))))
+
+(def- chunk-crlf-peg
+  (peg/compile ~(* "\r\n" ($))))
+
+(def- line-peg
+  (peg/compile
+    ~(* '(any (if-not (+ "\r\n" "\n") 1))
+        (+ "\r\n" "\n")
+        ($))))
+
 (defn- read-until
   "Read single bytes from connection into buffer until the provided byte
   sequence is found within it. The buffer need not be empty. Returns the number
@@ -247,74 +279,261 @@
       (when-let [pos (peg/find needle buf start-index)]
         (return :exit pos)))))
 
-(defn read-body
-  "Given a request, read the HTTP body from the connection. Returns the body as a buffer.
-  If the request has no body, returns nil."
-  [req]
-  (when-let [body (in req :body)] (break body))
-  (def headers (in req :headers))
+(defn- drain-buf
+  "Drain up to n bytes from src-buf into dest-buf. Returns number of bytes transferred."
+  [dest-buf src-buf n]
+  (if-let [_ (pos? (length src-buf))
+           take (min n (length src-buf))]
+    (do
+      (buffer/blit dest-buf src-buf -1 0 take)
+      (pre-pop src-buf take)
+      take)
+    0))
 
-  # In place content
-  (when-let [cl (in headers "content-length")]
-    (def {:buffer buf
-          :connection conn} req)
-    (def content-length (scan-number cl))
-    (def remaining (- content-length (length buf)))
-    (when (pos? remaining)
-      (:chunk conn remaining buf))
-    (put req :body buf)
-    (break buf))
+(defn- drain-raw-or-read
+  "Drain available bytes from raw-buf or read from connection."
+  [conn raw-buf n out-buf on-eof]
+  (if-let [before (length out-buf)
+           _ (or (pos? (drain-buf out-buf raw-buf n))
+                 (:read conn n out-buf))]
+    (- (length out-buf) before)
+    (do (on-eof) 0)))
 
-  # event stream aka SSE
-  (when (-?>> (in headers "content-type")
-              (string/has-prefix? "text/event-stream"))
-    (def {:buffer buf
-          :connection conn} req)
-    (read-until conn buf "\n\n")
-    (put req :body buf)
-    (break buf))
+(defn- read-raw-payload
+  "Read up to n decoded payload bytes into out-buf from the stream connection.
+   Returns the number of bytes read, or 0 on EOF."
+  [self n out-buf]
+  (when (or (self :eof) (nil? (self :connection)))
+    (break 0))
+  (def {:mode mode
+        :connection conn
+        :buffer raw-buf} self)
+  (case mode
+    :none
+    (do
+      (set (self :eof) true)
+      0)
 
-  # Chunked encoding
-  # TODO: The specification can have multiple transfer encodings so this
-  # precise string matching may not work for every case.
-  (when (= (in headers "transfer-encoding") "chunked")
-    (def {:buffer buf
-          :connection conn} req)
-    (def body (buffer/new chunk-size))
-    (var i 0)
-    (forever
-      (def chunk-length-end-pos (read-until conn buf "\r\n" i))
-      (var chunk-length (scan-number (slice buf i chunk-length-end-pos) 16))
-      (when (zero? chunk-length)
-        (read-until conn buf "\r\n" (+ 2 chunk-length-end-pos))
-        (break))
-      # If there's any data already read, blit that over first.
-      (let [leftover-start (+ chunk-length-end-pos 2)
-            leftover (- (length buf) leftover-start)
-            blit-amount (min leftover chunk-length)] # prevent overreading
-        (unless (zero? blit-amount)
-          (buffer/blit body buf -1 leftover-start (+ leftover-start blit-amount))
-          (-= chunk-length blit-amount))
-        (set i (+ leftover-start blit-amount)))
-      (if (= i (length buf))
-        # Basic case: the buffer has been exhausted and hereonout we can read
-        # from the socket directly.
+    :fixed
+    (if-let [rem (self :bytes-remaining)
+             _ (pos? rem)
+             got (drain-raw-or-read conn raw-buf (min n rem) out-buf
+                                    |(error (string "premature end of stream: expected " rem " more bytes")))]
+      (do
+        (-= (self :bytes-remaining) got)
+        (when (<= (self :bytes-remaining) 0)
+          (set (self :eof) true))
+        got)
+      (do
+        (set (self :eof) true)
+        0))
+
+    :identity
+    (drain-raw-or-read conn raw-buf n out-buf |(set (self :eof) true))
+
+    :event-stream
+    (drain-raw-or-read conn raw-buf n out-buf |(set (self :eof) true))
+
+    :chunked
+    (let [before (length out-buf)]
+      (var needed n)
+      (while (and (pos? needed) (not (self :eof)))
+        (case (self :chunk-state)
+          :header
+          (do
+            (while (and (not (peg/match chunk-header-peg raw-buf)) (not (self :eof)))
+              (unless (:read conn chunk-size raw-buf)
+                (error "unexpected end of stream reading chunk header")))
+            (match (peg/match chunk-header-peg raw-buf)
+              [0 pop-len]
+              (do
+                (pre-pop raw-buf pop-len)
+                (while (and (not (peg/match chunk-term-peg raw-buf)) (not (self :eof)))
+                  (unless (:read conn 2 raw-buf)
+                    (break)))
+                (match (peg/match chunk-term-peg raw-buf)
+                  [term-len] (pre-pop raw-buf term-len))
+                (put self :chunk-state :done)
+                (set (self :eof) true))
+
+              [chunk-len pop-len]
+              (do
+                (pre-pop raw-buf pop-len)
+                (put self :chunk-remaining chunk-len)
+                (put self :chunk-state :payload))
+
+              _
+              (set (self :eof) true)))
+
+          :payload
+          (when-let [take (min needed (self :chunk-remaining))
+                     got (drain-raw-or-read conn raw-buf take out-buf
+                                            |(error "unexpected end of stream reading chunk payload"))
+                     _ (-= (self :chunk-remaining) got)
+                     _ (-= needed got)
+                     _ (zero? (self :chunk-remaining))]
+            (put self :chunk-state :crlf))
+
+          :crlf
+          (do
+            (while (and (not (peg/match chunk-crlf-peg raw-buf)) (not (self :eof)))
+              (unless (:read conn 2 raw-buf)
+                (error "unexpected end of stream reading chunk trailing CRLF")))
+            (match (peg/match chunk-crlf-peg raw-buf)
+              [crlf-len]
+              (do
+                (pre-pop raw-buf crlf-len)
+                (put self :chunk-state :header))
+
+              _
+              (set (self :eof) true)))))
+      (- (length out-buf) before))
+
+    0))
+
+(defn- emit-buf
+  "Append val to user-buf if provided, or return val directly."
+  [user-buf val]
+  (if user-buf (buffer/push user-buf val) val))
+
+(defn- stream-read
+  "Read from response stream:
+   - If n-or-what is integer: reads up to n bytes
+   - If n-or-what is :all or nil: reads to EOF
+   - If n-or-what is :line: reads up to newline
+   Appends to optional user-buf or allocates a new buffer. Returns buffer or nil on EOF."
+  [self &opt n-or-what user-buf]
+  (default n-or-what :all)
+  (def payload-buf (self :payload-buf))
+  (match n-or-what
+    :line
+    (do
+      (while (and (not (peg/match line-peg payload-buf))
+                  (not (self :eof))
+                  (pos? (read-raw-payload self chunk-size payload-buf))))
+      (match (peg/match line-peg payload-buf)
+        [matched-line pop-len]
         (do
-          (:chunk conn chunk-length body)
-          (unless (:read conn 2 buf) # trailing CRLF (not included in chunk length proper)
-            (error "end of stream"))
-          # Clear buffer out. We ain't gonna need it no more.
-          (buffer/clear buf)
-          (set i 0))
-        # Alternatively, the pre-read data in the buffer was plentiful and we
-        # just managed to copy an entire chunk out of it. Just increment past
-        # the CRLF, if it's not already there, and proceed to loop again.
-        (set i (+ (read-until conn buf "\r\n" i) 2))))
-    (put req :body body)
-    (break body))
+          (pre-pop payload-buf pop-len)
+          (emit-buf user-buf matched-line))
 
-  # no body, just return nil
-  nil)
+        _
+        (when-let [_ (pos? (length payload-buf))
+                   rest-line (string payload-buf)
+                   _ (buffer/clear payload-buf)]
+          (emit-buf user-buf rest-line))))
+
+    :all
+    (let [out (or user-buf @"")]
+      (drain-buf out payload-buf (length payload-buf))
+      (while (and (not (self :eof))
+                  (pos? (read-raw-payload self chunk-size out))))
+      out)
+
+    (n (and (number? n) (<= n 0)))
+    (or user-buf @"")
+
+    (n (number? n))
+    (when-let [out (or user-buf (buffer/new n))
+               from-buf (drain-buf out payload-buf n)
+               needed (- n from-buf)
+               got-net (and (pos? needed)
+                            (not (self :eof))
+                            (read-raw-payload self needed out))
+               _ (or (pos? from-buf) (and got-net (pos? got-net)))]
+      out)
+
+    _
+    (error (string "invalid read argument: " n-or-what))))
+
+(defn make-response-stream
+  "Create a streaming HTTP response object from a connection and parsed header."
+  [conn head &opt url method]
+  (default url "")
+  (default method "GET")
+  (def headers (head :headers))
+  (def no-body? (or (= method "HEAD")
+                    (= (head :status) 204)
+                    (= (head :status) 304)))
+  (def mode
+    (cond
+      no-body? :none
+      (= (get headers "transfer-encoding") "chunked") :chunked
+      (in headers "content-length") :fixed
+      (-?>> (in headers "content-type") (string/has-prefix? "text/event-stream")) :event-stream
+      conn :identity
+      :none))
+  (def cl (when-let [v (in headers "content-length")]
+            (scan-number v)))
+  @{:status (head :status)
+    :message (head :message)
+    :headers headers
+    :head-size (head :head-size)
+    :url url
+    :method method
+    :connection conn
+    :mode mode
+    :buffer (or (head :buffer) @"")
+    :payload-buf @""
+    :bytes-remaining (or cl 0)
+    :chunk-remaining 0
+    :chunk-state :header
+    :eof no-body?
+    :read (fn [self &opt what buf] (stream-read self what buf))
+    :blocks (fn [self &opt block-size]
+              (coro
+                (def bsz (or block-size chunk-size))
+                (forever
+                  (if-let [b (:read self bsz (buffer/new bsz))]
+                    (yield (buffer/slice b))
+                    (break)))))
+    :lines (fn [self &named separator]
+             (coro
+               (if (or (nil? separator) (= separator "\n"))
+                 (forever
+                   (if-let [line (:read self :line)]
+                     (yield line)
+                     (break)))
+                 (let [custom-peg (peg/compile ~(* '(any (if-not ,separator 1)) ,separator ($)))
+                       payload-buf (self :payload-buf)]
+                   (forever
+                     (while (and (not (peg/match custom-peg payload-buf))
+                                 (not (self :eof))
+                                 (pos? (read-raw-payload self chunk-size payload-buf))))
+                     (match (peg/match custom-peg payload-buf)
+                       [line pop-len]
+                       (do
+                         (pre-pop payload-buf pop-len)
+                         (yield line))
+
+                       _
+                       (do
+                         (when (pos? (length payload-buf))
+                           (yield (string payload-buf))
+                           (buffer/clear payload-buf))
+                         (break))))))))
+    :close (fn [self]
+             (when-let [c (in self :connection)]
+               (put self :connection nil)
+               (try (:close c) ([_] nil))))})
+
+(defn read-body
+  ``Given a request/response table, read the HTTP body from the connection.
+  If sink is provided (or (in req :sink)), streams chunks to sink (function,
+  file, buffer, or stream). Otherwise returns the body as a buffer. If the request
+  has no body, returns nil.``
+  [req &opt sink]
+  (when-let [body (in req :body)]
+    (break body))
+  (def stream (make-response-stream (in req :connection) req "" (in req :method "")))
+  (if-let [target-sink (or sink (in req :sink))]
+    (do
+      (loop [b :in (:blocks stream)]
+        (emit-chunk target-sink b))
+      (when (buffer? target-sink)
+        (set (req :body) target-sink))
+      target-sink)
+    (set (req :body) (:read stream :all))))
 
 (defn send-response
   ``Send an HTTP response over a connection. Will automatically use chunked
@@ -366,10 +585,10 @@
   the URL path."
   [routes]
   (fn router-mw [req]
-    (def r (or
-             (get routes (get req :route))
-             (get routes :default)))
-    (if r ((middleware r) req) {:status 404 :body "Not Found"})))
+    (if-let [r (or (get routes (get req :route))
+                   (get routes :default))]
+      ((middleware r) req)
+      {:status 404 :body "Not Found"})))
 
 (defn logger
   "Creates a logging middleware. The logger middleware prints URL route, return status, and elapsed request time."
@@ -476,55 +695,161 @@
   both http:// and https:// protocols. Returns [scheme host port path]."
   (peg/compile url-peg-source))
 
+(defn resolve-url
+  "Resolve a redirect location against a base URL per RFC 9110."
+  [base-url location]
+  (cond
+    (or (string/has-prefix? "http://" location)
+        (string/has-prefix? "https://" location))
+    location
+
+    (if-let [[scheme host raw-port path] (peg/match url-grammar base-url)
+             origin (string scheme "://" host (if raw-port (string ":" raw-port) ""))
+             p (or path "/")
+             idx (last (string/find-all "/" p))
+             prefix (cond
+                      (string/has-prefix? "/" location) ""
+                      idx (string/slice p 0 (inc idx))
+                      "/")]
+      (string origin prefix location)
+      (error (string "invalid base url: " base-url)))))
+
+(defn open-stream
+  ``Open an HTTP request and return an open response stream.
+  The stream implements :status, :message, :headers, :url, :head-size,
+  :read, :blocks, :lines, and :close.
+  Automatically follows HTTP 3xx redirects up to :max-redirects (default 10).
+
+  Options:
+  * `:method` - HTTP method string (default "GET")
+  * `:body` - Request body content
+  * `:headers` - Request headers table
+  * `:stream-factory` - Function to create connection stream. Defaults to net/connect.
+  * `:stream-opts` - Options table passed to stream-factory
+  * `:max-redirects` - Maximum number of 3xx redirects to follow (default 10)``
+  [url &keys
+   {:method method
+    :body body
+    :headers headers
+    :stream-factory stream-factory
+    :stream-opts stream-opts
+    :max-redirects max-redirects}]
+  (default method "GET")
+  (default max-redirects 10)
+  (def [scheme host raw-port path]
+    (or (peg/match url-grammar url)
+        (error (string "invalid url: " url))))
+  (def port (or raw-port (if (= scheme "https") "443" "80")))
+  (def target-path (or path "/"))
+  (def buf @"")
+  (buffer/format buf "%s %s HTTP/1.1\r\nHost: %s:%s\r\n" method target-path host port)
+  (when headers
+    (eachp [k v] headers
+      (buffer/format buf "%s: %s\r\n" k v)))
+
+  (def effective-opts (merge (or stream-opts {}) {:scheme scheme}))
+  (def conn (if stream-factory
+              (stream-factory host port effective-opts)
+              (net/connect host port)))
+
+  # Write request body
+  (write-body conn buf body)
+
+  # Read response header
+  (match (read-response conn buf)
+    :error
+    (do
+      (try (:close conn) ([_] nil))
+      (error "failed to read HTTP response header"))
+
+    head
+    (if-let [_ (pos? max-redirects)
+             loc (get (head :headers) "location")
+             status (head :status)
+             _ (find |(= status $) [301 302 303 307 308])]
+      (do
+        (try (:close conn) ([_] nil))
+        (let [get? (find |(= status $) [301 302 303])]
+          (open-stream (resolve-url url loc)
+                       :method (if get? "GET" method)
+                       :body (unless get? body)
+                       :headers headers
+                       :stream-factory stream-factory
+                       :stream-opts stream-opts
+                       :max-redirects (dec max-redirects))))
+      (make-response-stream conn head url method))))
+
 (defn request
   ``Make an HTTP request to a server.
-  Returns a table containing response information.
+  Returns a table containing response information:
   * `:head-size` - number of bytes in the http header
   * `:headers` - table mapping header names to header values. Header names are lowercase.
   * `:connection` - the connection stream for the header.
   * `:buffer` - the buffer instance that may contain extra bytes.
   * `:status` - HTTP status code as an integer.
   * `:message` - HTTP status message.
-  * `:body` - Bytes of the response body.
-  
+  * `:url` - final resolved URL.
+  * `:body` - Bytes of the response body (nil if streaming to custom sink or method is HEAD).
+
   Options:
   * `:body` - Request body content
   * `:headers` - Request headers table
   * `:stream-factory` - Function to create connection stream. Defaults to net/connect.
     Signature: (stream-factory host port stream-opts)
-  * `:stream-opts` - Options table passed to stream-factory``
-  [method url &keys
-   {:body body
-    :headers headers
-    :stream-factory stream-factory
-    :stream-opts stream-opts}]
-  (def x (peg/match url-grammar url))
-  (assert x (string "invalid url: " url))
-  (def [scheme host raw-port path] x)
-  # Default port based on scheme
-  (def port (or raw-port (if (= scheme "https") "443" "80")))
-  (def buf @"")
-  (buffer/format buf "%s %s HTTP/1.1\r\nHost: %s:%s\r\n" method path host port)
-  (when headers
-    (eachp [k v] headers
-      (buffer/format buf "%s: %s\r\n" k v)))
+  * `:stream-opts` - Options table passed to stream-factory
+  * `:sink` - Target to stream response body into (function, file, or buffer)
+  * `:stream` - If true, returns the open response stream directly without consuming body
+  * `:max-redirects` - Maximum number of 3xx redirects to follow (default 0)``
+  [method url &keys opts]
+  (def req-opts (merge {:max-redirects 0} opts))
+  (if (get opts :stream)
+    (open-stream url :method method ;(kvs req-opts))
+    (with [stream (open-stream url :method method ;(kvs req-opts))]
+      (when-let [sink (in opts :sink)]
+        (loop [b :in (:blocks stream)]
+          (emit-chunk sink b)))
+      @{:head-size (stream :head-size)
+        :headers (stream :headers)
+        :connection (stream :connection)
+        :buffer (stream :buffer)
+        :status (stream :status)
+        :message (stream :message)
+        :url (stream :url)
+        :body (unless (or (in opts :sink) (= method "HEAD"))
+                (:read stream :all))})))
 
-  # Use custom stream-factory or default to net/connect
-  (let [make-conn (or stream-factory net/connect)
-        conn (if stream-opts
-               (make-conn host port stream-opts)
-               (make-conn host port))]
-    (defer (:close conn)
+(defn download
+  ``Download an HTTP resource to a destination path, file, buffer, or sink.
+  Supports automatic redirect following, chunked transfer encoding,
+  and incremental chunk streaming without buffering entire responses.
 
-      # Make request
-      (write-body conn buf body)
+  Arguments:
+  * `url` - The URL to download
+  * `dest` - Target file path (string), buffer, core/file or stream, or sink function (fn [chunk])
 
-      # Parse response pure janet
-      (def res (read-response conn buf))
-      (when (= :error res) (error res))
-      # HEAD responses have no body per HTTP spec, skip read-body
-      (unless (= method "HEAD")
-        (read-body res))
+  Options:
+  * `:headers` - Table of HTTP headers
+  * `:max-redirects` - Maximum redirects to follow (default 10)
+  * `:stream-factory` - Custom stream factory function
+  * `:stream-opts` - Options passed to stream-factory``
+  [url dest &keys opts]
+  (with [stream (open-stream url ;(kvs (merge {:max-redirects 10} opts)))]
+    (cond
+      (<= 200 (stream :status) 299) nil
+      (and (find |(= (stream :status) $) [301 302 303 307 308]) (get (stream :headers) "location"))
+      (error (string "Too many redirects: exceeded limit with status " (stream :status)))
+      (error (string "HTTP download failed with status " (stream :status) ": " (stream :message))))
+    (case (type dest)
+      :string
+      (if-let [f (file/open dest :wb)]
+        (defer (file/close f)
+          (loop [b :in (:blocks stream)]
+            (file/write f b)))
+        (error (string "failed to open destination file: " dest)))
 
-      # TODO - handle redirects with Location header
-      res)))
+      :buffer
+      (:read stream :all dest)
+
+      (loop [b :in (:blocks stream)]
+        (emit-chunk dest b)))
+    stream))

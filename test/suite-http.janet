@@ -165,4 +165,100 @@
 (assert (deep= @[@{"a" " " "b" "once upon a time"}] (peg/match http/query-string-grammar "a=%20&b=once+upon+a+time")) "query string grammar 4")
 (assert (deep= @[@{"a" " " "bedtime story" "once upon a time"}] (peg/match http/query-string-grammar "a=%20&bedtime+story=once+upon+a+time")) "query string grammar 4")
 
+# Tests for sink callback and resolve-url
+(with [[r w] (os/pipe) close-both]
+  (def init @"4\r\nabcd\r\n0\r\n\r\n")
+  (:close w)
+  (def chunks @[])
+  (http/read-body @{:buffer init :connection r :headers {"transfer-encoding" "chunked"}} (fn [c] (array/push chunks (string c))))
+  (assert (= (string/join chunks) "abcd") "read-body: sink callback chunked"))
+
+(with [[r w] (os/pipe) close-both]
+  (def init @"hello world")
+  (:close w)
+  (def chunks @[])
+  (http/read-body @{:buffer init :connection r :headers {"content-length" "11"}} (fn [c] (array/push chunks (string c))))
+  (assert (= (string/join chunks) "hello world") "read-body: sink callback content-length"))
+
+(assert (= (http/resolve-url "http://example.com/a/b/c" "/d/e") "http://example.com/d/e") "resolve-url root")
+(assert (= (http/resolve-url "http://example.com/a/b/c" "d/e") "http://example.com/a/b/d/e") "resolve-url relative")
+(assert (= (http/resolve-url "http://example.com/a/b/c/" "d/e") "http://example.com/a/b/c/d/e") "resolve-url dir relative")
+(assert (= (http/resolve-url "http://example.com/a/b/c" "https://other.com/foo") "https://other.com/foo") "resolve-url absolute")
+(assert (= (http/resolve-url "http://example.com:8080/a/b" "/c?q=1") "http://example.com:8080/c?q=1") "resolve-url with port and query")
+
+(defn- download-test-server
+  [req]
+  (case (in req :path)
+    "/dl-hello" {:status 200 :body "hello streaming download"}
+    "/dl-lines" {:status 200 :body "first line\nsecond line\r\nthird line\n"}
+    "/dl-chunked" {:status 200 :headers {"transfer-encoding" "chunked"} :body ["chunk-A" "chunk-B" "chunk-C"]}
+    "/dl-redir" {:status 302 :headers {"location" "/dl-hello"}}
+    "/dl-loop" {:status 302 :headers {"location" "/dl-loop"}}
+    {:status 404 :body "not found"}))
+
+(with [server (http/server download-test-server "127.0.0.1" 9822)]
+  # Download to buffer
+  (def dl-buf @"")
+  (def dl-res (http/download "http://127.0.0.1:9822/dl-hello" dl-buf))
+  (assert (= (dl-res :status) 200) "download to buffer status")
+  (assert (= (string dl-buf) "hello streaming download") "download to buffer content")
+
+  # Download to file
+  (def dl-file "test_download.tmp")
+  (defer (try (os/rm dl-file) ([_] nil))
+    (def f-res (http/download "http://127.0.0.1:9822/dl-hello" dl-file))
+    (assert (= (f-res :status) 200) "download to file status")
+    (assert (= (string (slurp dl-file)) "hello streaming download") "download to file content"))
+
+  # Download with callback sink
+  (def dl-chunks @[])
+  (def cb-res (http/download "http://127.0.0.1:9822/dl-hello" (fn [c] (array/push dl-chunks (string c)))))
+  (assert (= (cb-res :status) 200) "download callback status")
+  (assert (= (string/join dl-chunks) "hello streaming download") "download callback content")
+
+  # Follow redirect
+  (def redir-buf @"")
+  (def redir-res (http/download "http://127.0.0.1:9822/dl-redir" redir-buf))
+  (assert (= (redir-res :status) 200) "download follow redirect status")
+  (assert (= (string redir-buf) "hello streaming download") "download follow redirect content")
+
+  # Redirect loop error
+  (assert-error "download redirect loop error"
+                (http/download "http://127.0.0.1:9822/dl-loop" @"" :max-redirects 3))
+
+  # 404 error
+  (assert-error "download 404 error"
+                (http/download "http://127.0.0.1:9822/dl-nonexistent" @""))
+
+  # open-stream with (:blocks s)
+  (with [s (http/open-stream "http://127.0.0.1:9822/dl-hello")]
+    (assert (= (s :status) 200) "open-stream status 200")
+    (def blk-buf @"")
+    (loop [b :in (:blocks s 4)]
+      (buffer/push blk-buf b))
+    (assert (= (string blk-buf) "hello streaming download") "open-stream :blocks content"))
+
+  # open-stream with (:lines s)
+  (with [s (http/open-stream "http://127.0.0.1:9822/dl-lines")]
+    (assert (= (s :status) 200) "open-stream lines status 200")
+    (def lines @[])
+    (loop [line :in (:lines s)]
+      (array/push lines (string line)))
+    (assert (deep= lines @["first line" "second line" "third line"]) "open-stream :lines content"))
+
+  # open-stream with (:read s 5) and (:read s :all)
+  (with [s (http/open-stream "http://127.0.0.1:9822/dl-hello")]
+    (assert (= (string (:read s 5)) "hello") "open-stream :read 5 bytes")
+    (assert (= (string (:read s :all)) " streaming download") "open-stream :read :all"))
+
+  # open-stream with redirect
+  (with [s (http/open-stream "http://127.0.0.1:9822/dl-redir")]
+    (assert (= (s :status) 200) "open-stream follow redirect status")
+    (assert (= (string (:read s :all)) "hello streaming download") "open-stream follow redirect content"))
+
+  # request with :stream true
+  (with [s (http/request "GET" "http://127.0.0.1:9822/dl-hello" :stream true)]
+    (assert (= (s :status) 200) "request with :stream true status")
+    (assert (= (string (:read s :all)) "hello streaming download") "request with :stream true content")))
+
 (end-suite)
