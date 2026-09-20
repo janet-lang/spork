@@ -209,6 +209,7 @@
   "Write the body of an HTTP request, adding Content-Length header
   or Transfer-Encoding: chunked"
   [conn buf body]
+
   (cond
     (nil? body)
     (do
@@ -544,7 +545,10 @@
   * `:status` - integer status code to write
   * `:body` - optional byte sequence or iterable (for chunked body)
      for returning contents. The iterable can be lazy, i.e. for streaming
-     data.``
+     data
+  * `:error` - optional function that is called in case writing has failed.
+     Specially useful when in a handler passed to `http/server` or
+     `http/server-handler`.``
   [conn response &opt buf]
   (default buf @"")
   (def status (get response :status 200))
@@ -558,7 +562,16 @@
       (each ve v (buffer/format buf "%V: %V\r\n" k ve))
       (buffer/format buf "%V: %V\r\n" k v)))
 
-  (write-body conn buf (in response :body)))
+  (defn do-write []
+    (write-body conn buf (in response :body)))
+
+  (def on-error (in response :error))
+
+  (if (nil? on-error)
+    (do-write)
+    (try
+      (do-write)
+      ([e] (on-error e)))))
 
 ###
 ### Server Middleware
