@@ -118,7 +118,12 @@
     "write-body: chunked encoding"))
 
 (with [[r w] (os/pipe) close-both]
-  (os/sigaction :pipe nil) # throw error on SIGPIPE instead of exiting
+  # on POSIX-compatible systems, throw an error on SIGPIPE instead of silently exiting
+  (let [posix-ish [:macos :linux :freebsd :openbsd :netbsd :dragonfly :bsd :posix]
+        w (os/which)]
+    (when (some |(= $ w) posix-ish)
+      (os/sigaction :pipe nil)))
+
   (:close r) # close the reading end of the pipe so it'll error out
   (var got-error false)
   (def body
