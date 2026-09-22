@@ -45,7 +45,7 @@ The stream factory should accept @code`(host port &opt opts)` and return a Janet
 
 @codeblock[janet]```
 (import spork/http)
-(import jossl/tls)
+(import jsec/tls)
 
 # Use TLS for HTTPS
 (def response (http/request "GET" "https://www.example.com"
