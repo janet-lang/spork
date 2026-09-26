@@ -9,8 +9,11 @@
 (defn- pre-pop
   "Remove n bytes from front of buffer"
   [buf n]
-  (buffer/blit buf buf 0 n)
-  (buffer/popn buf n))
+  (if (>= n (length buf))
+    (buffer/clear buf)
+    (do
+      (buffer/blit buf buf 0 n)
+      (buffer/popn buf n))))
 
 (def- http-grammar
   ~{:request-status (* :method :ws :path :ws "HTTP/1." :d :any-ws :rn)
@@ -217,16 +220,21 @@
 
     (bytes? body)
     (do
-      (buffer/format buf "Content-Length: %d\r\n\r\n%V" (length body) body)
-      (:write conn buf))
+      (buffer/format buf "Content-Length: %d\r\n\r\n" (length body))
+      (:write conn buf)
+      (:write conn body))
 
     # default - iterate chunks
     (do
       (buffer/format buf "Transfer-Encoding: chunked\r\n\r\n")
+      (:write conn buf)
+      (buffer/clear buf)
       (each chunk body
         (assert (bytes? chunk) "expected byte chunk")
-        (buffer/format buf "%x\r\n%V\r\n" (length chunk) chunk)
+        (buffer/format buf "%x\r\n" (length chunk))
         (:write conn buf)
+        (:write conn chunk)
+        (:write conn "\r\n")
         (buffer/clear buf))
       (buffer/format buf "0\r\n\r\n")
       (:write conn buf)))
@@ -424,7 +432,8 @@
           (emit-buf user-buf rest-line))))
 
     :all
-    (let [out (or user-buf @"")]
+    (let [init-cap (if (= (self :mode) :fixed) (self :bytes-remaining) chunk-size)
+          out (or user-buf (buffer/new init-cap))]
       (drain-buf out payload-buf (length payload-buf))
       (while (and (not (self :eof))
                   (pos? (read-raw-payload self chunk-size out))))
@@ -480,13 +489,19 @@
     :chunk-state :header
     :eof no-body?
     :read (fn [self &opt what buf] (stream-read self what buf))
-    :blocks (fn [self &opt block-size]
+    :blocks (fn [self &opt block-size buf]
               (coro
                 (def bsz (or block-size chunk-size))
-                (forever
-                  (if-let [b (:read self bsz (buffer/new bsz))]
-                    (yield (buffer/slice b))
-                    (break)))))
+                (if buf
+                  (forever
+                    (buffer/clear buf)
+                    (if (:read self bsz buf)
+                      (yield buf)
+                      (break)))
+                  (forever
+                    (if-let [b (:read self bsz (buffer/new bsz))]
+                      (yield b)
+                      (break))))))
     :lines (fn [self &named separator]
              (coro
                (if (or (nil? separator) (= separator "\n"))
@@ -527,12 +542,16 @@
     (break body))
   (def stream (make-response-stream (in req :connection) req "" (in req :method "")))
   (if-let [target-sink (or sink (in req :sink))]
-    (do
-      (loop [b :in (:blocks stream)]
-        (emit-chunk target-sink b))
-      (when (buffer? target-sink)
-        (set (req :body) target-sink))
-      target-sink)
+    (if (buffer? target-sink)
+      (do
+        (:read stream :all target-sink)
+        (set (req :body) target-sink)
+        target-sink)
+      (do
+        (def b (buffer/new chunk-size))
+        (loop [blk :in (:blocks stream chunk-size b)]
+          (emit-chunk target-sink blk))
+        target-sink))
     (set (req :body) (:read stream :all))))
 
 (defn send-response
@@ -741,7 +760,7 @@
         (error (string "invalid url: " url))))
   (def port (or raw-port (if (= scheme "https") "443" "80")))
   (def target-path (or path "/"))
-  (def buf @"")
+  (def buf (buffer/new 1024))
   (buffer/format buf "%s %s HTTP/1.1\r\nHost: %s:%s\r\n" method target-path host port)
   (when headers
     (eachp [k v] headers
@@ -806,8 +825,9 @@
     (open-stream url :method method ;(kvs req-opts))
     (with [stream (open-stream url :method method ;(kvs req-opts))]
       (when-let [sink (in opts :sink)]
-        (loop [b :in (:blocks stream)]
-          (emit-chunk sink b)))
+        (def b (buffer/new chunk-size))
+        (loop [blk :in (:blocks stream chunk-size b)]
+          (emit-chunk sink blk)))
       @{:head-size (stream :head-size)
         :headers (stream :headers)
         :connection (stream :connection)
@@ -843,13 +863,22 @@
       :string
       (if-let [f (file/open dest :wb)]
         (defer (file/close f)
-          (loop [b :in (:blocks stream)]
-            (file/write f b)))
+          (def b (buffer/new chunk-size))
+          (loop [blk :in (:blocks stream chunk-size b)]
+            (file/write f blk)))
         (error (string "failed to open destination file: " dest)))
 
       :buffer
       (:read stream :all dest)
 
-      (loop [b :in (:blocks stream)]
-        (emit-chunk dest b)))
+      :core/file
+      (do
+        (def b (buffer/new chunk-size))
+        (loop [blk :in (:blocks stream chunk-size b)]
+          (file/write dest blk)))
+
+      (do
+        (def b (buffer/new chunk-size))
+        (loop [blk :in (:blocks stream chunk-size b)]
+          (emit-chunk dest blk))))
     stream))
