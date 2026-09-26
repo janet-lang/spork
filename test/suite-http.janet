@@ -238,6 +238,15 @@
       (buffer/push blk-buf b))
     (assert (= (string blk-buf) "hello streaming download") "open-stream :blocks content"))
 
+  # open-stream with (:blocks s) and reusable buffer
+  (with [s (http/open-stream "http://127.0.0.1:9822/dl-hello")]
+    (assert (= (s :status) 200) "open-stream status 200 with reusable buf")
+    (def blk-buf @"")
+    (def scratch (buffer/new 4))
+    (loop [b :in (:blocks s 4 scratch)]
+      (buffer/push blk-buf b))
+    (assert (= (string blk-buf) "hello streaming download") "open-stream :blocks with reusable buffer content"))
+
   # open-stream with (:lines s)
   (with [s (http/open-stream "http://127.0.0.1:9822/dl-lines")]
     (assert (= (s :status) 200) "open-stream lines status 200")
