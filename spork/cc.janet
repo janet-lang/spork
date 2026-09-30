@@ -63,54 +63,65 @@
 ### Prefix detection
 ###
 
+(defn- find-janet-h
+  [test segs]
+  (def headercheck (path/join test ;segs))
+  (when (= :file (os/stat headercheck :mode))
+    (setdyn *janet-h-path* headercheck)
+    test))
+
+(defn- get-prefix
+  [paths segs]
+  (def msg "no prefix discovered for janet headers!")
+  (when-let [p (dyn *janet-prefix*)]
+    (break (if (dyn *janet-h-path*)
+             p
+             (assert (find-janet-h p segs) msg))))
+  (var result nil)
+  (each test paths
+    (when (and test (find-janet-h test segs))
+      (set result test)
+      (break)))
+  (assert result msg)
+  (setdyn *janet-prefix* result)
+  result)
+
+(defn- unix-paths
+  []
+  (coro (each p [(os/getenv "JANET_PREFIX")
+                 (os/getenv "PREFIX")
+                 (path/join (dyn *syspath*) ".." "..")
+                 (path/join (dyn *syspath*) "..")
+                 (try (path/join (sh/self-exe) ".." "..") ([_e] nil))
+                 (dyn *syspath*)
+                 "/usr/"
+                 "/usr/local"
+                 "/"]
+          (yield p))))
+
+(defn- msvc-paths
+  []
+  (coro (each p [(os/getenv "JANET_PREFIX")
+                 (os/getenv "PREFIX")
+                 (path/join (dyn *syspath*) ".." "..")
+                 (path/join (dyn *syspath*) "..")
+                 (try (path/join (sh/self-exe) ".." "..") ([_e] nil))
+                 (dyn *syspath*)]
+          (yield p))))
+
+(def- unix-segs ["include" "janet.h"])
+
+(def- msvc-segs ["C" "janet.h"])
+
 (defn get-unix-prefix
   "Auto-detect what prefix to use for finding libjanet.so, headers, etc. on unix systems"
   []
-  (if-let [p (dyn *janet-prefix*)] (break p))
-  (var result nil)
-  (var found-header nil)
-  (each test [(os/getenv "JANET_PREFIX")
-              (os/getenv "PREFIX")
-              (path/join (dyn *syspath*) ".." "..")
-              (path/join (dyn *syspath*) "..")
-              (try (path/join (sh/self-exe) ".." "..") ([_e] nil))
-              (dyn *syspath*)
-              "/usr/"
-              "/usr/local"
-              "/"]
-    (when test
-      (def headercheck (path/join test "include" "janet.h"))
-      (when (= :file (os/stat headercheck :mode))
-        (set result test)
-        (set found-header headercheck)
-        (break))))
-  (assert result "no prefix discovered for janet headers!")
-  (setdyn *janet-prefix* result)
-  (setdyn *janet-h-path* found-header)
-  result)
+  (get-prefix (unix-paths) unix-segs))
 
 (defn get-msvc-prefix
   "Auto-detect install location on windows systems with a default install. This is the directory containing Library, C, docs, bin, etc."
   []
-  (if-let [p (dyn *janet-prefix*)] (break p))
-  (var result nil)
-  (var found-header nil)
-  (each test [(os/getenv "JANET_PREFIX")
-              (os/getenv "PREFIX")
-              (path/join (dyn *syspath*) ".." "..")
-              (path/join (dyn *syspath*) "..")
-              (try (path/join (sh/self-exe) ".." "..") ([_e] nil))
-              (dyn *syspath*)]
-    (when test
-      (def headercheck (path/join test "C" "janet.h"))
-      (when (= :file (os/stat headercheck :mode))
-        (set result test)
-        (set found-header headercheck)
-        (break))))
-  (assert result "no prefix discovered for janet headers!")
-  (setdyn *janet-prefix* result)
-  (setdyn *janet-h-path* found-header)
-  result)
+  (get-prefix (msvc-paths) msvc-segs))
 
 ###
 ### Universal helpers for all toolchains
