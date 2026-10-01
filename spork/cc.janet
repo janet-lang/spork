@@ -66,7 +66,9 @@
 (defn get-unix-prefix
   "Auto-detect what prefix to use for finding libjanet.so, headers, etc. on unix systems"
   []
-  (if-let [p (dyn *janet-prefix*)] (break p))
+  (when-let [p (dyn *janet-prefix*)]
+    (unless (dyn *janet-h-path*) (setdyn *janet-h-path* (path/join p "include" "janet.h")))
+    (break p))
   (var result nil)
   (var found-header nil)
   (each test [(os/getenv "JANET_PREFIX")
@@ -92,7 +94,9 @@
 (defn get-msvc-prefix
   "Auto-detect install location on windows systems with a default install. This is the directory containing Library, C, docs, bin, etc."
   []
-  (if-let [p (dyn *janet-prefix*)] (break p))
+  (when-let [p (dyn *janet-prefix*)]
+    (unless (dyn *janet-h-path*) (setdyn *janet-h-path* (path/join p "C" "janet.h")))
+    (break p))
   (var result nil)
   (var found-header nil)
   (each test [(os/getenv "JANET_PREFIX")
