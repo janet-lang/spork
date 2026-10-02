@@ -7,8 +7,8 @@
   {:hi (fn [self msg]
          (string "Hello " msg))})
 
-(with [wt (rpc/server fns "localhost" 8000)]
-  (with [c (rpc/client "localhost" 8000)]
+(with [wt (rpc/server fns "127.0.0.1" 8000)]
+  (with [c (rpc/client "127.0.0.1" 8000)]
     (assert (= (:hi c "spork") "Hello spork") "RPC client")
     # parallel
     (ev/gather

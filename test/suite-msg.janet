@@ -10,8 +10,8 @@
     (assert (= msg "spork") "Message 1")
     (send msg)))
 
-(with [wt (net/server "localhost" 8000 handler)]
-  (with [s (net/connect "localhost" 8000)]
+(with [wt (net/server "127.0.0.1" 8000 handler)]
+  (with [s (net/connect "127.0.0.1" 8000)]
     (def recv (msg/make-recv s))
     (def send (msg/make-send s))
     (send "spork")
