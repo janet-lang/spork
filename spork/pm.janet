@@ -317,7 +317,7 @@
         (bundle/install bdir :config config ;(kvs config))))))
 
 (defn local-hook
-  "Run a bundle hook on the local project."
+  "Run a bundle hook on the local project in the current directory."
   [hook & args]
   (project-janet-shim ".")
   (def [fullpath _] (module/find "/bundle"))
@@ -772,7 +772,7 @@
 (defn scaffold-pm-shell
   "Generate a pm shell with configuration already setup. If `copy-janet` is truthy, the Janet executable file
    will be bundled in the new environment"
-  [path]
+  [path &opt silent]
   (os/mkdir path)
   (os/mkdir (path/join path "bin"))
   (os/mkdir (path/join path "man"))
@@ -784,10 +784,36 @@
   (spit (path/join path "bin" "activate.ps1") (enter-ps-template opts))
   (spit (path/join path "bin" "activate.bat") (enter-cmd-template opts))
   (spit (path/join path "bin" "deactivate.bat") (exit-cmd-template opts))
-  (print "created project shell environment at " path)
-  (print "(PowerShell) run `. " path "/bin/activate.ps1` to enter the new environment, then `deactivate` to exit.")
-  (print "(CMD)        run `" path "\\bin\\activate` to enter the new environment, then `deactivate` to exit.")
-  (print "(Unix sh)    run `. " path "/bin/activate` to enter the new environment, then `deactivate` to exit."))
+  (unless silent
+    (print "created project shell environment at " path)
+    (print "(PowerShell) run `. " path "/bin/activate.ps1` to enter the new environment, then `deactivate` to exit.")
+    (print "(CMD)        run `" path "\\bin\\activate` to enter the new environment, then `deactivate` to exit.")
+    (print "(Unix sh)    run `. " path "/bin/activate` to enter the new environment, then `deactivate` to exit.")))
+
+(defn switch-to-venv
+  "Switch to a PM Shell inside the REPL. This will allow installing other dependencies with `pm-install` without touching a system install."
+  [path]
+  (def abspath (path/abspath path))
+  (def is-win (or (= :windows (os/which)) (= :mingw (os/which))))
+  (scaffold-pm-shell path true)
+  (def old-path (os/getenv "PATH"))
+  (def old-janet-path (os/getenv "JANET_PATH"))
+  (def old-syspath (get root-env *syspath*))
+  # ignore histfile, we can't change that dynamically
+  (os/setenv "PATH" (string abspath (if is-win ";" ":") old-path))
+  (os/setenv "JANET_PATH" abspath)
+  (setdyn *syspath* abspath)
+  (put root-env *syspath* abspath)
+  (table/clear (dyn :module-cache module/cache)) # we would now important different things!
+  # Return a function to deactivate the changes
+  (def d (fn :deactivate []
+           (os/setenv "PATH" old-path)
+           (os/setenv "JANET_PATH" old-janet-path)
+           (put root-env *syspath* old-syspath)
+           (setdyn *syspath* old-syspath)))
+  # for convenience
+  (defglobal 'deactivate d)
+  d)
 
 (defn- try-copy
   [src dest]
@@ -801,7 +827,7 @@
   updates and changes to the system configuration without breaking the shell.
   ```
   [path]
-  (def is-win (= :windows (os/which)))
+  (def is-win (or (= :mingw (os/which)) (= :windows (os/which))))
   (def exec-name (dyn *executable* "janet"))
   (def executable (sh/which exec-name))
   (assert (sh/exists? executable) "unable to resolve location of the janet binary. Is it on your path?")
