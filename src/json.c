@@ -372,6 +372,11 @@ static void encode_newline(Encoder *e) {
         janet_buffer_push_bytes(e->buffer, e->tab, e->tablen);
 }
 
+static int kv_compare(const void *a, const void *b) {
+    return janet_compare(((const JanetKV *)a)->key,
+                         ((const JanetKV *)b)->key);
+}
+
 static const char *encode_one(Encoder *e, Janet x, int depth) {
     if ((depth & 0xFFFF) > JANET_RECURSION_GUARD) goto recurdepth;
     switch(janet_type(x)) {
@@ -539,22 +544,41 @@ static const char *encode_one(Encoder *e, Janet x, int depth) {
                 const JanetKV *kvs;
                 int32_t count, capacity;
                 janet_dictionary_view(x, &kvs, &count, &capacity);
+                /* Copy entries and sort by key for deterministic output */
+                JanetKV *pairs = NULL;
+                if (count) {
+                    int32_t n = 0;
+                    pairs = malloc(count * sizeof(JanetKV));
+                    if (!pairs)
+                        return "out of memory";
+                    for (int32_t i = 0; i < capacity; i++) {
+                        if (janet_checktype(kvs[i].key, JANET_NIL))
+                            continue;
+                        if (!janet_checktypes(kvs[i].key, JANET_TFLAG_BYTES)) {
+                            free(pairs);
+                            return "object key must be a byte sequence";
+                        }
+                        pairs[n++] = kvs[i];
+                    }
+                    qsort(pairs, (size_t) n, sizeof(JanetKV), kv_compare);
+                }
                 janet_buffer_push_u8(e->buffer, '{');
                 e->indent++;
-                for (int32_t i = 0; i < capacity; i++) {
-                    if (janet_checktype(kvs[i].key, JANET_NIL))
-                        continue;
-                    if (!janet_checktypes(kvs[i].key, JANET_TFLAG_BYTES))
-                        return "object key must be a byte sequence";
+                for (int32_t i = 0; i < count; i++) {
                     encode_newline(e);
-                    if ((err = encode_one(e, kvs[i].key, depth + 1)))
+                    if ((err = encode_one(e, pairs[i].key, depth + 1))) {
+                        free(pairs);
                         return err;
+                    }
                     const char *sep = e->tablen ? ": " : ":";
                     janet_buffer_push_cstring(e->buffer, sep);
-                    if ((err = encode_one(e, kvs[i].value, depth + 1)))
+                    if ((err = encode_one(e, pairs[i].value, depth + 1))) {
+                        free(pairs);
                         return err;
+                    }
                     janet_buffer_push_u8(e->buffer, ',');
                 }
+                free(pairs);
                 e->indent--;
                 if (e->buffer->data[e->buffer->count - 1] == ',') {
                     e->buffer->count--;
