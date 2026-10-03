@@ -23,6 +23,7 @@
 #include <janet.h>
 #include <stdlib.h>
 #include <errno.h>
+#include <math.h>
 
 /*****************/
 /* JSON Decoding */
@@ -386,7 +387,10 @@ static const char *encode_one(Encoder *e, Janet x, int depth) {
         case JANET_NUMBER:
             {
                 char cbuf[25];
-                sprintf(cbuf, "%.17g", janet_unwrap_number(x));
+                double d = janet_unwrap_number(x);
+                if (!isfinite(d))
+                    return "cannot encode non-finite number";
+                sprintf(cbuf, "%.17g", d);
                 janet_buffer_push_cstring(e->buffer, cbuf);
             }
             break;
