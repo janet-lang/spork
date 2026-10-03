@@ -390,7 +390,19 @@ static const char *encode_one(Encoder *e, Janet x, int depth) {
                 double d = janet_unwrap_number(x);
                 if (!isfinite(d))
                     return "cannot encode non-finite number";
-                sprintf(cbuf, "%.17g", d);
+                if (d == floor(d) && fabs(d) <= 9007199254740992.0) {
+                    /* Integral values up to 2^53 print without exponent */
+                    sprintf(cbuf, "%.0f", d);
+                } else {
+                    /* Use the shortest form that round-trips through strtod */
+                    int prec;
+                    for (prec = 1; prec < 17; prec++) {
+                        sprintf(cbuf, "%.*g", prec, d);
+                        if (strtod(cbuf, NULL) == d) break;
+                    }
+                    if (prec == 17)
+                        sprintf(cbuf, "%.17g", d);
+                }
                 janet_buffer_push_cstring(e->buffer, cbuf);
             }
             break;
