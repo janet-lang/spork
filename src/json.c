@@ -463,7 +463,15 @@ static const char *encode_one(Encoder *e, Janet x, int depth) {
                     }
 
                     /* write codepoint */
-                    if (codepoint > 0x1F && codepoint < 0x80) {
+                    if (codepoint == '\b' || codepoint == '\f' || codepoint == '\n'
+                            || codepoint == '\r' || codepoint == '\t') {
+                        janet_buffer_push_u8(e->buffer, '\\');
+                        janet_buffer_push_u8(e->buffer,
+                                codepoint == '\b' ? 'b' :
+                                codepoint == '\f' ? 'f' :
+                                codepoint == '\n' ? 'n' :
+                                codepoint == '\r' ? 'r' : 't');
+                    } else if (codepoint > 0x1F && codepoint < 0x80) {
                         /* Normal, no escape */
                         if (codepoint == '\\' || codepoint == '"')
                             janet_buffer_push_u8(e->buffer, '\\');
