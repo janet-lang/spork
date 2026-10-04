@@ -328,8 +328,11 @@
     (default target "build")
     (build-rules/build-run e target (dyn :workers))
     (postbuild))
-  (defn install [manifest &]
-    # (build) - removed since install in janet/src/boot/boot.janet calls build in the install hook
+  (defn install [&opt manifest &]
+    (when (not manifest)
+      # The hook was called manually not in the usual flow, but let's just do
+      # what the user meant. Create the manifest and install the package.
+      (break (bundle/install ".")))
     (with-dyns [*install-manifest* manifest]
       (preinstall)
       (build-rules/build-run e "install" (dyn :workers))
