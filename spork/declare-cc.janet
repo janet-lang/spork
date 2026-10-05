@@ -328,6 +328,10 @@
     (default target "build")
     (build-rules/build-run e target (dyn :workers))
     (postbuild))
+  (defn uninstall [&opt manifest &]
+    (when (not manifest)
+      # The hook was called manually, do what the user meant
+      (bundle/uninstall name)))
   (defn install [&opt manifest &]
     (when (not manifest)
       # The hook was called manually not in the usual flow, but let's just do
@@ -359,7 +363,12 @@
     (postclean))
   (defn run-task [task-name]
     (build-rules/build-run e task-name (dyn :workers)))
+  (defn reinstall [&]
+    (uninstall)
+    (install))
   (defglobal 'install install)
+  (defglobal 'uninstall uninstall)
+  (defglobal 'reinstall reinstall)
   (defglobal 'build build)
   (defglobal 'check check)
   (defglobal 'rule-tree rule-tree)
