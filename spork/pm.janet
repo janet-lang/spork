@@ -710,7 +710,7 @@
         export JANET_HISTFILE;
         export PATH;
         unset _OLD_JANET_PATH;
-        unset _OLD_JANEt_PATH_SET;
+        unset _OLD_JANET_PATH_SET;
         unset _OLD_JANET_HISTFILE;
         unset _OLD_JANET_HISTFILE_SET;
         unset _OLD_PATH;
@@ -804,6 +804,10 @@
   :private
   ````
   # . bin/activate.ps1
+  if ($$env:JANET_VIRTUAL_ENV -ne $$null) {
+    Write-Host 'An environment is already active, please run `deactivate` first.'
+    Exit 1;
+  }
   $$global:_OLD_JANET_PATH=$$env:JANET_PATH
   $$global:_OLD_JANET_HISTFILE=$$env:JANET_HISTFILE
   $$global:_OLD_PATH=$$env:PATH
@@ -831,6 +835,10 @@
   :private
   ````
   @rem bin\activate.bat
+  @if defined JANET_VIRTUAL_ENV (
+      @echo An environment is already active, please run `deactivate` first.
+      @exit /b 1
+  )
   @set _OLD_JANET_PATH=%JANET_PATH%
   @set _OLD_JANET_HISTFILE=%JANET_HISTFILE%
   @set _OLD_PATH=%PATH%
@@ -847,14 +855,14 @@
   ````
   @rem bin\deactivate.bat
   @set JANET_PATH=%_OLD_JANET_PATH%
-  @set JANET_VIRTUAL_ENV=""
+  @set "JANET_VIRTUAL_ENV="
   @set JANET_HISTFILE=%_OLD_JANET_HISTFILE%
   @set PATH=%_OLD_PATH%
   @set PROMPT=%_OLD_PROMPT%
-  @set _OLD_JANET_PATH=""
-  @set _OLD_JANET_HISTFILE=""
-  @set _OLD_PATH=""
-  @set _OLD_PROMPT=""
+  @set "_OLD_JANET_PATH="
+  @set "_OLD_JANET_HISTFILE="
+  @set "_OLD_PATH="
+  @set "_OLD_PROMPT="
   ````)
 
 (defn scaffold-pm-shell
