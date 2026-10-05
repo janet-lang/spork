@@ -386,7 +386,10 @@ static const char *encode_one(Encoder *e, Janet x, int depth) {
         case JANET_NUMBER:
             {
                 char cbuf[25];
-                sprintf(cbuf, "%.17g", janet_unwrap_number(x));
+                double number = janet_unwrap_number(x);
+                if (number != number) goto badnumber; /* NaN */
+                if ((number - number) != 0.0) goto badnumber; /* Infinites */
+                sprintf(cbuf, "%.17g", number);
                 janet_buffer_push_cstring(e->buffer, cbuf);
             }
             break;
@@ -452,6 +455,17 @@ static const char *encode_one(Encoder *e, Janet x, int depth) {
                         if (codepoint == '\\' || codepoint == '"')
                             janet_buffer_push_u8(e->buffer, '\\');
                         janet_buffer_push_u8(e->buffer, (uint8_t) codepoint);
+                    } else if (codepoint == '\n') {
+                        /* These special cases are not actually needed but make for a more dense encoding. */
+                        janet_buffer_push_cstring(e->buffer, "\\n");
+                    } else if (codepoint == '\r') {
+                        janet_buffer_push_cstring(e->buffer, "\\r");
+                    } else if (codepoint == '\t') {
+                        janet_buffer_push_cstring(e->buffer, "\\t");
+                    } else if (codepoint == '\b') {
+                        janet_buffer_push_cstring(e->buffer, "\\b");
+                    } else if (codepoint == '\f') {
+                        janet_buffer_push_cstring(e->buffer, "\\f");
                     } else if (codepoint < 0x10000) {
                         /* One unicode escape */
                         uint8_t buf[6];
@@ -550,6 +564,8 @@ invalidutf8:
     return "string contains invalid utf-8";
 recurdepth:
     return "recursed too deeply";
+badnumber:
+    return "numbers must be finite";
 }
 
 static Janet json_encode(int32_t argc, Janet *argv) {
