@@ -670,19 +670,26 @@
       _OLD_JANET_HISTFILE="$$JANET_HISTFILE";
       _OLD_JANET_HISTFILE_SET="$${JANET_HISTFILE}";
       _OLD_PATH="$$PATH";
-      _OLD_PS1="$$PS1";
       JANET_PATH="$abspath";
+      JANET_VIRTUAL_ENV="$name";
       JANET_HISTFILE="$abspath/repl_history.jdn";
       PATH="$$JANET_PATH"/bin:"$$PATH";
-      PS1="("$name") $${PS1:-}";
+
       export _OLD_JANET_PATH;
       export _OLD_JANET_HISTFILE;
       export _OLD_PATH;
-      export _OLD_PS1;
       export JANET_PATH;
+      export JANET_VIRTUAL_ENV;
       export JANET_HISTFILE;
       export PATH;
-      export PS1;
+
+      if [ -z "$${JANET_ENV_DISABLE_PROMPT+set}" ]; then
+        _OLD_PS1="$$PS1";
+        PS1="("$name") $${PS1:-}";
+        export _OLD_PS1;
+        export PS1;
+      fi
+
       hash -r 2> /dev/null;
       deactivate() {
         PATH="$$_OLD_PATH";
@@ -692,29 +699,106 @@
           unset JANET_PATH;
         fi
         if [ -n "$$_OLD_JANET_HISTFILE_SET" ]; then
-          JANET_HISTFILE"$$_OLD_JANET_HISTFILE";
+          JANET_HISTFILE="$$_OLD_JANET_HISTFILE";
         else
           unset JANET_HISTFILE;
         fi
-        PS1="$$_OLD_PS1";
+        unset JANET_VIRTUAL_ENV;
+
         export JANET_PATH;
+        export JANET_VIRTUAL_ENV;
         export JANET_HISTFILE;
         export PATH;
-        export PS1;
         unset _OLD_JANET_PATH;
+        unset _OLD_JANEt_PATH_SET;
         unset _OLD_JANET_HISTFILE;
+        unset _OLD_JANET_HISTFILE_SET;
         unset _OLD_PATH;
-        unset _OLD_PS1;
         unset -f deactivate;
-        export _OLD_JANET_PATH;
-        export _OLD_JANET_HISTFILE;
-        export _OLD_PATH;
-        export _OLD_PS1;
+
+        if [ -n "$${_OLD_PS1}" ] ; then
+          PS1="$$_OLD_PS1";
+          export PS1;
+          unset _OLD_PS1;
+        fi
+
         hash -r 2> /dev/null;
       }
     fi;
     hash -r 2> /dev/null;
     ````)
+
+(deftemplate enter-fish-template
+  :private
+  ````
+      # . bin/activate.fish
+      if set -q _OLD_JANET_PATH
+        echo 'An environment is already active, please run `deactivate` first.'
+        return
+      else
+        set -gx _OLD_JANET_PATH "$$JANET_PATH"
+        set -gx _OLD_JANET_HISTFILE "$$JANET_HISTFILE"
+        set -gx _OLD_PATH "$$PATH"
+        set -gx _OLD_PS1 "$$PS1"
+        set -gx JANET_PATH "$abspath"
+        set -gx JANET_VIRTUAL_ENV "$name"
+        set -gx JANET_HISTFILE "$abspath/repl_history.jdn"
+        set -gx PATH "$$JANET_PATH"/bin "$$PATH"
+
+        function deactivate -d "Exit Janet environment"
+          set -gx PATH "$$_OLD_PATH"
+
+          if test -n "$$_OLD_JANET_PATH"
+            set -gx JANET_PATH "$$_OLD_JANET_PATH"
+          else
+            set -e JANET_PATH;
+          end
+
+          if test -n "$$_OLD_JANET_HISTFILE"
+            set -gx JANET_HISTFILE "$$_OLD_JANET_HISTFILE"
+          else
+            set -e JANET_HISTFILE
+          end
+
+          set -e JANET_VIRTUAL_ENV
+
+          if test -n "$$_OLD_FISH_PROMPT_OVERRIDE"
+              functions -e fish_prompt
+              functions -c _old_fish_prompt fish_prompt
+              functions -e _old_fish_prompt
+          end
+          set -e _OLD_FISH_PROMPT_OVERRIDE
+
+          set -gx PS1 "$$_OLD_PS1"
+          set -e _OLD_JANET_PATH
+          set -e _OLD_JANET_HISTFILE
+          set -e _OLD_PATH
+          set -e _OLD_PS1
+          functions -e deactivate
+        end
+
+        if not set -q JANET_ENV_DISABLE_PROMPT
+          # save the current fish prompt
+          functions -c fish_prompt _old_fish_prompt
+
+          function fish_prompt
+            # save the old return status
+            set -l old_status $$status
+
+            # Output the venv prompt; color taken from the blue from the Janet home page
+            printf "%s%s%s" (set_color 076D96) "($name) " (set_color normal)
+
+            # restore return status
+            echo "exit $$old_status" | .
+
+            # output the old prompt
+            _old_fish_prompt
+          end
+
+          set -gx _OLD_FISH_PROMPT_OVERRIDE "$name"
+        end
+      end
+      ````)
 
 (deftemplate enter-ps-template
   :private
@@ -724,6 +808,7 @@
   $$global:_OLD_JANET_HISTFILE=$$env:JANET_HISTFILE
   $$global:_OLD_PATH=$$env:PATH
   $$env:JANET_PATH="$abspath"
+  $$env:JANET_VIRTUAL_ENV="$name"
   $$env:JANET_HISTFILE="$abspath\repl_history.jdn"
   $$env:PATH=$$env:JANET_PATH + "\bin;" + $$env:PATH
   $$function:old_prompt = $$function:prompt
@@ -735,6 +820,7 @@
     $$env:PATH=$$global:_OLD_PATH
     $$env:JANET_PATH=$$global:_OLD_JANET_PATH
     $$env:JANET_HISTFILE=$$global:_OLD_JANET_HISTFILE
+    Remove-Item env:\JANET_VIRTUAL_ENV
     Remove-Item function:\deactivate
     $$function:prompt = $$function:old_prompt
     Remove-Item function:\old_prompt
@@ -750,6 +836,7 @@
   @set _OLD_PATH=%PATH%
   @set _OLD_PROMPT=%PROMPT%
   @set JANET_PATH=$abspath
+  @set JANET_VIRTUAL_ENV=$name
   @set JANET_HISTFILE=$abspath\repl_history.jdn
   @set PATH=%JANET_PATH%\bin;%PATH%
   @set PROMPT=($path) %PROMPT%
@@ -760,6 +847,7 @@
   ````
   @rem bin\deactivate.bat
   @set JANET_PATH=%_OLD_JANET_PATH%
+  @set JANET_VIRTUAL_ENV=""
   @set JANET_HISTFILE=%_OLD_JANET_HISTFILE%
   @set PATH=%_OLD_PATH%
   @set PROMPT=%_OLD_PROMPT%
@@ -781,6 +869,7 @@
   (os/mkdir (path/join path "lib" "pkgconfig"))
   (def opts {:path path :abspath (path/abspath path) :name (path/basename path)})
   (spit (path/join path "bin" "activate") (enter-shell-template opts))
+  (spit (path/join path "bin" "activate.fish") (enter-fish-template opts))
   (spit (path/join path "bin" "activate.ps1") (enter-ps-template opts))
   (spit (path/join path "bin" "activate.bat") (enter-cmd-template opts))
   (spit (path/join path "bin" "deactivate.bat") (exit-cmd-template opts))
@@ -788,7 +877,8 @@
     (print "created project shell environment at " path)
     (print "(PowerShell) run `. " path "/bin/activate.ps1` to enter the new environment, then `deactivate` to exit.")
     (print "(CMD)        run `" path "\\bin\\activate` to enter the new environment, then `deactivate` to exit.")
-    (print "(Unix sh)    run `. " path "/bin/activate` to enter the new environment, then `deactivate` to exit.")))
+    (print "(Unix sh)    run `. " path "/bin/activate` to enter the new environment, then `deactivate` to exit.")
+    (print "(Fish)       run `. " path "/bin/activate.fish` to enter the new environment, then `deactivate` to exit.")))
 
 (defn switch-to-venv
   "Switch to a PM Shell inside the REPL. This will allow installing other dependencies with `pm-install` without touching a system install."
