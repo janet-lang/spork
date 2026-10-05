@@ -365,7 +365,8 @@
     (build-rules/build-run e task-name (dyn :workers)))
   (defn reinstall [&]
     # Only used for a manually hook call
-    (bundle/replace name "."))
+    (uninstall)
+    (install))
   (defglobal 'install install)
   (defglobal 'uninstall uninstall)
   (defglobal 'reinstall reinstall)
