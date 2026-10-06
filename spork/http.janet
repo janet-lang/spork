@@ -577,7 +577,7 @@
       (each ve v (buffer/format buf "%V: %V\r\n" k ve))
       (buffer/format buf "%V: %V\r\n" k v)))
 
-  (write-body conn buf (in response :body)))
+  (write-body conn buf (get response :body "")))
 
 ###
 ### Server Middleware
