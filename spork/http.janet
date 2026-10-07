@@ -666,6 +666,9 @@
   * `:buffer` - the buffer instance that may contain extra bytes.
   * `:path` - HTTP path.
   * `:method` - HTTP method, as a string.
+  * `:route` - path of the resource requested without query string.
+  * `:query-string` - segment of HTTP path after first ? character.
+  * `:query` - the query string parsed into a table. Supports a single string value
   The handler function should return a table containing the following keys:
   * `:status` - defaults to 200
   * `:headers` - where values can be tuples or arrays to represent duplicate headers, e.g., multiple `Set-Cookie` headers
