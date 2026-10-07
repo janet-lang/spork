@@ -652,16 +652,30 @@
 
 (defn server-handler
   ``A simple connection handler for an HTTP server.
-  When a connection is accepted. Call this with a handler
-  function to handle the connect. The handler will be called
-  with one argument, the request table, which will contain the
-  following keys:
+
+  The handler is an object that can be of any of the following types.
+
+  Number: the value must represent a valid HTTP status code. The response contains the corresponding status message.
+
+  String or a buffer: the response is a 200 OK, with the contents as the body.
+
+  Function: it is called with a one argument, the request table, which contains the following keys:
   * `:head-size` - number of bytes in the http header.
   * `:headers` - table mapping header names to header values.
   * `:connection` - the connection stream for the header.
   * `:buffer` - the buffer instance that may contain extra bytes.
   * `:path` - HTTP path.
-  * `:method` - HTTP method, as a string.``
+  * `:method` - HTTP method, as a string.
+  * `:route` - path of the resource requested without query string.
+  * `:query-string` - segment of HTTP path after first ? character.
+  * `:query` - the query string parsed into a table. Supports a single string value
+  The handler function should return a table containing the following keys:
+  * `:status` - defaults to 200
+  * `:headers` - where values can be tuples or arrays to represent duplicate headers, e.g., multiple `Set-Cookie` headers
+  * `:body` - defaults to the empty string
+
+  Table or struct: containing the same keys as described in the function type above.
+  ``
   [conn handler]
   (def handler-mw (middleware handler))
   (defer (:close conn)
