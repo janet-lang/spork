@@ -257,6 +257,55 @@
       (each k ks (print-rule-tree rules k max-depth "" "")))))
 
 ###
+### Git tag in manifest
+###
+(def- seps {:windows "\\" :mingw "\\" :cygwin "\\"})
+(defn- sep [] (get seps (os/which) "/"))
+
+(defn- get-tag-from-filesystem
+  ``Get the current git commit info from 'path/.git/HEAD'``
+  [path]
+  (def s (sep))
+  (def f (string path s ".git" s "HEAD"))
+  (when (sh/exists? f)
+    (def parts (string/split ":" (slurp f)))
+    (when (= (length parts) 2)
+      (def tag-file (string path s ".git" s (string/trim (get parts 1))))
+      (when (sh/exists? tag-file)
+        (string/slice (string/trim (slurp tag-file)) 0 7)))))
+
+(defn get-tag-from-git
+  ``Use git when available to generate a :tag for the manifest using
+
+    `git describe --always --long --dirty=-modified --exclude='*'`
+
+    otherwise fall back to parsing files using get-tag-from-filesystem.
+  ``
+  [path]
+  (var tag nil)
+  (def cur-dir (os/cwd))
+  (os/cd path)
+  (defer (os/cd cur-dir)
+    (try (let [res (sh/exec-slurp-all "git" "describe" "--always" "--long" "--dirty=-modified" "--exclude" "*")]
+           # git can run, yet fail, in a directory that isn't a git repo, like a new project
+           (when (= 0 (res :status))
+             (set tag (string/trim (string (res :out))))))
+      ([_] (set tag (get-tag-from-filesystem path)))))
+  tag)
+
+(defn- tag-manifest
+  ``If the :local-source in the manifest is a git repo, we can get
+  some git commit info to add to :tag in the manifest.
+  ``
+  [manifest]
+  (when-let [path (manifest :local-source)]
+    # if the package has a :tag in :info, we don't set a top-level :tag
+    (def current-tag (get-in manifest [:info :tag]))
+    (when (and (not current-tag) (sh/exists? path))
+      (def tag (get-tag-from-git path))
+      (set (manifest :tag) tag))))
+
+###
 ### Declare stubs
 ###
 
@@ -340,6 +389,11 @@
     (with-dyns [*install-manifest* manifest]
       (preinstall)
       (build-rules/build-run e "install" (dyn :workers))
+      # If the local source is a git repo, add a :tag to the manifest
+      # containing info on the git hash. Doing it before postinstall
+      # allows a developer to override the default :tag in a custom
+      # post-install task.
+      (tag-manifest manifest)
       (postinstall)))
   (defn check [&]
     (build)

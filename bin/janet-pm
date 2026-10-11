@@ -5,6 +5,7 @@
 (import spork/pm)
 (import spork/pm-config)
 (import spork/sh)
+(import spork/info)
 
 # Fix for janet without assertf
 (compwhen (not (dyn 'assertf))
@@ -36,6 +37,10 @@
 
     help
         Show this help text.
+
+    info
+        Show detailed information about Janet, installed bundles
+        and environment variables that affect Janet.
 
     install (repo or name)...
         Install remote bundles, and any required dependencies.
@@ -336,6 +341,7 @@
    "clean-all" clean-all
    "clean-build" clean-build
    "help" help
+   "info" info/print-info
    "install" install
    "test" test
    "deps" deps
