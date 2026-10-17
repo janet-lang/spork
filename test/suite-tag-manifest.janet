@@ -198,6 +198,7 @@
     (sh/exec "git" "init" "--initial-branch=test")
     (sh/exec "git" "config" "user.email" "you@example.com")
     (sh/exec "git" "config" "user.name" "Your Name")
+    (sh/exec "git" "config" "commit.gpgsign" "false")
     (sh/exec "git" "add" ".")
     (sh/exec "git" "commit" "-m" "message" "-q")
     (let [empty-out (sh/exec-slurp-all (string janet-pm bat) "install")
