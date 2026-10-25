@@ -172,8 +172,10 @@ static void rawterm_ev_winch(JanetEVGenericMessage msg) {
         janet_wrap_integer(rows),
         janet_wrap_integer(cols)
     };
-    JanetFiber *fiber = janet_fiber(rawterm_winch_handler, 64, 2, tup);
-    janet_schedule(fiber, janet_wrap_nil());
+    if (NULL !=  rawterm_winch_handler) {
+        JanetFiber *fiber = janet_fiber(rawterm_winch_handler, 64, 2, tup);
+        janet_schedule(fiber, janet_wrap_nil());
+    }
 }
 
 static void rawterm_signal_winch(int x) {
