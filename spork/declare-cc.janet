@@ -62,7 +62,7 @@
   [toolchain]
   (case toolchain
     :msvc "cl.exe" # not used but for completion
-    :cc "cc"
+    :cc (os/getenv "CC" "cc")
     :clang "clang"
     :gcc "gcc"
     "cc"))
@@ -71,10 +71,17 @@
   [toolchain]
   (case toolchain
     :msvc "cl.exe" # not used but for completion
-    :cc "c++"
+    :cc (os/getenv "CXX" "c++")
     :clang "clang++"
     :gcc "g++"
     "c++"))
+
+(defn- toolchain-to-ar
+  "Leave unset in the default case"
+  [toolchain]
+  (case toolchain
+    :cc (os/getenv "AR")
+    nil))
 
 (defn- install-rule
   [src dest &opt chmod-mode thunk is-exe]
@@ -580,6 +587,7 @@
               cc/*pkg-config-flags* pkg-config-flags
               cc/*cc* (toolchain-to-cc toolchain)
               cc/*c++* (toolchain-to-c++ toolchain)
+              cc/*ar* (toolchain-to-ar toolchain)
               cc/*c-std* c-std
               cc/*c++-std* c++-std
               cc/*target-os* target-os
@@ -964,6 +972,7 @@ int main(int argc, const char **argv) {
                     cc/*c++-std* c++-std
                     cc/*cc* (toolchain-to-cc toolchain)
                     cc/*c++* (toolchain-to-c++ toolchain)
+                    cc/*ar* (toolchain-to-ar toolchain)
                     cc/*target-os* target-os
                     build-rules/*implicit-deps* [;deps ;(dyn build-rules/*implicit-deps* []) ;headers]
                     cc/*visit* cc/visit-execute-if-stale

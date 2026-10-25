@@ -204,9 +204,9 @@
 ###
 
 # GCC-like toolchain helpers
-(defn- ar [] (dyn *ar* "ar"))
-(defn- cc [] (dyn *cc* "cc"))
-(defn- c++ [] (dyn *c++* "c++"))
+(defn- ar [] (dyn *ar* (os/getenv "AR" "ar")))
+(defn- cc [] (dyn *cc* (os/getenv "CC" "cc")))
+(defn- c++ [] (dyn *c++* (os/getenv "CXX" "c++")))
 (defn- opt []
   (case (build-type)
     :debug ["-O0" "-g"]
