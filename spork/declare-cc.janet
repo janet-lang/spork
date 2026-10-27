@@ -550,12 +550,14 @@
    c++flags defines nostatic static-libs deps headers
    use-rpath use-rdynamic pkg-config-flags dynamic-libs msvc-libs
    ldflags # alias for libs
+   cppflags # alias for c++flags
    pkg-config-libs smart-libs c-std c++-std target-os]
 
   (def rules (get-rules))
 
   # Defaults
   (default libs (thaw ldflags))
+  (default c++flags cppflags)
   (default embedded @[])
   (default nostatic false)
   (default defines @{})
