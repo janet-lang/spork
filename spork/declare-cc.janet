@@ -522,7 +522,7 @@
   (def rules (get-rules))
   (build-rules/build-rule
     rules ipath deps
-    (sh/create-dirs-to iname)
+    (sh/create-dirs-to ipath)
     (spit iname (make-image (require entry))))
   (build-rules/build-rule
     rules :build [ipath])
