@@ -12,7 +12,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ ubuntu-latest, macos-latest, macos-14 ]
+        os: [ ubuntu-latest, macos-latest ]
         janet-version: [ heads/master, tags/v1.41.2, tags/v1.40.1, tags/v1.39.1, tags/v1.38.0, tags/v1.37.1, tags/v1.36.0 ]
     steps:
       - name: Checkout Janet
