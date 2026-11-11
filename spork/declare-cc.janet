@@ -523,7 +523,7 @@
   (build-rules/build-rule
     rules ipath deps
     (sh/create-dirs-to ipath)
-    (spit iname (make-image (require entry))))
+    (spit ipath (make-image (require entry))))
   (build-rules/build-rule
     rules :build [ipath])
   (install-rule ipath iname)
