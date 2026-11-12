@@ -1065,6 +1065,8 @@
         (put env cc/*lflags* @[;(get env cc/*lflags* @[]) "/NOIMPLIB" (cc/msvc-janet-import-lib)])
         (cc/msvc-compile-and-link-shared so c-source))
       (do
+        (when (= (os/which) :mingw)
+          (set so (string name ".dll")))
         (cc/compile-and-link-shared so c-source))))
 
   # 5. Import shared object
