@@ -601,7 +601,11 @@
   (when (and pkg-config-libs (next pkg-config-libs))
     (with-env benv (cc/pkg-config ;pkg-config-libs))) # Add package config flags
 
-  (def suffix (case toolchain :msvc ".dll" ".so"))
+  (def suffix
+    (cond
+      (= toolchain :msvc) ".dll"
+      (= (os/which) :mingw) ".dll"
+      ".so"))
   (def asuffix (case toolchain :msvc ".lib" ".a"))
 
   (def compile-c
@@ -688,13 +692,21 @@
 (defn modpath-to-meta
   "Get the meta file path (.meta.janet) corresponding to a native module path (.so)."
   [toolchain path]
-  (def suffix (case toolchain :msvc ".dll" ".so"))
+  (def suffix
+    (cond
+      (= toolchain :msvc) ".dll"
+      (= (os/which) :mingw) ".dll"
+      ".so"))
   (string (string/slice path 0 (- (length suffix))) "meta.janet"))
 
 (defn modpath-to-static
   "Get the static library (.a) path corresponding to a native module path (.so)."
   [toolchain path]
-  (def suffix (case toolchain :msvc ".dll" ".so"))
+  (def suffix
+    (cond
+      (= toolchain :msvc) ".dll"
+      (= (os/which) :mingw)  ".dll"
+      ".so"))
   (def asuffix (case toolchain :msvc ".lib" ".a"))
   (string (string/slice path 0 (- -1 (length suffix))) asuffix))
 
