@@ -13,5 +13,7 @@
 (def r (zip/read-file "tmp/out.zip"))
 (def bytes (zip/extract r "file.txt"))
 (assert (= file-contents (string bytes)) "compress -> decompress round trip")
+(def st (zip/stat r 0))
+(assert (< (st :comp-size) (st :uncomp-size)) "add-bytes compresses by default")
 
 (end-suite)
