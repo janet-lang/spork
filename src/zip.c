@@ -305,7 +305,7 @@ JANET_FN(cfun_writer_add_file,
     const char *path = janet_getcstring(argv, 1);
     const char *filename = janet_getcstring(argv, 2);
     const char *comment = janet_optcstring(argv, argc, 3, NULL);
-    mz_uint flags = miniz_optflags(argv, argc, 4);
+    mz_uint flags = miniz_optflags(argv, argc, 4) | MZ_DEFAULT_LEVEL;
     if (!mz_zip_writer_add_file(archive, path, filename, comment, (comment != NULL) ? strlen(comment) : 0, flags)) {
         janet_panic("adding file failed!");
     }
@@ -320,7 +320,7 @@ JANET_FN(cfun_writer_add_bytes,
     const char *path = janet_getcstring(argv, 1);
     JanetByteView bytes = janet_getbytes(argv, 2);
     const char *comment = janet_optcstring(argv, argc, 3, NULL);
-    mz_uint flags = miniz_optflags(argv, argc, 4);
+    mz_uint flags = miniz_optflags(argv, argc, 4) | MZ_DEFAULT_LEVEL;
     // TODO - handle pre-compressed data better
     if (!mz_zip_writer_add_mem_ex(archive, path, bytes.bytes, bytes.len, comment, (comment != NULL) ? strlen(comment) : 0, flags, 0, 0)) {
         janet_panic("adding bytes failed!");
